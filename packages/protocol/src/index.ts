@@ -12,4 +12,29 @@ export const answerSubmissionSchema = z.object({
   answer: z.string().min(1).max(64),
   clientSubmissionId: z.string().min(8).max(100)
 });
+
+const crazyAuthSchema=heartbeatSchema;
+export const crazyCreateRoomSchema=crazyAuthSchema.extend({
+  password:z.string().min(4).max(32)
+});
+export const crazyJoinRoomSchema=crazyAuthSchema.extend({
+  code:z.string().min(4).max(8),
+  password:z.string().min(4).max(32)
+});
+export const crazyRoomActionSchema=crazyAuthSchema.extend({
+  code:z.string().min(4).max(8)
+});
+export const crazyAnswerSchema=crazyRoomActionSchema.extend({
+  questionId:z.string().min(3).max(160),
+  answer:z.string().min(1).max(64),
+  clientSubmissionId:z.string().min(8).max(120)
+});
+export const crazyBombSchema=crazyRoomActionSchema.extend({
+  direction:z.enum(["ahead","behind"])
+});
+export const crazyBombAnswerSchema=crazyRoomActionSchema.extend({
+  questionId:z.string().min(3).max(160),
+  answer:z.string().min(1).max(64)
+});
+
 export type ClaimNicknameInput = z.infer<typeof claimNicknameSchema>;
