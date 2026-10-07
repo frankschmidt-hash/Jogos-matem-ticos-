@@ -325,12 +325,16 @@ io.on("connection", socket => {
     if(!parsed.success) return ack?.({ok:false,error:"Resposta da bomba inválida."});
     try{
       const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
-      const room=crazyRooms.submitBombAnswer(
+      const result=crazyRooms.submitBombAnswer(
         parsed.data.code.toUpperCase(),session.sessionId,parsed.data.questionId,
         parsed.data.answer,parsed.data.clientSubmissionId
       );
-      emitCrazyState(room.code);
-      ack?.({ok:true,room:crazyRooms.publicSnapshot(room.code)});
+      emitCrazyState(result.room.code);
+      ack?.({
+        ok:true,
+        room:crazyRooms.publicSnapshot(result.room.code),
+        bombCorrection:result.correct===false?result.correctAnswer:null
+      });
     }catch(error){
       ack?.({ok:false,error:errorMessage(error)});
     }
