@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-labelledby="t d">
+<title id="t">Emblema original da Corrida Numérica</title><desc id="d">Portais matemáticos, pista e carro geométrico.</desc>
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#146c94"/><stop offset="1" stop-color="#3aa17e"/></linearGradient></defs>
+<circle cx="120" cy="120" r="108" fill="#effcf8" stroke="#173b55" stroke-width="8"/>
+<path d="M38 148c37-60 118-67 165-15" fill="none" stroke="url(#g)" stroke-width="17" stroke-linecap="round"/>
+<circle cx="74" cy="105" r="24" fill="#fff" stroke="#2a7b9b" stroke-width="7"/>
+<circle cx="132" cy="85" r="24" fill="#fff" stroke="#3b9a76" stroke-width="7"/>
+<text x="61" y="114" font-family="Arial" font-size="31" font-weight="900" fill="#173b55">+</text>
+<text x="120" y="95" font-family="Arial" font-size="31" font-weight="900" fill="#173b55">×</text>
+<path d="M84 145h72l20 16-15 22H88l-21-17z" fill="#f0ba45" stroke="#173b55" stroke-width="7"/>
+<circle cx="98" cy="184" r="12" fill="#173b55"/><circle cx="151" cy="184" r="12" fill="#173b55"/>
+</svg>
