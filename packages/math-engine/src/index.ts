@@ -1,0 +1,150 @@
+export type GradeLevel = 5 | 6 | 7 | "mixed";
+export type ConcreteGradeLevel = 5 | 6 | 7;
+export type Difficulty = 1 | 2 | 3;
+
+export type MathQuestion = {
+  id: string;
+  gradeLevel: ConcreteGradeLevel;
+  category: string;
+  expression: string;
+  correctAnswer: string;
+  acceptedAnswers?: string[];
+  difficulty: Difficulty;
+  generatedAt: number;
+  seed?: string;
+};
+
+type Random = () => number;
+
+const gcd = (a: number, b: number): number => {
+  a = Math.abs(a); b = Math.abs(b);
+  while (b) [a, b] = [b, a % b];
+  return a || 1;
+};
+
+const fraction = (num: number, den: number): string => {
+  if (den === 0) throw new Error("Denominador não pode ser zero");
+  if (den < 0) { num *= -1; den *= -1; }
+  const d = gcd(num, den);
+  return `${num / d}/${den / d}`;
+};
+
+export const normalizeNumericInput = (value: string): string =>
+  value.trim().replace(/\s+/g, "").replace(",", ".");
+
+const parseFraction = (value: string): number | null => {
+  const normalized = normalizeNumericInput(value);
+  if (!normalized.includes("/")) return null;
+  const [a, b, ...rest] = normalized.split("/");
+  if (rest.length || a === undefined || b === undefined) return null;
+  const num = Number(a); const den = Number(b);
+  if (!Number.isFinite(num) || !Number.isFinite(den) || den === 0) return null;
+  return num / den;
+};
+
+export const validateAnswer = (question: MathQuestion, answer: string): boolean => {
+  const normalized = normalizeNumericInput(answer);
+  const accepted = [question.correctAnswer, ...(question.acceptedAnswers ?? [])].map(normalizeNumericInput);
+  if (accepted.includes(normalized)) return true;
+  const inputFraction = parseFraction(normalized);
+  const correctFraction = parseFraction(question.correctAnswer);
+  if (inputFraction !== null && correctFraction !== null) return Math.abs(inputFraction - correctFraction) < 1e-9;
+  const inputNumber = Number(normalized);
+  const correctNumber = Number(normalizeNumericInput(question.correctAnswer));
+  return Number.isFinite(inputNumber) && Number.isFinite(correctNumber) && Math.abs(inputNumber - correctNumber) < 1e-9;
+};
+
+const hashSeed = (seed: string): number => {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+};
+
+export const seededRandom = (seed: string): Random => {
+  let state = hashSeed(seed) || 1;
+  return () => {
+    state += 0x6D2B79F5;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+const int = (r: Random, min: number, max: number) => Math.floor(r() * (max - min + 1)) + min;
+const pick = <T>(r: Random, items: readonly T[]): T => items[int(r, 0, items.length - 1)]!;
+
+const q = (gradeLevel: ConcreteGradeLevel, category: string, expression: string, correctAnswer: string, difficulty: Difficulty, seed?: string, acceptedAnswers?: string[]): MathQuestion => ({
+  id: `${gradeLevel}-${category}-${seed ?? crypto.randomUUID()}`,
+  gradeLevel, category, expression, correctAnswer, acceptedAnswers, difficulty, generatedAt: Date.now(), seed
+});
+
+const grade5 = (r: Random, difficulty: Difficulty, seed?: string): MathQuestion => {
+  const category = pick(r, ["addition", "subtraction", "multiplication", "exact-division", "decimal"] as const);
+  const max = difficulty === 1 ? 50 : difficulty === 2 ? 200 : 1000;
+  if (category === "addition") { const a=int(r,1,max), b=int(r,1,max); return q(5,category,`${a} + ${b}`,String(a+b),difficulty,seed); }
+  if (category === "subtraction") { const a=int(r,10,max), b=int(r,0,a); return q(5,category,`${a} - ${b}`,String(a-b),difficulty,seed); }
+  if (category === "multiplication") {
+    const lim=difficulty===1?10:difficulty===2?12:20; const a=int(r,2,lim), b=int(r,2,lim);
+    return q(5,category,`${a} × ${b}`,String(a*b),difficulty,seed);
+  }
+  if (category === "exact-division") {
+    const divisor=int(r,2,difficulty===3?20:12), quotient=int(r,2,difficulty===1?10:20);
+    return q(5,category,`${divisor*quotient} ÷ ${divisor}`,String(quotient),difficulty,seed);
+  }
+  const a=int(r,1,99)/10, b=int(r,1,99)/10;
+  const answer=(a+b).toFixed(1).replace(/\.0$/,"");
+  return q(5,category,`${a.toFixed(1).replace('.', ',')} + ${b.toFixed(1).replace('.', ',')}`,answer,difficulty,seed,[answer.replace('.', ',')]);
+};
+
+const grade6 = (r: Random, difficulty: Difficulty, seed?: string): MathQuestion => {
+  const category = pick(r, ["four-operations", "integer", "decimal", "fraction", "percentage", "expression"] as const);
+  if (category === "fraction") {
+    const den = pick(r,[2,3,4,5,6,8,10]); const a=int(r,1,den-1), b=int(r,1,den-1);
+    return q(6,category,`${a}/${den} + ${b}/${den}`,fraction(a+b,den),difficulty,seed);
+  }
+  if (category === "percentage") {
+    const pct=pick(r,[10,20,25,50]); const base=pick(r,[20,40,60,80,100,120,200]);
+    return q(6,category,`${pct}% de ${base}`,String(base*pct/100),difficulty,seed);
+  }
+  if (category === "integer") { const a=int(r,-20,20), b=int(r,-20,20); return q(6,category,`${a} + (${b})`,String(a+b),difficulty,seed); }
+  if (category === "decimal") {
+    const a=int(r,10,500)/10, b=int(r,1,200)/10; const result=a-b; const ans=Number(result.toFixed(1)).toString();
+    return q(6,category,`${a.toFixed(1).replace('.', ',')} - ${b.toFixed(1).replace('.', ',')}`,ans,difficulty,seed,[ans.replace('.', ',')]);
+  }
+  if (category === "expression") { const a=int(r,2,20), b=int(r,2,10), c=int(r,2,8); return q(6,category,`${a} + ${b} × ${c}`,String(a+b*c),difficulty,seed); }
+  const a=int(r,2,50), b=int(r,2,20); return q(6,category,`${a} × ${b}`,String(a*b),difficulty,seed);
+};
+
+const grade7 = (r: Random, difficulty: Difficulty, seed?: string): MathQuestion => {
+  const category = pick(r, ["signed", "rational", "fraction", "decimal", "percentage", "ratio", "expression"] as const);
+  if (category === "fraction") {
+    const d1=pick(r,[2,3,4,5,6]), d2=pick(r,[2,3,4,5,6]); const a=int(r,1,d1), b=int(r,1,d2);
+    return q(7,category,`${a}/${d1} + ${b}/${d2}`,fraction(a*d2+b*d1,d1*d2),difficulty,seed);
+  }
+  if (category === "percentage") {
+    const pct=pick(r,[15,20,25,30,40,50]); const base=pick(r,[40,60,80,100,120,160,200]);
+    return q(7,category,`${pct}% de ${base}`,String(base*pct/100),difficulty,seed);
+  }
+  if (category === "ratio") {
+    const factor=int(r,2,10), a=int(r,2,10), b=int(r,2,10);
+    return q(7,category,`Se a razão é ${a}:${b}, quanto corresponde a ${a*factor}:${b}×?`,String(factor),difficulty,seed);
+  }
+  if (category === "signed") { const a=int(r,-40,40), b=int(r,-40,40); return q(7,category,`${a} - (${b})`,String(a-b),difficulty,seed); }
+  if (category === "decimal" || category === "rational") {
+    const a=int(r,-200,200)/10, b=int(r,-100,100)/10; const result=a+b; const ans=Number(result.toFixed(1)).toString();
+    return q(7,category,`${a.toFixed(1).replace('.', ',')} + (${b.toFixed(1).replace('.', ',')})`,ans,difficulty,seed,[ans.replace('.', ',')]);
+  }
+  const a=int(r,2,15), b=int(r,2,12), c=int(r,-10,10);
+  return q(7,category,`${a} × (${b} + ${c})`,String(a*(b+c)),difficulty,seed);
+};
+
+export const generateQuestion = (grade: GradeLevel, options: {difficulty?: Difficulty; seed?: string} = {}): MathQuestion => {
+  const difficulty = options.difficulty ?? 1;
+  const seed = options.seed;
+  const r = seed ? seededRandom(seed) : Math.random;
+  const concrete: ConcreteGradeLevel = grade === "mixed" ? pick(r,[5,6,7] as const) : grade;
+  if (concrete === 5) return grade5(r,difficulty,seed);
+  if (concrete === 6) return grade6(r,difficulty,seed);
+  return grade7(r,difficulty,seed);
+};
