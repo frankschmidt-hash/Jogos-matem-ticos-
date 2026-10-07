@@ -8,6 +8,7 @@ import {
 import { generateQuestion, validateAnswer, type MathQuestion } from "@jogos/math-engine";
 import { HelpRules, ResultFeedback } from "@jogos/ui";
 import { apiBase, type ClientSession } from "../session";
+import { playSound } from "../experience";
 import "./crazy-race.css";
 
 type RoomRace = Omit<RaceState,"submissions"|"bombChallenges"> & {
@@ -219,6 +220,7 @@ function SoloRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
     const responseMs=Math.max(0,Date.now()-(race.roundStartedAt??Date.now()));
     try{
       setRace(current=>submitRoundAnswer(current,session.sessionId,correct,responseMs,Date.now()));
+      playSound(correct?"engine":"incorrect");
       setFeedback(correct?"correct":"incorrect");
       setSubmitted(true);
     }catch(error){
@@ -230,6 +232,7 @@ function SoloRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
     setMessage("");
     try{
       const target=bombTarget(race,session.sessionId,direction);
+      playSound("engine");
       let next=useBomb(race,session.sessionId,direction,Date.now());
       if(target?.kind==="npc") next=resolveNpcBombIfNeeded(next,target.id);
       setRace(next);
@@ -288,6 +291,7 @@ function OnlineRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
   const roomRef=useRef<OnlineRoom|null>(null);
 
   useEffect(()=>{roomRef.current=room},[room]);
+  useEffect(()=>{if(room?.status==="finished") playSound("victory");},[room?.status]);
 
   const applyAck=(response:AckResponse)=>{
     if(!response.ok){

@@ -7,6 +7,7 @@ import {
 import { generateQuestion, validateAnswer, type MathQuestion } from "@jogos/math-engine";
 import { HelpRules, MathQuestionModal, ResultFeedback } from "@jogos/ui";
 import type { ClientSession } from "../session";
+import { playSound } from "../experience";
 
 const playerTone=["human","npc-a","npc-b","npc-c"] as const;
 
@@ -124,6 +125,11 @@ function Board({game}:{game:GameState}) {
 
       <section className="board-center">
         <img src="/assets/property-game/cidade-prisma.svg" alt="" className="board-emblem"/>
+        <div className="property-art-strip" aria-hidden="true">
+          <img src="/assets/property-game/dado-prisma.svg" alt=""/>
+          <img src="/assets/property-game/peao-prisma.svg" alt=""/>
+          <img src="/assets/property-game/carta-prisma.svg" alt=""/>
+        </div>
         <span className="eyebrow">Cidade Prisma</span>
         <h2>Créditos, estratégia e matemática</h2>
         <p>Resolva a operação para definir seu movimento.</p>
@@ -179,6 +185,10 @@ export function PropertyGame({session}:{session:ClientSession}) {
   const winner=useMemo(()=>game?.winnerId?game.players.find(p=>p.id===game.winnerId)??null:null,[game]);
 
   useEffect(()=>{
+    if(game?.phase==="finished") playSound("victory");
+  },[game?.phase]);
+
+  useEffect(()=>{
     if(!game||!player||player.kind!=="npc"||game.phase==="finished") return;
     const timer=window.setTimeout(()=>{
       setGame(current=>{
@@ -215,6 +225,7 @@ export function PropertyGame({session}:{session:ClientSession}) {
   const rollHuman=()=>{
     if(player?.kind!=="human"||game.phase!=="awaiting-roll"||rolling) return;
     setRolling(true);
+    playSound("dice");
     setFeedback(null);
     setActionError("");
     window.setTimeout(()=>{
@@ -235,6 +246,7 @@ export function PropertyGame({session}:{session:ClientSession}) {
     if(answerLock.current||!question||game.phase!=="awaiting-answer") return;
     answerLock.current=true;
     const correct=validateAnswer(question,answer);
+    playSound(correct?"correct":"incorrect");
     setFeedback(correct?"correct":"incorrect");
     setGame(current=>current?resolveMathMove(current,correct,Math.random):current);
     setQuestion(null);
@@ -242,6 +254,7 @@ export function PropertyGame({session}:{session:ClientSession}) {
   };
 
   const decidePurchase=(buy:boolean)=>{
+    if(buy) playSound("purchase");
     setGame(current=>current?buyPendingProperty(current,buy):current);
   };
 

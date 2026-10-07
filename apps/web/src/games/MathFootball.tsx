@@ -8,6 +8,7 @@ import {
 import { generateQuestion, validateAnswer } from "@jogos/math-engine";
 import { HelpRules, ResultFeedback } from "@jogos/ui";
 import { apiBase, type ClientSession } from "../session";
+import { playSound } from "../experience";
 import "./math-football.css";
 
 type RoomQuestion={
@@ -196,6 +197,7 @@ function SoloFootball({
     event.preventDefault();
     if(!question||match.phase!=="kick-open"||!humanTurn) return;
     const correct=validateAnswer(question,answer);
+    playSound(correct?"goal":"save");
     setFeedback(correct?"correct":"incorrect");
     setCorrectAnswer(correct?null:question.correctAnswer);
     setMatch(state=>submitKick(state,session.sessionId,correct,Date.now(),"answer"));
@@ -247,6 +249,16 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
   const [error,setError]=useState("");
   const now=useNow(Boolean(room?.match?.phase==="kick-open"),room?.serverNow);
   const authData=()=>auth(session);
+  const heardKick=useRef(0);
+
+  useEffect(()=>{
+    const kick=room?.match?.lastKick;
+    if(!kick||kick.number===heardKick.current) return;
+    heardKick.current=kick.number;
+    playSound(kick.goal?"goal":"save");
+  },[room?.match?.lastKick?.number]);
+
+  useEffect(()=>{if(room?.status==="finished") playSound("victory");},[room?.status]);
 
   const apply=(response:AckResponse)=>{
     if(!response.ok){

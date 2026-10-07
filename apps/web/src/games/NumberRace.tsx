@@ -7,6 +7,7 @@ import {
 import { generateQuestion, validateAnswer, type MathQuestion } from "@jogos/math-engine";
 import { HelpRules, ResultFeedback } from "@jogos/ui";
 import { apiBase, type ClientSession } from "../session";
+import { playSound } from "../experience";
 import "./number-race.css";
 
 type RoomRace=Omit<NumberRaceState,"submissions"> & {answeredIds:string[]};
@@ -193,6 +194,7 @@ function SoloNumberRace({session,onExit}:{session:ClientSession;onExit:()=>void}
       const correct=validateAnswer(question,answer);
       const responseMs=Math.max(0,Date.now()-(race.roundStartedAt??Date.now()));
       setRace(current=>submitAnswer(current,session.sessionId,correct,responseMs,Date.now()));
+      playSound(correct?"engine":"incorrect");
       setFeedback(correct?"correct":"incorrect");
       setSubmitted(true);
     }catch(err){
@@ -247,6 +249,8 @@ function OnlineNumberRace({session,onExit}:{session:ClientSession;onExit:()=>voi
   const [answer,setAnswer]=useState("");
   const [error,setError]=useState("");
   const now=useNow(Boolean(room?.race?.phase==="round-open"),room?.serverNow);
+
+  useEffect(()=>{if(room?.status==="finished") playSound("victory");},[room?.status]);
 
   const apply=(response:AckResponse)=>{
     if(!response.ok){
