@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RoomInfrastructure, RECONNECT_GRACE_MS } from "./room-infrastructure";
+import { RoomInfrastructure, RECONNECT_GRACE_MS, type LifecycleCarrier } from "./room-infrastructure";
 
 describe("RoomInfrastructure",()=>{
   it("gera códigos únicos mesmo entre jogos diferentes",()=>{
@@ -60,7 +60,7 @@ describe("RoomInfrastructure",()=>{
 
   it("registra máquina de estados e rejeita transição inválida",()=>{
     const infra=new RoomInfrastructure();
-    const room={lifecycleState:"waiting" as const,lifecycleHistory:["waiting" as const]};
+    const room:LifecycleCarrier={lifecycleState:"waiting",lifecycleHistory:["waiting"]};
     infra.transition(room,"ready");
     infra.transition(room,"countdown");
     infra.transition(room,"playing");
