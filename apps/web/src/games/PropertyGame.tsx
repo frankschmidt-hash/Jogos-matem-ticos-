@@ -176,6 +176,7 @@ export function PropertyGame({session}:{session:ClientSession}) {
   const [question,setQuestion]=useState<MathQuestion|null>(null);
   const [answer,setAnswer]=useState("");
   const [feedback,setFeedback]=useState<"correct"|"incorrect"|null>(null);
+  const [correctAnswer,setCorrectAnswer]=useState<string|null>(null);
   const [rolling,setRolling]=useState(false);
   const [lastDie,setLastDie]=useState<number|null>(null);
   const [actionError,setActionError]=useState("");
@@ -232,6 +233,7 @@ export function PropertyGame({session}:{session:ClientSession}) {
     setRolling(true);
     playSound("dice");
     setFeedback(null);
+    setCorrectAnswer(null);
     setActionError("");
     if(rollTimer.current!==null) window.clearTimeout(rollTimer.current);
     rollTimer.current=window.setTimeout(()=>{
@@ -255,6 +257,7 @@ export function PropertyGame({session}:{session:ClientSession}) {
     const correct=validateAnswer(question,answer);
     playSound(correct?"correct":"incorrect");
     setFeedback(correct?"correct":"incorrect");
+    setCorrectAnswer(correct?null:question.correctAnswer);
     setGame(current=>current?resolveMathMove(current,correct,Math.random):current);
     setQuestion(null);
     setAnswer("");
@@ -267,6 +270,7 @@ export function PropertyGame({session}:{session:ClientSession}) {
 
   const finishTurn=()=>{
     setFeedback(null);
+    setCorrectAnswer(null);
     setGame(current=>current?endTurn(current):current);
   };
 
@@ -293,7 +297,7 @@ export function PropertyGame({session}:{session:ClientSession}) {
             <div key={p.id}><strong>{index+1}º {p.name}</strong><span>{netWorth(game,p.id)} CP de patrimônio</span></div>
           )}
         </div>
-        <button onClick={()=>{setGame(null);setQuestion(null);setFeedback(null);}}>Nova partida</button>
+        <button onClick={()=>{setGame(null);setQuestion(null);setFeedback(null);setCorrectAnswer(null);}}>Nova partida</button>
         <a className="button button-ghost" href="/lobby">Voltar ao lobby</a>
       </section>
     </main>;
@@ -339,6 +343,7 @@ export function PropertyGame({session}:{session:ClientSession}) {
 
         {player?.kind==="human"&&game.phase==="turn-end"&&<>
           {feedback&&<ResultFeedback status={feedback}/>}
+          {feedback==="incorrect"&&correctAnswer&&<p className="math-correction">Resposta correta: <strong>{correctAnswer}</strong></p>}
           <button onClick={finishTurn}>Encerrar turno</button>
         </>}
 
