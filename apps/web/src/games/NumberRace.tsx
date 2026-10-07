@@ -22,6 +22,7 @@ type NumberRoom={
   serverNow:number;
   race:RoomRace|null;
   question:null|{id:string;expression:string;gradeLevel:number;difficulty:number;deadlineAt:number|null};
+  lastCorrectAnswer:string|null;
   updatedAt:number;
 };
 type AckResponse={ok:boolean;room?:NumberRoom;error?:string};
@@ -140,6 +141,7 @@ function SoloNumberRace({session,onExit}:{session:ClientSession;onExit:()=>void}
   const [question,setQuestion]=useState<MathQuestion|null>(()=>generateQuestion(session.gradeLevel,{difficulty:1,seed:"number-solo-1-"+session.sessionId}));
   const [answer,setAnswer]=useState("");
   const [feedback,setFeedback]=useState<"correct"|"incorrect"|null>(null);
+  const [correctAnswer,setCorrectAnswer]=useState<string|null>(null);
   const [submitted,setSubmitted]=useState(false);
   const [error,setError]=useState("");
   const resolved=useRef(0);
@@ -164,11 +166,12 @@ function SoloNumberRace({session,onExit}:{session:ClientSession;onExit:()=>void}
         }));
         setAnswer("");
         setFeedback(null);
+        setCorrectAnswer(null);
         setSubmitted(false);
         setError("");
         return next;
       });
-    },1000);
+    },1600);
     return ()=>window.clearTimeout(timer);
   },[race.phase,session.gradeLevel,session.sessionId]);
 
@@ -178,6 +181,7 @@ function SoloNumberRace({session,onExit}:{session:ClientSession;onExit:()=>void}
     setQuestion(generateQuestion(session.gradeLevel,{difficulty:1,seed:"number-solo-restart-"+Date.now()}));
     setAnswer("");
     setFeedback(null);
+    setCorrectAnswer(null);
     setSubmitted(false);
     setError("");
     resolved.current=0;
@@ -196,6 +200,7 @@ function SoloNumberRace({session,onExit}:{session:ClientSession;onExit:()=>void}
       setRace(current=>submitAnswer(current,session.sessionId,correct,responseMs,Date.now()));
       playSound(correct?"engine":"incorrect");
       setFeedback(correct?"correct":"incorrect");
+      setCorrectAnswer(correct?null:question.correctAnswer);
       setSubmitted(true);
     }catch(err){
       setError(err instanceof Error?err.message:"Não foi possível enviar.");
@@ -221,6 +226,7 @@ function SoloNumberRace({session,onExit}:{session:ClientSession;onExit:()=>void}
           <button disabled={submitted}>{submitted?"Resposta enviada":"Responder"}</button>
         </form>}
         {feedback&&<ResultFeedback status={feedback}/>}
+        {feedback==="incorrect"&&correctAnswer&&<p className="math-correction">Resposta correta: <strong>{correctAnswer}</strong></p>}
         {submitted&&<p className="number-wait">Movimento aplicado ao final dos 20 segundos.</p>}
         {error&&<p className="error" role="alert">{error}</p>}
       </section>
@@ -389,7 +395,8 @@ function OnlineNumberRace({session,onExit}:{session:ClientSession;onExit:()=>voi
           <input inputMode="decimal" value={answer} onChange={e=>setAnswer(e.target.value)} disabled={answered} placeholder="Digite sua resposta"/>
           <button disabled={answered}>{answered?"Resposta registrada":"Responder"}</button>
         </form>}
-        {answered&&<p className="number-wait">Resposta registrada; aguardando o deadline oficial.</p>}
+        {answered&&room.question&&<p className="number-wait">Resposta registrada; aguardando o deadline oficial.</p>}
+        {!room.question&&room.lastCorrectAnswer&&<p className="math-correction">Resposta correta da rodada: <strong>{room.lastCorrectAnswer}</strong></p>}
         {error&&<p className="error">{error}</p>}
       </section>
 

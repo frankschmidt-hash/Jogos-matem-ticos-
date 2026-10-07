@@ -27,7 +27,7 @@ const boardCoordinate=(index:number):{row:number;col:number}=>{
 function GameSetup({session,onStart}:{session:ClientSession;onStart:(game:GameState)=>void}) {
   const [totalPlayers,setTotalPlayers]=useState<2|3|4>(2);
   const [mode,setMode]=useState<MatchMode>("short");
-  const [rounds,setRounds]=useState(12);
+  const [rounds,setRounds]=useState(8);
 
   return <main id="main-content" className="property-shell">
     <section className="property-setup panel">
@@ -176,10 +176,12 @@ export function PropertyGame({session}:{session:ClientSession}) {
   const [question,setQuestion]=useState<MathQuestion|null>(null);
   const [answer,setAnswer]=useState("");
   const [feedback,setFeedback]=useState<"correct"|"incorrect"|null>(null);
+  const [correctAnswer,setCorrectAnswer]=useState<string|null>(null);
   const [rolling,setRolling]=useState(false);
   const [lastDie,setLastDie]=useState<number|null>(null);
   const [actionError,setActionError]=useState("");
   const answerLock=useRef(false);
+  const rollTimer=useRef<number|null>(null);
 
   const player=game?activePlayer(game):null;
   const winner=useMemo(()=>game?.winnerId?game.players.find(p=>p.id===game.winnerId)??null:null,[game]);
@@ -187,6 +189,10 @@ export function PropertyGame({session}:{session:ClientSession}) {
   useEffect(()=>{
     if(game?.phase==="finished") playSound("victory");
   },[game?.phase]);
+
+  useEffect(()=>()=> {
+    if(rollTimer.current!==null) window.clearTimeout(rollTimer.current);
+  },[]);
 
   useEffect(()=>{
     if(!game||!player||player.kind!=="npc"||game.phase==="finished") return;
@@ -227,8 +233,10 @@ export function PropertyGame({session}:{session:ClientSession}) {
     setRolling(true);
     playSound("dice");
     setFeedback(null);
+    setCorrectAnswer(null);
     setActionError("");
-    window.setTimeout(()=>{
+    if(rollTimer.current!==null) window.clearTimeout(rollTimer.current);
+    rollTimer.current=window.setTimeout(()=>{
       const die=randomDie();
       setLastDie(die);
       setGame(current=>current?rollDice(current,die):current);
@@ -238,6 +246,7 @@ export function PropertyGame({session}:{session:ClientSession}) {
         seed:"property-"+game.round+"-"+game.activePlayerIndex+"-"+Date.now()+"-"+die
       }));
       setRolling(false);
+      rollTimer.current=null;
     },450);
   };
 
@@ -248,6 +257,7 @@ export function PropertyGame({session}:{session:ClientSession}) {
     const correct=validateAnswer(question,answer);
     playSound(correct?"correct":"incorrect");
     setFeedback(correct?"correct":"incorrect");
+    setCorrectAnswer(correct?null:question.correctAnswer);
     setGame(current=>current?resolveMathMove(current,correct,Math.random):current);
     setQuestion(null);
     setAnswer("");
@@ -260,6 +270,7 @@ export function PropertyGame({session}:{session:ClientSession}) {
 
   const finishTurn=()=>{
     setFeedback(null);
+    setCorrectAnswer(null);
     setGame(current=>current?endTurn(current):current);
   };
 
@@ -286,7 +297,7 @@ export function PropertyGame({session}:{session:ClientSession}) {
             <div key={p.id}><strong>{index+1}º {p.name}</strong><span>{netWorth(game,p.id)} CP de patrimônio</span></div>
           )}
         </div>
-        <button onClick={()=>{setGame(null);setQuestion(null);setFeedback(null);}}>Nova partida</button>
+        <button onClick={()=>{setGame(null);setQuestion(null);setFeedback(null);setCorrectAnswer(null);}}>Nova partida</button>
         <a className="button button-ghost" href="/lobby">Voltar ao lobby</a>
       </section>
     </main>;
@@ -332,6 +343,7 @@ export function PropertyGame({session}:{session:ClientSession}) {
 
         {player?.kind==="human"&&game.phase==="turn-end"&&<>
           {feedback&&<ResultFeedback status={feedback}/>}
+          {feedback==="incorrect"&&correctAnswer&&<p className="math-correction">Resposta correta: <strong>{correctAnswer}</strong></p>}
           <button onClick={finishTurn}>Encerrar turno</button>
         </>}
 

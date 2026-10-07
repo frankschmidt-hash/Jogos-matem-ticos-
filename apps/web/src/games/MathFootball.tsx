@@ -189,7 +189,7 @@ function SoloFootball({
       setAnswer("");
       setFeedback(null);
       setCorrectAnswer(null);
-    },1300);
+    },1600);
     return ()=>window.clearTimeout(timer);
   },[match.phase,timeMs]);
 
@@ -425,6 +425,7 @@ export function MathFootball({session}:{session:ClientSession}){
       </label>
       <label>Tempo pedagógico no modo solo
         <select value={timeMs} onChange={e=>setTimeMs(Number(e.target.value))}>
+          <option value={30000}>30 segundos — padrão de aula</option>
           <option value={60000}>60 segundos</option>
           <option value={90000}>90 segundos</option>
           <option value={0}>Sem cronômetro</option>

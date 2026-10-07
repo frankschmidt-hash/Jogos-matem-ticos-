@@ -77,14 +77,34 @@ describe("CrazyRaceRoomManager",()=>{
     expect(()=>manager.startRoom(room.code,guest(1).sessionId,1000)).toThrow(/host/i);
   });
 
-  it("finaliza rodada e abre a próxima sob controle do servidor",()=>{
+  it("finaliza rodada, libera correção somente depois do deadline e abre a próxima",()=>{
     const manager=new CrazyRaceRoomManager();
     const room=manager.createRoom(host,"abcd",0);
     manager.startRoom(room.code,host.sessionId,1000);
+    expect(manager.publicSnapshot(room.code).lastCorrectAnswer).toBeNull();
     manager.finalizeRound(room.code,21000);
     expect(room.race?.phase).toBe("round-resolution");
+    expect(manager.publicSnapshot(room.code).lastCorrectAnswer).toBeTruthy();
     manager.openNextRound(room.code,22000);
     expect(room.race?.round).toBe(2);
     expect(room.race?.roundDeadlineAt).toBe(42000);
+    expect(manager.publicSnapshot(room.code).lastCorrectAnswer).toBeNull();
   });
+  it("resposta da bomba é idempotente e corrige somente após a tentativa",()=>{
+    const manager=new CrazyRaceRoomManager();
+    const room=manager.createRoom(host,"abcd",0);
+    manager.joinRoom(room.code,"abcd",guest(1),1);
+    manager.startRoom(room.code,host.sessionId,1000);
+    room.race!.racers=room.race!.racers.map(r=>r.id===host.sessionId?{...r,bombCharges:1}:r);
+    const attack=manager.useBomb(room.code,host.sessionId,"ahead","bomb-action-answer-01",2000);
+    expect(attack.targetId).toBe(guest(1).sessionId);
+    const q=manager.bombQuestionFor(room.code,attack.targetId)!;
+    const first=manager.submitBombAnswer(room.code,attack.targetId,q.id,"999999","bomb-answer-01",3000);
+    expect(first.correct).toBe(false);
+    expect(first.correctAnswer).toBeTruthy();
+    const duplicate=manager.submitBombAnswer(room.code,attack.targetId,q.id,"999999","bomb-answer-01",3100);
+    expect(duplicate.correct).toBeNull();
+    expect(room.race!.bombChallenges[attack.targetId]?.resolved).toBe(true);
+  });
+
 });

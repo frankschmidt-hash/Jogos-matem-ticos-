@@ -27,11 +27,12 @@ type OnlineRoom = {
   serverNow:number;
   race:RoomRace|null;
   question:null|{id:string;expression:string;gradeLevel:number;difficulty:number;deadlineAt:number|null};
+  lastCorrectAnswer:string|null;
   updatedAt:number;
 };
 
 type BombQuestion = {id:string;expression:string;deadlineAt:number};
-type AckResponse = {ok:boolean;room?:OnlineRoom;error?:string;targetId?:string;bombQuestion?:BombQuestion|null};
+type AckResponse = {ok:boolean;room?:OnlineRoom;error?:string;targetId?:string;bombQuestion?:BombQuestion|null;bombCorrection?:string|null};
 
 const ROOM_KEY="crazy-race-room-code";
 
@@ -166,6 +167,7 @@ function SoloRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
   const [question,setQuestion]=useState<MathQuestion|null>(()=>generateQuestion(session.gradeLevel,{difficulty:1,seed:"crazy-solo-1-"+session.sessionId}));
   const [answer,setAnswer]=useState("");
   const [feedback,setFeedback]=useState<"correct"|"incorrect"|null>(null);
+  const [correctAnswer,setCorrectAnswer]=useState<string|null>(null);
   const [submitted,setSubmitted]=useState(false);
   const [message,setMessage]=useState("");
   const resolvedRound=useRef(0);
@@ -190,11 +192,12 @@ function SoloRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
         }));
         setSubmitted(false);
         setFeedback(null);
+        setCorrectAnswer(null);
         setAnswer("");
         setMessage("");
         return next;
       });
-    },1200);
+    },1600);
     return ()=>window.clearTimeout(timer);
   },[race.phase,session.gradeLevel,session.sessionId]);
 
@@ -204,6 +207,7 @@ function SoloRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
     setQuestion(generateQuestion(session.gradeLevel,{difficulty:1,seed:"crazy-solo-1-"+session.sessionId+"-"+Date.now()}));
     setAnswer("");
     setFeedback(null);
+    setCorrectAnswer(null);
     setSubmitted(false);
     setMessage("");
     resolvedRound.current=0;
@@ -222,6 +226,7 @@ function SoloRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
       setRace(current=>submitRoundAnswer(current,session.sessionId,correct,responseMs,Date.now()));
       playSound(correct?"engine":"incorrect");
       setFeedback(correct?"correct":"incorrect");
+      setCorrectAnswer(correct?null:question.correctAnswer);
       setSubmitted(true);
     }catch(error){
       setMessage(error instanceof Error?error.message:"Não foi possível enviar.");
@@ -266,6 +271,7 @@ function SoloRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
           <button disabled={submitted}>{submitted?"Resposta enviada":"Responder"}</button>
         </form>}
         {feedback&&<ResultFeedback status={feedback}/>}
+        {feedback==="incorrect"&&correctAnswer&&<p className="math-correction">Resposta correta: <strong>{correctAnswer}</strong></p>}
         {submitted&&<p className="race-waiting">Resposta registrada. O movimento acontece ao terminar os 20 segundos.</p>}
         {message&&<p className="error" role="alert">{message}</p>}
       </section>
@@ -287,6 +293,7 @@ function OnlineRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
   const [answer,setAnswer]=useState("");
   const [bombQuestion,setBombQuestion]=useState<BombQuestion|null>(null);
   const [bombAnswer,setBombAnswer]=useState("");
+  const [bombCorrection,setBombCorrection]=useState<string|null>(null);
   const now=useNow(Boolean(room?.race?.phase==="round-open"),room?.serverNow);
   const roomRef=useRef<OnlineRoom|null>(null);
 
@@ -309,7 +316,10 @@ function OnlineRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
 
   useEffect(()=>{
     const stateHandler=(next:OnlineRoom)=>setRoom(next);
-    const bombHandler=(q:BombQuestion)=>setBombQuestion(q);
+    const bombHandler=(q:BombQuestion)=>{
+      setBombCorrection(null);
+      setBombQuestion(q);
+    };
     const connectHandler=()=>{
       const saved=sessionStorage.getItem(ROOM_KEY);
       if(!saved) return;
@@ -365,6 +375,7 @@ function OnlineRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
       ...auth(session),code:room.code,questionId:bombQuestion.id,answer:bombAnswer,clientSubmissionId:crypto.randomUUID()
     },(response:AckResponse)=>{
       if(applyAck(response)){
+        setBombCorrection(response.bombCorrection??null);
         setBombQuestion(null);
         setBombAnswer("");
       }
@@ -456,8 +467,10 @@ function OnlineRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
           <input inputMode="decimal" value={answer} onChange={e=>setAnswer(e.target.value)} disabled={answered} placeholder="Digite sua resposta"/>
           <button disabled={answered}>{answered?"Resposta registrada":"Responder"}</button>
         </form>}
-        {answered&&<p className="race-waiting">Aguardando o encerramento oficial da rodada.</p>}
+        {answered&&room.question&&<p className="race-waiting">Aguardando o encerramento oficial da rodada.</p>}
+        {!room.question&&room.lastCorrectAnswer&&<p className="math-correction">Resposta correta da rodada: <strong>{room.lastCorrectAnswer}</strong></p>}
         {human?.blockedRound===room.race.round&&<p className="bomb-warning">Você foi bloqueado por uma bomba nesta rodada.</p>}
+        {bombCorrection&&<p className="math-correction">Bomba matemática — resposta correta: <strong>{bombCorrection}</strong></p>}
         {error&&<p className="error" role="alert">{error}</p>}
       </section>
 

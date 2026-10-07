@@ -49,7 +49,7 @@ export type PenaltyStats={
 };
 
 export const ONLINE_KICK_MS=30_000;
-export const DEFAULT_SOLO_KICK_MS=60_000;
+export const DEFAULT_SOLO_KICK_MS=30_000;
 export const INITIAL_KICKS=5;
 
 export function createPenaltyMatch(players:PenaltyPlayer[]):PenaltyMatchState{

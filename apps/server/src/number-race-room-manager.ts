@@ -21,6 +21,7 @@ export type NumberRoom=LifecycleCarrier & {
   status:"waiting"|"playing"|"finished";
   race:NumberRaceState|null;
   question:MathQuestion|null;
+  lastCorrectAnswer:string|null;
   createdAt:number;
   updatedAt:number;
 };
@@ -43,6 +44,7 @@ export type PublicNumberRoom={
     deadlineAt:number|null;
     startedAt:number|null;
   };
+  lastCorrectAnswer:string|null;
   updatedAt:number;
 };
 
@@ -62,7 +64,7 @@ export class NumberRaceRoomManager{
     const member=this.infra.createMember(host,now);
     const room:NumberRoom={
       code,password:this.infra.createPassword(password),hostSessionId:member.sessionId,gradeLevel,
-      members:[member],status:"waiting",race:null,question:null,
+      members:[member],status:"waiting",race:null,question:null,lastCorrectAnswer:null,
       lifecycleState:"ready",lifecycleHistory:["ready"],createdAt:now,updatedAt:now
     };
     this.rooms.set(code,room);
@@ -156,6 +158,7 @@ export class NumberRaceRoomManager{
     if(!room.race||room.race.phase==="finished") return;
     room.race=startRound(room.race,now);
     room.race=submitNpcAnswers(room.race);
+    room.lastCorrectAnswer=null;
     room.question=generateQuestion(room.gradeLevel,{
       difficulty:difficultyForRound(room.race.round),
       seed:"number:"+room.code+":round:"+room.race.round
@@ -187,6 +190,7 @@ export class NumberRaceRoomManager{
     const room=this.mustPlaying(code);
     if(!room.race||room.race.roundDeadlineAt===null) throw new Error("Rodada indisponível.");
     room.race=resolveRound(room.race,Math.max(now,room.race.roundDeadlineAt));
+    room.lastCorrectAnswer=room.question?.correctAnswer ?? null;
     room.question=null;
     room.updatedAt=now;
     if(room.race.phase==="finished"){
@@ -242,6 +246,9 @@ export class NumberRaceRoomManager{
         deadlineAt:room.race.roundDeadlineAt,
         startedAt:room.race.roundStartedAt
       }:null,
+      lastCorrectAnswer:room.race?.phase==="round-resolution"||room.status==="finished"
+        ? room.lastCorrectAnswer
+        : null,
       updatedAt:room.updatedAt
     };
   }
