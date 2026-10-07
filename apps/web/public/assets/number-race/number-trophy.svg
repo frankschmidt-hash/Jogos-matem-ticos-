@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-labelledby="t">
+<title id="t">Troféu da Corrida Numérica</title>
+<path d="M53 23h74v38c0 31-15 50-37 50S53 92 53 61z" fill="#efbd48" stroke="#173b55" stroke-width="7"/>
+<path d="M53 39H29c0 31 14 46 39 46M127 39h24c0 31-14 46-39 46" fill="none" stroke="#173b55" stroke-width="7"/>
+<path d="M90 111v25M61 154h58M70 136h40" stroke="#173b55" stroke-width="9" stroke-linecap="round"/>
+<text x="70" y="79" font-family="Arial" font-size="35" font-weight="900" fill="#2b8c78">∑</text>
+</svg>
