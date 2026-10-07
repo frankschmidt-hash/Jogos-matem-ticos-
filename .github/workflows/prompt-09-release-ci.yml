@@ -1,0 +1,66 @@
+name: Prompt 09 Release CI
+
+on:
+  push:
+    branches:
+      - feat/prompt-09-release
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  global-regression-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Critical dependency audit
+        run: npm audit --audit-level=critical
+
+      - name: Global typecheck
+        run: npm run typecheck
+
+      - name: Global regression
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+      - name: Secrets and release artifact audit
+        run: node scripts/release-audit.mjs
+
+      - name: Start production topology
+        run: |
+          NODE_ENV=production SERVE_WEB=true PORT=3001 npm start > /tmp/jogos-matematicos.log 2>&1 &
+          echo $! > /tmp/jogos-matematicos.pid
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:3001/health >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/jogos-matematicos.log
+          exit 1
+
+      - name: HTTP and Socket.IO E2E smoke
+        env:
+          BASE_URL: http://127.0.0.1:3001
+        run: node scripts/smoke-e2e.mjs
+
+      - name: Server logs on failure
+        if: failure()
+        run: cat /tmp/jogos-matematicos.log || true
+
+      - name: Stop production topology
+        if: always()
+        run: |
+          if [ -f /tmp/jogos-matematicos.pid ]; then
+            kill "$(cat /tmp/jogos-matematicos.pid)" || true
+          fi
