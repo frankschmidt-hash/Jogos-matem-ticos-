@@ -325,7 +325,16 @@ export function resolveRound(state:RaceState,now:number):RaceState {
   if(state.phase!=="round-open" || state.roundDeadlineAt===null) throw new Error("Não há rodada aberta.");
   if(now<state.roundDeadlineAt) throw new Error("A rodada ainda não terminou.");
 
+  const beforePositions=new Map(ranking(state).map((r,index)=>[r.id,index+1]));
   let next=applyRoundMovement(state);
+  const afterOrder=ranking(next);
+  for(const [index,racer] of afterOrder.entries()){
+    const before=beforePositions.get(racer.id) ?? index+1;
+    const after=index+1;
+    if(after<before){
+      next=pushLog(next,racer.name+" ganhou "+(before-after)+" posição(ões) nesta rodada.");
+    }
+  }
   const result=winnerAfterRound(next);
 
   if(result.winnerId){
