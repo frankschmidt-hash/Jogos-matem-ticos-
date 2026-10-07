@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   BOARD, GROUP_LABELS, activePlayer, buyPendingProperty, createGame, currentRent, endTurn,
   getSpace, netWorth, npcAnswerCorrect, npcImproveBest, npcShouldBuy, resolveMathMove,
@@ -173,6 +173,7 @@ export function PropertyGame({session}:{session:ClientSession}) {
   const [rolling,setRolling]=useState(false);
   const [lastDie,setLastDie]=useState<number|null>(null);
   const [actionError,setActionError]=useState("");
+  const answerLock=useRef(false);
 
   const player=game?activePlayer(game):null;
   const winner=useMemo(()=>game?.winnerId?game.players.find(p=>p.id===game.winnerId)??null:null,[game]);
@@ -220,6 +221,7 @@ export function PropertyGame({session}:{session:ClientSession}) {
       const die=randomDie();
       setLastDie(die);
       setGame(current=>current?rollDice(current,die):current);
+      answerLock.current=false;
       setQuestion(generateQuestion(session.gradeLevel,{
         difficulty:game.round<4?1:game.round<9?2:3,
         seed:"property-"+game.round+"-"+game.activePlayerIndex+"-"+Date.now()+"-"+die
@@ -230,7 +232,8 @@ export function PropertyGame({session}:{session:ClientSession}) {
 
   const submitAnswer=(event:FormEvent)=>{
     event.preventDefault();
-    if(!question||game.phase!=="awaiting-answer") return;
+    if(answerLock.current||!question||game.phase!=="awaiting-answer") return;
+    answerLock.current=true;
     const correct=validateAnswer(question,answer);
     setFeedback(correct?"correct":"incorrect");
     setGame(current=>current?resolveMathMove(current,correct,Math.random):current);
@@ -325,7 +328,13 @@ export function PropertyGame({session}:{session:ClientSession}) {
           <strong>{human.balance} CP</strong>
         </div>
 
-        <a className="button button-ghost" href="/lobby">Sair para o lobby</a>
+        <a
+          className="button button-ghost"
+          href="/lobby"
+          onClick={event=>{
+            if(!window.confirm("Sair da partida atual e voltar ao lobby?")) event.preventDefault();
+          }}
+        >Sair para o lobby</a>
       </aside>
     </div>
 
