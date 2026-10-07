@@ -137,23 +137,34 @@ const grade6 = (r: Random, difficulty: Difficulty, seed?: string): MathQuestion 
 const grade7 = (r: Random, difficulty: Difficulty, seed?: string): MathQuestion => {
   const category = pick(r, ["signed", "rational", "fraction", "decimal", "percentage", "ratio", "expression"] as const);
   if (category === "fraction") {
-    const d1=pick(r,[2,3,4,5,6]), d2=pick(r,[2,3,4,5,6]); const a=int(r,1,d1), b=int(r,1,d2);
+    const denominators=difficulty===1?[2,3,4,5,6]:difficulty===2?[2,3,4,5,6,8,10]:[3,4,5,6,8,9,10,12];
+    const d1=pick(r,denominators), d2=pick(r,denominators); const a=int(r,1,d1), b=int(r,1,d2);
     return q(7,category,`${a}/${d1} + ${b}/${d2}`,fraction(a*d2+b*d1,d1*d2),difficulty,seed);
   }
   if (category === "percentage") {
-    const pct=pick(r,[15,20,25,30,40,50]); const base=pick(r,[40,60,80,100,120,160,200]);
+    const percentages=difficulty===1?[10,20,25,50]:difficulty===2?[10,15,20,25,30,40,50]:[5,10,15,20,25,30,35,40,45,50];
+    const bases=difficulty===1?[40,60,80,100,120]:difficulty===2?[60,80,100,120,160,200,240]:[100,120,160,200,240,300,400];
+    const pct=pick(r,percentages), base=pick(r,bases);
     return q(7,category,`${pct}% de ${base}`,String(base*pct/100),difficulty,seed);
   }
   if (category === "ratio") {
-    const factor=int(r,2,10), a=int(r,2,10), b=int(r,2,10);
-    return q(7,category,`Se a razão é ${a}:${b}, quanto corresponde a ${a*factor}:${b}×?`,String(factor),difficulty,seed);
+    const factor=int(r,2,difficulty===1?5:difficulty===2?8:12);
+    const maxTerm=difficulty===1?6:difficulty===2?10:14;
+    const a=int(r,2,maxTerm), b=int(r,2,maxTerm);
+    return q(7,category,`A razão ${a}:${b} foi ampliada para ${a*factor}:${b*factor}. Por qual fator os dois termos foram multiplicados?`,String(factor),difficulty,seed);
   }
-  if (category === "signed") { const a=int(r,-40,40), b=int(r,-40,40); return q(7,category,`${a} - (${b})`,String(a-b),difficulty,seed); }
+  if (category === "signed") {
+    const limit=difficulty===1?20:difficulty===2?40:80;
+    const a=int(r,-limit,limit), b=int(r,-limit,limit);
+    return q(7,category,`${a} - (${b})`,String(a-b),difficulty,seed);
+  }
   if (category === "decimal" || category === "rational") {
-    const a=int(r,-200,200)/10, b=int(r,-100,100)/10; const result=a+b; const ans=Number(result.toFixed(1)).toString();
+    const aLimit=difficulty===1?100:difficulty===2?200:500, bLimit=difficulty===1?60:difficulty===2?120:300;
+    const a=int(r,-aLimit,aLimit)/10, b=int(r,-bLimit,bLimit)/10; const result=a+b; const ans=Number(result.toFixed(1)).toString();
     return q(7,category,`${a.toFixed(1).replace('.', ',')} + (${b.toFixed(1).replace('.', ',')})`,ans,difficulty,seed,[ans.replace('.', ',')]);
   }
-  const a=int(r,2,15), b=int(r,2,12), c=int(r,-10,10);
+  const aMax=difficulty===1?10:difficulty===2?15:22, bMax=difficulty===1?8:difficulty===2?12:18, cLimit=difficulty===1?6:difficulty===2?10:15;
+  const a=int(r,2,aMax), b=int(r,2,bMax), c=int(r,-cLimit,cLimit);
   return q(7,category,`${a} × (${b} + ${c})`,String(a*(b+c)),difficulty,seed);
 };
 
