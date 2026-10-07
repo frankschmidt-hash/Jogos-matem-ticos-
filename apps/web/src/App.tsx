@@ -7,6 +7,7 @@ import {
   reconnectSession, type ClientSession
 } from "./session";
 import { PropertyGame } from "./games/PropertyGame";
+import { CrazyRace } from "./games/CrazyRace";
 
 function Home({onSession}:{onSession:(s:ClientSession)=>void}) {
   const nav=useNavigate();
@@ -139,7 +140,8 @@ export function App(){
     <Route path="/" element={<Home onSession={setSession}/>}/>
     <Route path="/lobby" element={session?<Lobby session={session}/>:<Navigate to="/" replace/>}/>
     <Route path="/game/property-math" element={session?<PropertyGame session={session}/>:<Navigate to="/" replace/>}/>
-    {GAME_CATALOG.filter(g=>g.id!=="property-math").map(g=>
+    <Route path="/game/crazy-race" element={session?<CrazyRace session={session}/>:<Navigate to="/" replace/>}/>
+    {GAME_CATALOG.filter(g=>g.id!=="property-math"&&g.id!=="crazy-race").map(g=>
       <Route
         key={g.id}
         path={"/game/"+g.id}
