@@ -9,6 +9,7 @@ import {
 import { PropertyGame } from "./games/PropertyGame";
 import { CrazyRace } from "./games/CrazyRace";
 import { NumberRace } from "./games/NumberRace";
+import { MathFootball } from "./games/MathFootball";
 
 function Home({onSession}:{onSession:(s:ClientSession)=>void}) {
   const nav=useNavigate();
@@ -143,7 +144,8 @@ export function App(){
     <Route path="/game/property-math" element={session?<PropertyGame session={session}/>:<Navigate to="/" replace/>}/>
     <Route path="/game/crazy-race" element={session?<CrazyRace session={session}/>:<Navigate to="/" replace/>}/>
     <Route path="/game/number-race" element={session?<NumberRace session={session}/>:<Navigate to="/" replace/>}/>
-    {GAME_CATALOG.filter(g=>g.id!=="property-math"&&g.id!=="crazy-race"&&g.id!=="number-race").map(g=>
+    <Route path="/game/math-football" element={session?<MathFootball session={session}/>:<Navigate to="/" replace/>}/>
+    {GAME_CATALOG.filter(g=>g.id!=="property-math"&&g.id!=="crazy-race"&&g.id!=="number-race"&&g.id!=="math-football").map(g=>
       <Route
         key={g.id}
         path={"/game/"+g.id}

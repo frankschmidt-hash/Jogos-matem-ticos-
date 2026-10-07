@@ -5,11 +5,13 @@ import {
   claimNicknameSchema, crazyAnswerSchema, crazyBombAnswerSchema, crazyBombSchema,
   crazyCreateRoomSchema, crazyJoinRoomSchema, crazyRoomActionSchema,
   numberAnswerSchema, numberCreateRoomSchema, numberJoinRoomSchema, numberRoomActionSchema,
+  footballAnswerSchema, footballCreateRoomSchema, footballJoinRoomSchema, footballRoomActionSchema,
   disconnectSchema, heartbeatSchema, reconnectSchema
 } from "@jogos/protocol";
 import { SessionManager } from "./session-manager";
 import { CrazyRaceRoomManager } from "./crazy-race-room-manager";
 import { NumberRaceRoomManager } from "./number-race-room-manager";
+import { FootballRoomManager } from "./football-room-manager";
 
 const app = Fastify({ logger: true, bodyLimit: 16_384 });
 const webOrigin = process.env.WEB_ORIGIN ?? "http://localhost:5173";
@@ -21,6 +23,7 @@ const manager = new SessionManager(
 );
 const crazyRooms=new CrazyRaceRoomManager();
 const numberRooms=new NumberRaceRoomManager();
+const footballRooms=new FootballRoomManager();
 
 app.get("/health", async () => ({ ok:true, service:"jogos-matematicos-server" }));
 
@@ -56,6 +59,8 @@ const io = new Server(app.server, { cors:{origin:webOrigin,methods:["GET","POST"
 const sessionSockets=new Map<string,string>();
 const raceTimers=new Map<string,ReturnType<typeof setTimeout>>();
 const numberRaceTimers=new Map<string,ReturnType<typeof setTimeout>>();
+const footballKickTimers=new Map<string,ReturnType<typeof setTimeout>>();
+const footballAbandonTimers=new Map<string,ReturnType<typeof setTimeout>>();
 
 type Ack=(response:unknown)=>void;
 
@@ -147,6 +152,55 @@ const scheduleNumberRound=(code:string)=>{
   },delay);
   numberRaceTimers.set(code,timer);
 };
+
+
+
+const emitFootballState=(code:string)=>{
+  const room=footballRooms.getRoom(code);
+  if(!room) return;
+  io.to("football:"+code).emit("football:room-state",footballRooms.publicSnapshot(code));
+};
+
+function scheduleFootballAdvance(code:string){
+  const previous=footballKickTimers.get(code);
+  if(previous) clearTimeout(previous);
+  const timer=setTimeout(()=>{
+    try{
+      const room=footballRooms.getRoom(code);
+      if(!room||room.status!=="playing"||room.match?.phase!=="kick-resolution"){
+        footballKickTimers.delete(code);
+        return;
+      }
+      footballRooms.openNextKick(code,Date.now());
+      emitFootballState(code);
+      scheduleFootballKick(code);
+    }catch(error){
+      app.log.error({err:error,code},"Falha ao abrir próxima cobrança do Futebol Matemático");
+      footballKickTimers.delete(code);
+    }
+  },1200);
+  footballKickTimers.set(code,timer);
+}
+
+function scheduleFootballKick(code:string){
+  const room=footballRooms.getRoom(code);
+  const deadline=room?.match?.kickDeadlineAt;
+  if(!room||room.status!=="playing"||room.match?.phase!=="kick-open"||deadline===null||deadline===undefined) return;
+  const old=footballKickTimers.get(code);
+  if(old) clearTimeout(old);
+  const timer=setTimeout(()=>{
+    try{
+      const resolved=footballRooms.timeoutCurrentKick(code,Date.now());
+      emitFootballState(code);
+      if(resolved.status==="playing") scheduleFootballAdvance(code);
+      else footballKickTimers.delete(code);
+    }catch(error){
+      app.log.error({err:error,code},"Falha ao aplicar timeout do Futebol Matemático");
+      footballKickTimers.delete(code);
+    }
+  },Math.max(0,deadline-Date.now()+25));
+  footballKickTimers.set(code,timer);
+}
 
 io.on("connection", socket => {
   socket.on("session:heartbeat", (payload:unknown, ack?:Ack) => {
@@ -396,10 +450,150 @@ io.on("connection", socket => {
     }
   });
 
+
+
+  socket.on("football:create-room",(payload:unknown,ack?:Ack)=>{
+    const parsed=footballCreateRoomSchema.safeParse(payload);
+    if(!parsed.success) return ack?.({ok:false,error:"Dados da sala inválidos."});
+    try{
+      const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
+      const room=footballRooms.createRoom(
+        {sessionId:session.sessionId,nickname:session.nickname,connected:true},
+        parsed.data.password,parsed.data.gradeLevel
+      );
+      sessionSockets.set(session.sessionId,socket.id);
+      socket.data.footballCode=room.code;
+      socket.data.sessionId=session.sessionId;
+      void socket.join("football:"+room.code);
+      ack?.({ok:true,room:footballRooms.publicSnapshot(room.code)});
+    }catch(error){
+      ack?.({ok:false,error:errorMessage(error)});
+    }
+  });
+
+  socket.on("football:join-room",(payload:unknown,ack?:Ack)=>{
+    const parsed=footballJoinRoomSchema.safeParse(payload);
+    if(!parsed.success) return ack?.({ok:false,error:"Código ou senha inválidos."});
+    try{
+      const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
+      const room=footballRooms.joinRoom(
+        parsed.data.code.toUpperCase(),parsed.data.password,
+        {sessionId:session.sessionId,nickname:session.nickname,connected:true}
+      );
+      sessionSockets.set(session.sessionId,socket.id);
+      socket.data.footballCode=room.code;
+      socket.data.sessionId=session.sessionId;
+      void socket.join("football:"+room.code);
+      emitFootballState(room.code);
+      ack?.({ok:true,room:footballRooms.publicSnapshot(room.code)});
+    }catch(error){
+      ack?.({ok:false,error:errorMessage(error)});
+    }
+  });
+
+  socket.on("football:reconnect-room",(payload:unknown,ack?:Ack)=>{
+    const parsed=footballRoomActionSchema.safeParse(payload);
+    if(!parsed.success) return ack?.({ok:false,error:"Dados inválidos."});
+    try{
+      const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
+      const room=footballRooms.reconnect(parsed.data.code.toUpperCase(),session.sessionId);
+      const abandonTimer=footballAbandonTimers.get(session.sessionId);
+      if(abandonTimer) clearTimeout(abandonTimer);
+      footballAbandonTimers.delete(session.sessionId);
+      sessionSockets.set(session.sessionId,socket.id);
+      socket.data.footballCode=room.code;
+      socket.data.sessionId=session.sessionId;
+      void socket.join("football:"+room.code);
+      ack?.({ok:true,room:footballRooms.publicSnapshot(room.code)});
+      emitFootballState(room.code);
+    }catch(error){
+      ack?.({ok:false,error:errorMessage(error)});
+    }
+  });
+
+  socket.on("football:start",(payload:unknown,ack?:Ack)=>{
+    const parsed=footballRoomActionSchema.safeParse(payload);
+    if(!parsed.success) return ack?.({ok:false,error:"Dados inválidos."});
+    try{
+      const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
+      const room=footballRooms.startRoom(parsed.data.code.toUpperCase(),session.sessionId);
+      emitFootballState(room.code);
+      scheduleFootballKick(room.code);
+      ack?.({ok:true,room:footballRooms.publicSnapshot(room.code)});
+    }catch(error){
+      ack?.({ok:false,error:errorMessage(error)});
+    }
+  });
+
+  socket.on("football:answer",(payload:unknown,ack?:Ack)=>{
+    const parsed=footballAnswerSchema.safeParse(payload);
+    if(!parsed.success) return ack?.({ok:false,error:"Resposta inválida."});
+    try{
+      const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
+      const room=footballRooms.submitAnswer(
+        parsed.data.code.toUpperCase(),session.sessionId,parsed.data.questionId,
+        parsed.data.answer,parsed.data.clientSubmissionId
+      );
+      emitFootballState(room.code);
+      if(room.status==="playing") scheduleFootballAdvance(room.code);
+      else{
+        const old=footballKickTimers.get(room.code);
+        if(old) clearTimeout(old);
+        footballKickTimers.delete(room.code);
+      }
+      ack?.({ok:true,room:footballRooms.publicSnapshot(room.code)});
+    }catch(error){
+      ack?.({ok:false,error:errorMessage(error)});
+    }
+  });
+
+  socket.on("football:sync",(payload:unknown,ack?:Ack)=>{
+    const parsed=footballRoomActionSchema.safeParse(payload);
+    if(!parsed.success) return ack?.({ok:false,error:"Dados inválidos."});
+    try{
+      const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
+      footballRooms.reconnect(parsed.data.code.toUpperCase(),session.sessionId);
+      ack?.({ok:true,room:footballRooms.publicSnapshot(parsed.data.code.toUpperCase())});
+    }catch(error){
+      ack?.({ok:false,error:errorMessage(error)});
+    }
+  });
+
+  socket.on("football:rematch",(payload:unknown,ack?:Ack)=>{
+    const parsed=footballRoomActionSchema.safeParse(payload);
+    if(!parsed.success) return ack?.({ok:false,error:"Dados inválidos."});
+    try{
+      const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
+      const room=footballRooms.rematch(parsed.data.code.toUpperCase(),session.sessionId);
+      emitFootballState(room.code);
+      scheduleFootballKick(room.code);
+      ack?.({ok:true,room:footballRooms.publicSnapshot(room.code)});
+    }catch(error){
+      ack?.({ok:false,error:errorMessage(error)});
+    }
+  });
+
+  socket.on("football:leave",(payload:unknown,ack?:Ack)=>{
+    const parsed=footballRoomActionSchema.safeParse(payload);
+    if(!parsed.success) return ack?.({ok:false,error:"Dados inválidos."});
+    try{
+      const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
+      const room=footballRooms.abandon(parsed.data.code.toUpperCase(),session.sessionId);
+      const old=footballKickTimers.get(room.code);
+      if(old) clearTimeout(old);
+      footballKickTimers.delete(room.code);
+      emitFootballState(room.code);
+      ack?.({ok:true,room:footballRooms.publicSnapshot(room.code)});
+    }catch(error){
+      ack?.({ok:false,error:errorMessage(error)});
+    }
+  });
+
   socket.on("disconnect",()=>{
     const sessionId=socket.data.sessionId as string|undefined;
     const crazyCode=socket.data.crazyCode as string|undefined;
     const numberCode=socket.data.numberCode as string|undefined;
+    const footballCode=socket.data.footballCode as string|undefined;
     if(sessionId && sessionSockets.get(sessionId)===socket.id) sessionSockets.delete(sessionId);
     if(sessionId && crazyCode){
       crazyRooms.disconnect(crazyCode,sessionId);
@@ -409,6 +603,25 @@ io.on("connection", socket => {
       numberRooms.disconnect(numberCode,sessionId);
       emitNumberState(numberCode);
     }
+    if(sessionId && footballCode){
+      footballRooms.disconnect(footballCode,sessionId);
+      emitFootballState(footballCode);
+      const previous=footballAbandonTimers.get(sessionId);
+      if(previous) clearTimeout(previous);
+      const timer=setTimeout(()=>{
+        const room=footballRooms.getRoom(footballCode);
+        const member=room?.members.find(m=>m.sessionId===sessionId);
+        if(room?.status==="playing"&&member&&!member.connected){
+          footballRooms.abandon(footballCode,sessionId,Date.now());
+          const kickTimer=footballKickTimers.get(footballCode);
+          if(kickTimer) clearTimeout(kickTimer);
+          footballKickTimers.delete(footballCode);
+          emitFootballState(footballCode);
+        }
+        footballAbandonTimers.delete(sessionId);
+      },45_000);
+      footballAbandonTimers.set(sessionId,timer);
+    }
   });
 });
 
@@ -416,6 +629,7 @@ setInterval(() => {
   manager.cleanup();
   crazyRooms.cleanup();
   numberRooms.cleanup();
+  footballRooms.cleanup();
 }, 15_000).unref();
 
 const port=Number(process.env.PORT ?? 3001);

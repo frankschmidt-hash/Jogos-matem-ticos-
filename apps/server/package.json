@@ -12,6 +12,7 @@
     "@fastify/cors": "^10.1.0",
     "@jogos/crazy-race": "0.1.0",
     "@jogos/math-engine": "0.1.0",
+    "@jogos/math-football": "0.1.0",
     "@jogos/protocol": "0.1.0",
     "fastify": "^5.6.1",
     "socket.io": "^4.8.1",

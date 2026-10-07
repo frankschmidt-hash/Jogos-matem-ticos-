@@ -55,3 +55,21 @@ export const numberAnswerSchema=numberRoomActionSchema.extend({
   answer:z.string().min(1).max(64),
   clientSubmissionId:z.string().min(8).max(120)
 });
+
+
+export const footballCreateRoomSchema=heartbeatSchema.extend({
+  password:z.string().min(4).max(32),
+  gradeLevel:gradeLevelSchema
+});
+export const footballJoinRoomSchema=heartbeatSchema.extend({
+  code:z.string().min(4).max(8),
+  password:z.string().min(4).max(32)
+});
+export const footballRoomActionSchema=heartbeatSchema.extend({
+  code:z.string().min(4).max(8)
+});
+export const footballAnswerSchema=footballRoomActionSchema.extend({
+  questionId:z.string().min(3).max(160),
+  answer:z.string().min(1).max(64),
+  clientSubmissionId:z.string().min(8).max(120)
+});

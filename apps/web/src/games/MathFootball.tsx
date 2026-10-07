@@ -1,0 +1,427 @@
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { io, type Socket } from "socket.io-client";
+import {
+  DEFAULT_SOLO_KICK_MS, createPenaltyMatch, npcDecision, openNextKick, startKick,
+  statsFor, submitKick, timeoutKick, type NpcSkill, type PenaltyMatchState,
+  type PenaltyPlayer
+} from "@jogos/math-football";
+import { generateQuestion, validateAnswer } from "@jogos/math-engine";
+import { HelpRules, ResultFeedback } from "@jogos/ui";
+import { apiBase, type ClientSession } from "../session";
+import "./math-football.css";
+
+type RoomQuestion={
+  id:string;
+  expression:string;
+  gradeLevel:number;
+  difficulty:number;
+  deadlineAt:number|null;
+};
+type FootballRoom={
+  code:string;
+  hostSessionId:string;
+  gradeLevel:5|6|7|"mixed";
+  members:Array<{sessionId:string;nickname:string;connected:boolean}>;
+  status:"waiting"|"playing"|"finished";
+  match:PenaltyMatchState|null;
+  question:RoomQuestion|null;
+  lastCorrectAnswer:string|null;
+  updatedAt:number;
+};
+type AckResponse={ok:boolean;room?:FootballRoom;error?:string};
+
+const ROOM_KEY="math-football-room-code";
+const auth=(session:ClientSession)=>({sessionId:session.sessionId,reconnectToken:session.reconnectToken});
+
+function useNow(active:boolean){
+  const [now,setNow]=useState(Date.now());
+  useEffect(()=>{
+    if(!active) return;
+    const timer=window.setInterval(()=>setNow(Date.now()),200);
+    return ()=>window.clearInterval(timer);
+  },[active]);
+  return now;
+}
+
+function secondsLeft(deadline:number|null|undefined,now:number){
+  return deadline?Math.max(0,Math.ceil((deadline-now)/1000)):0;
+}
+
+function PlayerDots({match,player}:{match:PenaltyMatchState;player:PenaltyPlayer}){
+  const kicks=match.history.filter(k=>k.shooterId===player.id);
+  return <div className="football-dots" aria-label={"Cobranças de "+player.name}>
+    {Array.from({length:Math.max(5,kicks.length)},(_,index)=>{
+      const kick=kicks[index];
+      return <span key={index} className={!kick?"pending":kick.goal?"goal":"save"} title={kick?kick.goal?"Gol":"Defesa":"Pendente"}>
+        {kick?kick.goal?"✓":"×":"•"}
+      </span>;
+    })}
+  </div>;
+}
+
+function Scoreboard({match}:{match:PenaltyMatchState}){
+  const [a,b]=match.players;
+  return <section className="football-scoreboard">
+    <article>
+      <strong>{a.name}</strong>
+      <b>{match.goals[a.id]??0}</b>
+      <PlayerDots match={match} player={a}/>
+    </article>
+    <div className="football-score-divider">
+      <span>{match.suddenDeath?"Morte súbita":"Pênaltis"}</span>
+      <small>Cobrança {match.kickNumber}</small>
+    </div>
+    <article>
+      <strong>{b.name}</strong>
+      <b>{match.goals[b.id]??0}</b>
+      <PlayerDots match={match} player={b}/>
+    </article>
+  </section>;
+}
+
+function Stadium({match}:{match:PenaltyMatchState}){
+  const last=match.lastKick;
+  const animation=last?(last.goal?"is-goal":"is-save"):"";
+  return <section className={"football-stadium "+animation} key={"stadium-"+match.history.length}>
+    <div className="football-lights left"/>
+    <div className="football-lights right"/>
+    <div className="football-crowd" aria-hidden="true"/>
+    <div className="football-goal">
+      <div className="football-net"/>
+      <div className="football-keeper"><span/></div>
+    </div>
+    <div className="football-spot"/>
+    <div className="football-player"><span/></div>
+    <div className="football-ball"/>
+    {last&&<div className="football-result-badge">{last.goal?"GOL!":"DEFENDEU!"}</div>}
+  </section>;
+}
+
+function FinalPanel({
+  match,humanId,onAgain,onLobby
+}:{match:PenaltyMatchState;humanId:string;onAgain:()=>void;onLobby:()=>void}){
+  const [a,b]=match.players;
+  const aStats=statsFor(match,a.id);
+  const bStats=statsFor(match,b.id);
+  const winner=match.players.find(p=>p.id===match.winnerId);
+  const humanWon=match.winnerId===humanId;
+  return <section className="panel football-final">
+    <img src="/assets/math-football/football-trophy.svg" alt="" className="football-trophy"/>
+    <p className="eyebrow">{match.finishReason==="abandonment"?"Partida encerrada por abandono":"Disputa encerrada"}</p>
+    <h1>{winner?winner.name+" venceu!":"Fim de jogo"}</h1>
+    <p className="football-final-score">{match.goals[a.id]} × {match.goals[b.id]}</p>
+    <p>{humanWon?"Vitória confirmada.":"Resultado final confirmado."}</p>
+    <div className="football-stats">
+      {[{p:a,s:aStats},{p:b,s:bStats}].map(({p,s})=><article key={p.id} className={p.id===humanId?"you":""}>
+        <strong>{p.name}</strong>
+        <span>{s.correctAnswers} acertos</span>
+        <span>{s.errors} erros</span>
+        <span>{s.accuracy}% de aproveitamento</span>
+      </article>)}
+    </div>
+    <div className="football-final-actions">
+      <button onClick={onAgain}>Revanche</button>
+      <button className="button-ghost" onClick={onLobby}>Voltar ao lobby</button>
+    </div>
+  </section>;
+}
+
+function makeSoloMatch(session:ClientSession,skill:NpcSkill,timeMs:number){
+  const base=createPenaltyMatch([
+    {id:session.sessionId,name:session.nickname,kind:"human"},
+    {id:"football-npc",name:skill==="easy"?"Goleiro Júnior":skill==="medium"?"Goleiro Prisma":"Goleiro Mestre",kind:"npc",npcSkill:skill}
+  ]);
+  return startKick(base,Date.now(),timeMs>0?timeMs:null);
+}
+
+function SoloFootball({
+  session,skill,timeMs,onExit
+}:{session:ClientSession;skill:NpcSkill;timeMs:number;onExit:()=>void}){
+  const [match,setMatch]=useState<PenaltyMatchState>(()=>makeSoloMatch(session,skill,timeMs));
+  const [answer,setAnswer]=useState("");
+  const [feedback,setFeedback]=useState<"correct"|"incorrect"|null>(null);
+  const [correctAnswer,setCorrectAnswer]=useState<string|null>(null);
+  const npcPending=useRef(false);
+  const timedOutKick=useRef(0);
+  const now=useNow(match.phase==="kick-open"&&match.currentShooterId===session.sessionId&&match.kickDeadlineAt!==null);
+  const current=match.players.find(p=>p.id===match.currentShooterId)!;
+  const humanTurn=current.id===session.sessionId;
+  const question=useMemo(()=>{
+    if(match.phase!=="kick-open"||!humanTurn) return null;
+    return generateQuestion(session.gradeLevel,{
+      difficulty:match.kickNumber<4?1:match.kickNumber<8?2:3,
+      seed:"football-solo-"+session.sessionId+"-"+match.kickNumber+"-"+match.history.length
+    });
+  },[humanTurn,match.history.length,match.kickNumber,match.phase,session.gradeLevel,session.sessionId]);
+
+  useEffect(()=>{
+    if(match.phase!=="kick-open"||humanTurn||current.kind!=="npc"||npcPending.current) return;
+    npcPending.current=true;
+    const decision=npcDecision(current.npcSkill??skill);
+    const timer=window.setTimeout(()=>{
+      setMatch(state=>submitKick(state,current.id,decision.correct,Date.now(),"npc"));
+      npcPending.current=false;
+    },decision.thinkingMs);
+    return ()=>window.clearTimeout(timer);
+  },[current,humanTurn,match.phase,skill]);
+
+  useEffect(()=>{
+    if(!humanTurn||match.phase!=="kick-open"||match.kickDeadlineAt===null||now<match.kickDeadlineAt) return;
+    if(timedOutKick.current===match.kickNumber) return;
+    timedOutKick.current=match.kickNumber;
+    if(question) setCorrectAnswer(question.correctAnswer);
+    setFeedback("incorrect");
+    setMatch(state=>timeoutKick(state,Date.now()));
+  },[humanTurn,match.kickDeadlineAt,match.kickNumber,match.phase,now,question]);
+
+  useEffect(()=>{
+    if(match.phase!=="kick-resolution") return;
+    const timer=window.setTimeout(()=>{
+      setMatch(state=>openNextKick(state,Date.now(),timeMs>0?timeMs:null));
+      setAnswer("");
+      setFeedback(null);
+      setCorrectAnswer(null);
+    },1300);
+    return ()=>window.clearTimeout(timer);
+  },[match.phase,timeMs]);
+
+  const submit=(event:FormEvent)=>{
+    event.preventDefault();
+    if(!question||match.phase!=="kick-open"||!humanTurn) return;
+    const correct=validateAnswer(question,answer);
+    setFeedback(correct?"correct":"incorrect");
+    setCorrectAnswer(correct?null:question.correctAnswer);
+    setMatch(state=>submitKick(state,session.sessionId,correct,Date.now(),"answer"));
+  };
+
+  const restart=()=>{
+    setMatch(makeSoloMatch(session,skill,timeMs));
+    setAnswer("");
+    setFeedback(null);
+    setCorrectAnswer(null);
+    npcPending.current=false;
+    timedOutKick.current=0;
+  };
+
+  if(match.phase==="finished"){
+    return <main className="football-shell"><FinalPanel match={match} humanId={session.sessionId} onAgain={restart} onLobby={onExit}/></main>;
+  }
+
+  return <main className="football-page">
+    <header className="football-header">
+      <div><p className="eyebrow">Modo solo · {skill==="easy"?"Fácil":skill==="medium"?"Médio":"Difícil"}</p><h1>Futebol Matemático</h1></div>
+      <button className="button-ghost" onClick={()=>window.confirm("Sair da disputa atual?")&&onExit()}>Sair</button>
+    </header>
+    <Scoreboard match={match}/>
+    <Stadium match={match}/>
+    <section className="football-question">
+      <p className="eyebrow">{humanTurn?"Sua cobrança":current.name+" está cobrando"}</p>
+      {humanTurn&&question?<><h2>{question.expression}</h2>
+        <form onSubmit={submit}>
+          <input inputMode="decimal" value={answer} onChange={e=>setAnswer(e.target.value)} placeholder="Digite sua resposta"/>
+          <button>Chutar</button>
+        </form>
+        {match.kickDeadlineAt!==null&&<div className={"football-timer "+(secondsLeft(match.kickDeadlineAt,now)<=5?"danger":"")}>{secondsLeft(match.kickDeadlineAt,now)}s</div>}
+      </>:<div className="football-npc-thinking"><span/>Resolvendo a conta...</div>}
+      {feedback&&<ResultFeedback status={feedback}/>}
+      {feedback==="incorrect"&&correctAnswer&&<p className="football-correction">Resposta correta: <strong>{correctAnswer}</strong></p>}
+    </section>
+  </main>;
+}
+
+function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}){
+  const socket=useMemo<Socket>(()=>io(apiBase,{transports:["websocket"],autoConnect:true}),[]);
+  const [room,setRoom]=useState<FootballRoom|null>(null);
+  const [mode,setMode]=useState<"menu"|"create"|"join">("menu");
+  const [password,setPassword]=useState("");
+  const [code,setCode]=useState("");
+  const [grade,setGrade]=useState<5|6|7|"mixed">(session.gradeLevel);
+  const [answer,setAnswer]=useState("");
+  const [error,setError]=useState("");
+  const now=useNow(Boolean(room?.match?.phase==="kick-open"));
+  const authData=()=>auth(session);
+
+  const apply=(response:AckResponse)=>{
+    if(!response.ok){
+      setError(response.error??"Operação não concluída.");
+      return false;
+    }
+    if(response.room){
+      setRoom(response.room);
+      sessionStorage.setItem(ROOM_KEY,response.room.code);
+    }
+    setError("");
+    return true;
+  };
+
+  useEffect(()=>{
+    const stateHandler=(next:FootballRoom)=>{
+      setRoom(next);
+      if(next.match?.phase==="kick-open") setAnswer("");
+    };
+    const reconnect=()=>{
+      const saved=sessionStorage.getItem(ROOM_KEY);
+      if(!saved) return;
+      socket.emit("football:reconnect-room",{...auth(session),code:saved},(response:AckResponse)=>{
+        if(response.ok&&response.room) setRoom(response.room);
+        else sessionStorage.removeItem(ROOM_KEY);
+      });
+    };
+    socket.on("football:room-state",stateHandler);
+    socket.on("connect",reconnect);
+    if(socket.connected) reconnect();
+    return ()=>{
+      socket.off("football:room-state",stateHandler);
+      socket.off("connect",reconnect);
+      socket.disconnect();
+    };
+  },[socket,session.sessionId,session.reconnectToken]);
+
+  const create=()=>socket.emit("football:create-room",{...authData(),password,gradeLevel:grade},(response:AckResponse)=>apply(response));
+  const join=()=>socket.emit("football:join-room",{...authData(),code:code.trim().toUpperCase(),password},(response:AckResponse)=>apply(response));
+  const start=()=>room&&socket.emit("football:start",{...authData(),code:room.code},(response:AckResponse)=>apply(response));
+  const rematch=()=>room&&socket.emit("football:rematch",{...authData(),code:room.code},(response:AckResponse)=>apply(response));
+  const submit=(event:FormEvent)=>{
+    event.preventDefault();
+    if(!room?.question) return;
+    socket.emit("football:answer",{
+      ...authData(),code:room.code,questionId:room.question.id,answer,
+      clientSubmissionId:crypto.randomUUID()
+    },(response:AckResponse)=>{
+      if(apply(response)) setAnswer("");
+    });
+  };
+  const leave=()=>{
+    if(room){
+      socket.emit("football:leave",{...authData(),code:room.code},()=>{});
+    }
+    sessionStorage.removeItem(ROOM_KEY);
+    socket.disconnect();
+    onExit();
+  };
+
+  if(!room){
+    return <main className="football-shell"><section className="panel football-online-menu">
+      <img src="/assets/math-football/football-emblem.svg" alt="" className="football-logo"/>
+      <p className="eyebrow">Duelo online</p>
+      <h1>Futebol Matemático</h1>
+      {mode==="menu"?<div className="football-online-actions">
+        <button onClick={()=>setMode("create")}>Criar sala</button>
+        <button className="button-secondary" onClick={()=>setMode("join")}>Entrar em sala</button>
+        <button className="button-ghost" onClick={onExit}>Voltar</button>
+      </div>:<div className="stack">
+        {mode==="create"&&<label>Nível da sala
+          <select value={grade} onChange={e=>setGrade(e.target.value==="mixed"?"mixed":Number(e.target.value) as 5|6|7)}>
+            <option value={5}>5º ano</option><option value={6}>6º ano</option><option value={7}>7º ano</option><option value="mixed">Misto</option>
+          </select>
+        </label>}
+        {mode==="join"&&<label>Código da sala<input value={code} onChange={e=>setCode(e.target.value.toUpperCase())} maxLength={6}/></label>}
+        <label>Senha<input type="password" value={password} onChange={e=>setPassword(e.target.value)} minLength={4} maxLength={32}/></label>
+        <button onClick={mode==="create"?create:join}>{mode==="create"?"Criar sala":"Entrar"}</button>
+        <button className="button-ghost" onClick={()=>setMode("menu")}>Cancelar</button>
+      </div>}
+      {error&&<p className="error">{error}</p>}
+    </section></main>;
+  }
+
+  if(room.status==="waiting"){
+    const isHost=room.hostSessionId===session.sessionId;
+    return <main className="football-shell"><section className="panel football-room-lobby">
+      <p className="eyebrow">Sala privada · 2 jogadores</p>
+      <h1>{room.code}</h1>
+      <p>Nível: <strong>{room.gradeLevel==="mixed"?"Misto":room.gradeLevel+"º ano"}</strong></p>
+      <div className="football-members">
+        {room.members.map(member=><div key={member.sessionId}>
+          <span className={member.connected?"online-dot":"online-dot offline"}/>
+          <strong>{member.nickname}</strong>
+          {member.sessionId===room.hostSessionId&&<small>Host</small>}
+        </div>)}
+      </div>
+      {isHost?<button disabled={room.members.length!==2} onClick={start}>{room.members.length===2?"Iniciar disputa":"Aguardando adversário"}</button>:<p>Aguardando o host iniciar...</p>}
+      <button className="button-ghost" onClick={leave}>Sair da sala</button>
+      {error&&<p className="error">{error}</p>}
+    </section></main>;
+  }
+
+  if(!room.match) return <main className="football-shell"><p>Sincronizando partida...</p></main>;
+
+  if(room.status==="finished"||room.match.phase==="finished"){
+    return <main className="football-shell">
+      <FinalPanel match={room.match} humanId={session.sessionId} onAgain={rematch} onLobby={leave}/>
+      {error&&<p className="error">{error}</p>}
+    </main>;
+  }
+
+  const shooter=room.match.players.find(p=>p.id===room.match!.currentShooterId)!;
+  const myTurn=shooter.id===session.sessionId;
+  const resolving=room.match.phase==="kick-resolution";
+
+  return <main className="football-page">
+    <header className="football-header">
+      <div><p className="eyebrow">Sala {room.code} · {socket.connected?"Conectado":"Reconectando"}</p><h1>Futebol Matemático</h1></div>
+      <button className="button-ghost" onClick={()=>window.confirm("Abandonar a partida?")&&leave()}>Sair</button>
+    </header>
+    <Scoreboard match={room.match}/>
+    <Stadium match={room.match}/>
+    <section className="football-question">
+      {resolving&&room.match.lastKick?<><p className="eyebrow">{room.match.lastKick.shooterName}</p>
+        <h2>{room.match.lastKick.goal?"Gol confirmado pelo servidor":"Defesa confirmada pelo servidor"}</h2>
+        <ResultFeedback status={room.match.lastKick.correct?"correct":"incorrect"}/>
+        {!room.match.lastKick.correct&&room.lastCorrectAnswer&&<p className="football-correction">Resposta correta: <strong>{room.lastCorrectAnswer}</strong></p>}
+      </>:<>
+        <p className="eyebrow">{myTurn?"Sua vez de cobrar":"Cobrança de "+shooter.name}</p>
+        <h2>{room.question?.expression??"Preparando cobrança..."}</h2>
+        {myTurn&&room.question?<form onSubmit={submit}>
+          <input inputMode="decimal" value={answer} onChange={e=>setAnswer(e.target.value)} placeholder="Digite sua resposta"/>
+          <button>Chutar</button>
+        </form>:<p className="football-wait">Aguardando a resposta do adversário.</p>}
+        {room.question?.deadlineAt&&<div className={"football-timer "+(secondsLeft(room.question.deadlineAt,now)<=5?"danger":"")}>{secondsLeft(room.question.deadlineAt,now)}s</div>}
+      </>}
+      {error&&<p className="error">{error}</p>}
+    </section>
+  </main>;
+}
+
+export function MathFootball({session}:{session:ClientSession}){
+  const [mode,setMode]=useState<"setup"|"solo"|"online">("setup");
+  const [skill,setSkill]=useState<NpcSkill>("medium");
+  const [timeMs,setTimeMs]=useState(DEFAULT_SOLO_KICK_MS);
+
+  if(mode==="solo") return <SoloFootball session={session} skill={skill} timeMs={timeMs} onExit={()=>setMode("setup")}/>;
+  if(mode==="online") return <OnlineFootball session={session} onExit={()=>setMode("setup")}/>;
+
+  return <main className="football-shell"><section className="panel football-setup">
+    <img src="/assets/math-football/football-emblem.svg" alt="" className="football-logo"/>
+    <p className="eyebrow">Matemática decide a cobrança</p>
+    <h1>Futebol Matemático</h1>
+    <p>Resolva a conta antes do chute. Acertou: gol. Errou: o goleiro defende. A disputa segue as regras de uma série de pênaltis.</p>
+    <div className="football-options">
+      <label>Nível do NPC
+        <select value={skill} onChange={e=>setSkill(e.target.value as NpcSkill)}>
+          <option value="easy">Fácil</option><option value="medium">Médio</option><option value="hard">Difícil</option>
+        </select>
+      </label>
+      <label>Tempo pedagógico no modo solo
+        <select value={timeMs} onChange={e=>setTimeMs(Number(e.target.value))}>
+          <option value={60000}>60 segundos</option>
+          <option value={90000}>90 segundos</option>
+          <option value={0}>Sem cronômetro</option>
+        </select>
+      </label>
+    </div>
+    <div className="football-mode-grid">
+      <button onClick={()=>setMode("solo")}><strong>Contra NPC</strong><span>Treino individual</span></button>
+      <button onClick={()=>setMode("online")}><strong>Jogador × Jogador</strong><span>Sala com código e senha</span></button>
+    </div>
+    <HelpRules>
+      <ul>
+        <li>Cada lado começa com 5 cobranças.</li>
+        <li>Acerto matemático resulta em gol; erro resulta em defesa.</li>
+        <li>A série termina antes se um jogador não puder mais alcançar o outro.</li>
+        <li>Empate após cinco cobranças por lado leva à morte súbita.</li>
+        <li>No online, cada cobrança tem limite anti-abandono de 30 segundos.</li>
+      </ul>
+    </HelpRules>
+    <a className="button button-ghost" href="/lobby">Voltar ao lobby</a>
+  </section></main>;
+}
