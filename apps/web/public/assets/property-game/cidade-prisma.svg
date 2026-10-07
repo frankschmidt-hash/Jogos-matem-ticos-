@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-labelledby="t d">
+<title id="t">Símbolo original da Cidade Prisma</title><desc id="d">Emblema geométrico com prédios e um prisma central.</desc>
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#243b77"/><stop offset="1" stop-color="#6e4ecf"/></linearGradient></defs>
+<circle cx="120" cy="120" r="108" fill="#f7f3ff" stroke="#243b77" stroke-width="8"/>
+<path d="M40 168V96h34v72M82 168V70h42v98M132 168v-88h30v88M170 168v-58h30v58" fill="none" stroke="#243b77" stroke-width="9" stroke-linejoin="round"/>
+<path d="M120 34l38 54-38 34-38-34z" fill="url(#g)" opacity=".95"/>
+<path d="M82 88h76M120 34v88" stroke="#fff" stroke-width="4" opacity=".8"/>
+<path d="M36 174h168" stroke="#e09f3e" stroke-width="10" stroke-linecap="round"/>
+</svg>
