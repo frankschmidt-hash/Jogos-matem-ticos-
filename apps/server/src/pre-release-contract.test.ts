@@ -45,6 +45,21 @@ describe("Prompt 08 pre-release contracts",()=>{
     expect(index).toContain('pruneMissingTimers(footballKickTimers');
   });
 
+  it("feedback pedagógico informa a resposta correta nos quatro jogos",()=>{
+    const property=web("src/games/PropertyGame.tsx");
+    const crazy=web("src/games/CrazyRace.tsx");
+    const number=web("src/games/NumberRace.tsx");
+    const football=web("src/games/MathFootball.tsx");
+    expect(property).toContain("Resposta correta:");
+    expect(crazy).toContain("Resposta correta:");
+    expect(crazy).toContain("Resposta correta da rodada:");
+    expect(crazy).toContain("Bomba matemática — resposta correta:");
+    expect(number).toContain("Resposta correta:");
+    expect(number).toContain("Resposta correta da rodada:");
+    expect(football).toContain("Resposta correta:");
+  });
+
+
   it("não expõe chat livre nem exige cadastro no fluxo escolar",()=>{
     const app=web("src/App.tsx");
     const index=server("index.ts");
