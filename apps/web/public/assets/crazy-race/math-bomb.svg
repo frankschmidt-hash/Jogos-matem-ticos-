@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="t">
+<title id="t">Bomba matemática estilizada</title>
+<circle cx="76" cy="88" r="47" fill="#263d75" stroke="#122148" stroke-width="7"/>
+<path d="M103 53c8-20 18-25 31-26" fill="none" stroke="#71522a" stroke-width="10" stroke-linecap="round"/>
+<path d="M133 20l5 12 13 1-10 8 3 13-11-7-12 7 4-13-10-8 13-1z" fill="#f5b642"/>
+<text x="47" y="101" font-family="Arial,sans-serif" font-size="38" font-weight="900" fill="white">?</text>
+<path d="M94 77h28M108 63v28" stroke="#f4c04b" stroke-width="7" stroke-linecap="round"/>
+</svg>
