@@ -1,0 +1,29 @@
+name: Prompt 02 CI
+
+on:
+  push:
+    branches:
+      - feat/prompt-02-property-game
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate-property-game:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Property game focused tests
+        run: npm run test -w @jogos/property-game
+      - name: Math engine compatibility tests
+        run: npm run test -w @jogos/math-engine
+      - name: Build
+        run: npm run build
