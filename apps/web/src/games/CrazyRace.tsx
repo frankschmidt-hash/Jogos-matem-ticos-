@@ -32,7 +32,7 @@ type OnlineRoom = {
 };
 
 type BombQuestion = {id:string;expression:string;deadlineAt:number};
-type AckResponse = {ok:boolean;room?:OnlineRoom;error?:string;targetId?:string;bombQuestion?:BombQuestion|null};
+type AckResponse = {ok:boolean;room?:OnlineRoom;error?:string;targetId?:string;bombQuestion?:BombQuestion|null;bombCorrection?:string|null};
 
 const ROOM_KEY="crazy-race-room-code";
 
@@ -293,6 +293,7 @@ function OnlineRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
   const [answer,setAnswer]=useState("");
   const [bombQuestion,setBombQuestion]=useState<BombQuestion|null>(null);
   const [bombAnswer,setBombAnswer]=useState("");
+  const [bombCorrection,setBombCorrection]=useState<string|null>(null);
   const now=useNow(Boolean(room?.race?.phase==="round-open"),room?.serverNow);
   const roomRef=useRef<OnlineRoom|null>(null);
 
@@ -315,7 +316,10 @@ function OnlineRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
 
   useEffect(()=>{
     const stateHandler=(next:OnlineRoom)=>setRoom(next);
-    const bombHandler=(q:BombQuestion)=>setBombQuestion(q);
+    const bombHandler=(q:BombQuestion)=>{
+      setBombCorrection(null);
+      setBombQuestion(q);
+    };
     const connectHandler=()=>{
       const saved=sessionStorage.getItem(ROOM_KEY);
       if(!saved) return;
@@ -371,6 +375,7 @@ function OnlineRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
       ...auth(session),code:room.code,questionId:bombQuestion.id,answer:bombAnswer,clientSubmissionId:crypto.randomUUID()
     },(response:AckResponse)=>{
       if(applyAck(response)){
+        setBombCorrection(response.bombCorrection??null);
         setBombQuestion(null);
         setBombAnswer("");
       }
@@ -465,6 +470,7 @@ function OnlineRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
         {answered&&room.question&&<p className="race-waiting">Aguardando o encerramento oficial da rodada.</p>}
         {!room.question&&room.lastCorrectAnswer&&<p className="math-correction">Resposta correta da rodada: <strong>{room.lastCorrectAnswer}</strong></p>}
         {human?.blockedRound===room.race.round&&<p className="bomb-warning">Você foi bloqueado por uma bomba nesta rodada.</p>}
+        {bombCorrection&&<p className="math-correction">Bomba matemática — resposta correta: <strong>{bombCorrection}</strong></p>}
         {error&&<p className="error" role="alert">{error}</p>}
       </section>
 
