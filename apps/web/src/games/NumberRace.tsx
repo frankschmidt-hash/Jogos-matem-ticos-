@@ -168,7 +168,7 @@ function SoloNumberRace({session,onExit}:{session:ClientSession;onExit:()=>void}
         setError("");
         return next;
       });
-    },1000);
+    },1600);
     return ()=>window.clearTimeout(timer);
   },[race.phase,session.gradeLevel,session.sessionId]);
 
