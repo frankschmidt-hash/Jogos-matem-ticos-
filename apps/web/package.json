@@ -5,6 +5,7 @@
   "type":"module",
   "scripts":{"dev":"vite","build":"tsc -b && vite build","typecheck":"tsc -b --pretty false"},
   "dependencies":{
+    "@jogos/crazy-race":"0.1.0",
     "@jogos/game-core":"0.1.0",
     "@jogos/math-engine":"0.1.0",
     "@jogos/property-game":"0.1.0",
