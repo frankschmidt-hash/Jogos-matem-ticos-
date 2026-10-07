@@ -96,7 +96,8 @@ const grade5 = (r: Random, difficulty: Difficulty, seed?: string): MathQuestion 
     const divisor=int(r,2,difficulty===3?20:12), quotient=int(r,2,difficulty===1?10:20);
     return q(5,category,`${divisor*quotient} ÷ ${divisor}`,String(quotient),difficulty,seed);
   }
-  const a=int(r,1,99)/10, b=int(r,1,99)/10;
+  const decimalMax=difficulty===1?49:difficulty===2?99:199;
+  const a=int(r,1,decimalMax)/10, b=int(r,1,decimalMax)/10;
   const answer=(a+b).toFixed(1).replace(/\.0$/,"");
   return q(5,category,`${a.toFixed(1).replace('.', ',')} + ${b.toFixed(1).replace('.', ',')}`,answer,difficulty,seed,[answer.replace('.', ',')]);
 };
