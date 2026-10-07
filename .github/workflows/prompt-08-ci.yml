@@ -1,0 +1,35 @@
+name: Prompt 08 CI
+
+on:
+  push:
+    branches:
+      - feat/prompt-08-qa-balance
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  pre-release-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Math engine pedagogical audit
+        run: npm run test -w @jogos/math-engine
+      - name: Focused game balance suites
+        run: |
+          npm run test -w @jogos/property-game
+          npm run test -w @jogos/crazy-race
+          npm run test -w @jogos/number-race
+          npm run test -w @jogos/math-football
+      - name: Rooms performance and classroom contracts
+        run: npm run test -w @jogos/server -- timer-registry.test.ts pre-release-contract.test.ts room-infrastructure.test.ts multiplayer-consolidation.test.ts
+      - name: Build
+        run: npm run build
