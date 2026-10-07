@@ -113,9 +113,11 @@ describe("Banco Imobiliário Matemático",()=>{
     expect(s.players[0]!.balance).toBeGreaterThan(before);
   });
 
-  it("tabuleiro possui 36 casas originais",()=>{
+  it("tabuleiro possui 36 casas e propriedades com nomes próprios",()=>{
     expect(BOARD).toHaveLength(36);
-    expect(new Set(BOARD.map(s=>s.name)).size).toBe(36);
+    expect(new Set(BOARD.map(s=>s.index)).size).toBe(36);
+    const propertyNames=BOARD.filter(s=>s.type==="property").map(s=>s.name);
+    expect(new Set(propertyNames).size).toBe(propertyNames.length);
   });
 
   it("patrimônio considera caixa e propriedades",()=>{
