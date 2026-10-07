@@ -9,7 +9,8 @@ export type ClientSession = {
 };
 
 const KEY="jogos-matematicos-session";
-export const apiBase=import.meta.env.VITE_API_URL ?? "http://localhost:3001";
+const configuredApi=import.meta.env.VITE_API_URL;
+export const apiBase=configuredApi!==undefined ? configuredApi : (import.meta.env.PROD ? "" : "http://localhost:3001");
 
 export const saveSession=(s:ClientSession)=>localStorage.setItem(KEY,JSON.stringify(s));
 export const loadSession=():ClientSession|null=>{
