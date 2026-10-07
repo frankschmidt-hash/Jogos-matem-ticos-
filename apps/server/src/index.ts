@@ -12,10 +12,11 @@ import { SessionManager } from "./session-manager";
 import { CrazyRaceRoomManager } from "./crazy-race-room-manager";
 import { NumberRaceRoomManager } from "./number-race-room-manager";
 import { FootballRoomManager } from "./football-room-manager";
+import { roomInfrastructure } from "./room-infrastructure";
 
 const app = Fastify({ logger: true, bodyLimit: 16_384 });
-const webOrigin = process.env.WEB_ORIGIN ?? "http://localhost:5173";
-await app.register(cors, { origin: webOrigin, methods:["GET","POST"] });
+const allowedOrigins=(process.env.WEB_ORIGIN ?? "http://localhost:5173").split(",").map(x=>x.trim()).filter(Boolean);
+await app.register(cors, { origin: allowedOrigins, methods:["GET","POST"] });
 
 const manager = new SessionManager(
   Number(process.env.SESSION_RECONNECT_GRACE_MS ?? 30_000),
@@ -55,12 +56,11 @@ app.post("/api/session/reconnect", async (request, reply) => {
   catch { return reply.code(401).send({ok:false,error:"Sessão inválida ou expirada."}); }
 });
 
-const io = new Server(app.server, { cors:{origin:webOrigin,methods:["GET","POST"]} });
+const io = new Server(app.server, { cors:{origin:allowedOrigins,methods:["GET","POST"]}, maxHttpBufferSize:16_384 });
 const sessionSockets=new Map<string,string>();
 const raceTimers=new Map<string,ReturnType<typeof setTimeout>>();
 const numberRaceTimers=new Map<string,ReturnType<typeof setTimeout>>();
 const footballKickTimers=new Map<string,ReturnType<typeof setTimeout>>();
-const footballAbandonTimers=new Map<string,ReturnType<typeof setTimeout>>();
 
 type Ack=(response:unknown)=>void;
 
@@ -309,7 +309,7 @@ io.on("connection", socket => {
     try{
       const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
       const result=crazyRooms.useBomb(
-        parsed.data.code.toUpperCase(),session.sessionId,parsed.data.direction
+        parsed.data.code.toUpperCase(),session.sessionId,parsed.data.direction,parsed.data.clientSubmissionId
       );
       emitCrazyState(result.room.code);
       if(result.targetKind==="human") sendBombQuestion(result.room.code,result.targetId);
@@ -325,10 +325,26 @@ io.on("connection", socket => {
     try{
       const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
       const room=crazyRooms.submitBombAnswer(
-        parsed.data.code.toUpperCase(),session.sessionId,parsed.data.questionId,parsed.data.answer
+        parsed.data.code.toUpperCase(),session.sessionId,parsed.data.questionId,
+        parsed.data.answer,parsed.data.clientSubmissionId
       );
       emitCrazyState(room.code);
       ack?.({ok:true,room:crazyRooms.publicSnapshot(room.code)});
+    }catch(error){
+      ack?.({ok:false,error:errorMessage(error)});
+    }
+  });
+
+
+  socket.on("crazy:leave",(payload:unknown,ack?:Ack)=>{
+    const parsed=crazyRoomActionSchema.safeParse(payload);
+    if(!parsed.success) return ack?.({ok:false,error:"Dados inválidos."});
+    try{
+      const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
+      const room=crazyRooms.leaveRoom(parsed.data.code.toUpperCase(),session.sessionId);
+      void socket.leave("crazy:"+parsed.data.code.toUpperCase());
+      if(room) emitCrazyState(room.code);
+      ack?.({ok:true,room:room?crazyRooms.publicSnapshot(room.code):null});
     }catch(error){
       ack?.({ok:false,error:errorMessage(error)});
     }
@@ -438,6 +454,21 @@ io.on("connection", socket => {
     }
   });
 
+
+  socket.on("number:leave",(payload:unknown,ack?:Ack)=>{
+    const parsed=numberRoomActionSchema.safeParse(payload);
+    if(!parsed.success) return ack?.({ok:false,error:"Dados inválidos."});
+    try{
+      const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
+      const room=numberRooms.leaveRoom(parsed.data.code.toUpperCase(),session.sessionId);
+      void socket.leave("number:"+parsed.data.code.toUpperCase());
+      if(room) emitNumberState(room.code);
+      ack?.({ok:true,room:room?numberRooms.publicSnapshot(room.code):null});
+    }catch(error){
+      ack?.({ok:false,error:errorMessage(error)});
+    }
+  });
+
   socket.on("number:sync",(payload:unknown,ack?:Ack)=>{
     const parsed=numberRoomActionSchema.safeParse(payload);
     if(!parsed.success) return ack?.({ok:false,error:"Dados inválidos."});
@@ -497,9 +528,6 @@ io.on("connection", socket => {
     try{
       const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
       const room=footballRooms.reconnect(parsed.data.code.toUpperCase(),session.sessionId);
-      const abandonTimer=footballAbandonTimers.get(session.sessionId);
-      if(abandonTimer) clearTimeout(abandonTimer);
-      footballAbandonTimers.delete(session.sessionId);
       sessionSockets.set(session.sessionId,socket.id);
       socket.data.footballCode=room.code;
       socket.data.sessionId=session.sessionId;
@@ -579,11 +607,14 @@ io.on("connection", socket => {
     try{
       const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
       const room=footballRooms.abandon(parsed.data.code.toUpperCase(),session.sessionId);
-      const old=footballKickTimers.get(room.code);
-      if(old) clearTimeout(old);
-      footballKickTimers.delete(room.code);
-      emitFootballState(room.code);
-      ack?.({ok:true,room:footballRooms.publicSnapshot(room.code)});
+      void socket.leave("football:"+parsed.data.code.toUpperCase());
+      if(room){
+        const old=footballKickTimers.get(room.code);
+        if(old) clearTimeout(old);
+        footballKickTimers.delete(room.code);
+        emitFootballState(room.code);
+      }
+      ack?.({ok:true,room:room?footballRooms.publicSnapshot(room.code):null});
     }catch(error){
       ack?.({ok:false,error:errorMessage(error)});
     }
@@ -606,30 +637,24 @@ io.on("connection", socket => {
     if(sessionId && footballCode){
       footballRooms.disconnect(footballCode,sessionId);
       emitFootballState(footballCode);
-      const previous=footballAbandonTimers.get(sessionId);
-      if(previous) clearTimeout(previous);
-      const timer=setTimeout(()=>{
-        const room=footballRooms.getRoom(footballCode);
-        const member=room?.members.find(m=>m.sessionId===sessionId);
-        if(room?.status==="playing"&&member&&!member.connected){
-          footballRooms.abandon(footballCode,sessionId,Date.now());
-          const kickTimer=footballKickTimers.get(footballCode);
-          if(kickTimer) clearTimeout(kickTimer);
-          footballKickTimers.delete(footballCode);
-          emitFootballState(footballCode);
-        }
-        footballAbandonTimers.delete(sessionId);
-      },45_000);
-      footballAbandonTimers.set(sessionId,timer);
     }
   });
 });
 
 setInterval(() => {
   manager.cleanup();
-  crazyRooms.cleanup();
-  numberRooms.cleanup();
-  footballRooms.cleanup();
+  for(const code of crazyRooms.cleanup()) emitCrazyState(code);
+  for(const code of numberRooms.cleanup()) emitNumberState(code);
+  for(const code of footballRooms.cleanup()){
+    const room=footballRooms.getRoom(code);
+    if(room?.status!=="playing"){
+      const timer=footballKickTimers.get(code);
+      if(timer) clearTimeout(timer);
+      footballKickTimers.delete(code);
+    }
+    emitFootballState(code);
+  }
+  roomInfrastructure.cleanup();
 }, 15_000).unref();
 
 const port=Number(process.env.PORT ?? 3001);
