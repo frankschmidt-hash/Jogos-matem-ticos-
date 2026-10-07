@@ -190,8 +190,19 @@ function SoloRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
     return ()=>window.clearTimeout(timer);
   },[race.phase,session.gradeLevel,session.sessionId]);
 
+  const restart=()=>{
+    const next=begin();
+    setRace(next);
+    setQuestion(generateQuestion(session.gradeLevel,{difficulty:1,seed:"crazy-solo-1-"+session.sessionId+"-"+Date.now()}));
+    setAnswer("");
+    setFeedback(null);
+    setSubmitted(false);
+    setMessage("");
+    resolvedRound.current=0;
+  };
+
   if(race.phase==="finished"){
-    return <main className="crazy-shell"><RaceFinish racers={race.racers} winnerId={race.winnerId} humanId={session.sessionId} onAgain={()=>setRace(begin())}/></main>;
+    return <main className="crazy-shell"><RaceFinish racers={race.racers} winnerId={race.winnerId} humanId={session.sessionId} onAgain={restart}/></main>;
   }
 
   const submit=(event:FormEvent)=>{
