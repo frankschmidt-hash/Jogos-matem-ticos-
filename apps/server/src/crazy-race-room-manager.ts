@@ -28,6 +28,7 @@ export type CrazyRoom=LifecycleCarrier & {
   status:"waiting"|"playing"|"finished";
   race:RaceState|null;
   question:MathQuestion|null;
+  lastCorrectAnswer:string|null;
   bombQuestions:Record<string,MathQuestion>;
   bombActionResults:Map<string,BombActionResult>;
   createdAt:number;
@@ -55,6 +56,7 @@ export type PublicCrazyRoom={
     deadlineAt:number|null;
     startedAt:number|null;
   };
+  lastCorrectAnswer:string|null;
   updatedAt:number;
 };
 
@@ -74,7 +76,7 @@ export class CrazyRaceRoomManager{
     const room:CrazyRoom={
       code,password:this.infra.createPassword(password),hostSessionId:member.sessionId,
       gradeLevel:host.gradeLevel,members:[member],status:"waiting",race:null,question:null,
-      bombQuestions:{},bombActionResults:new Map(),
+      lastCorrectAnswer:null,bombQuestions:{},bombActionResults:new Map(),
       lifecycleState:"ready",lifecycleHistory:["ready"],createdAt:now,updatedAt:now
     };
     this.rooms.set(code,room);
@@ -169,6 +171,7 @@ export class CrazyRaceRoomManager{
     if(!room.race||room.race.phase==="finished") return;
     room.race=startRound(room.race,now);
     room.race=submitNpcAnswers(room.race);
+    room.lastCorrectAnswer=null;
     room.question=generateQuestion(room.gradeLevel,{
       difficulty:difficultyForRound(room.race.round),
       seed:"crazy:"+room.code+":round:"+room.race.round
@@ -258,6 +261,7 @@ export class CrazyRaceRoomManager{
     const room=this.mustPlaying(code);
     if(!room.race||room.race.roundDeadlineAt===null) throw new Error("Rodada indisponível.");
     room.race=resolveRound(room.race,Math.max(now,room.race.roundDeadlineAt));
+    room.lastCorrectAnswer=room.question?.correctAnswer ?? null;
     room.question=null;
     room.bombQuestions={};
     room.bombActionResults.clear();
@@ -316,6 +320,9 @@ export class CrazyRaceRoomManager{
         deadlineAt:room.race.roundDeadlineAt,
         startedAt:room.race.roundStartedAt
       }:null,
+      lastCorrectAnswer:room.race?.phase==="round-resolution"||room.status==="finished"
+        ? room.lastCorrectAnswer
+        : null,
       updatedAt:room.updatedAt
     };
   }
