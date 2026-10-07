@@ -28,15 +28,17 @@ describe("Banco Imobiliário Matemático",()=>{
     expect(s.players[0]!.balance).toBe(1800-WRONG_NEAR_START_PENALTY);
   });
 
-  it("dívida vende patrimônio automaticamente antes de falir",()=>{
+  it("saldo insuficiente aciona venda automática antes da insolvência",()=>{
     let s=game();
-    s={...s,players:s.players.map((p,i)=>i===0?{...p,balance:130}:p)};
-    s=resolveMathMove(rollDice(s,1),true,()=>0);
-    s=buyPendingProperty(s,true);
-    expect(s.players[0]!.balance).toBe(10);
-    s=endTurn(s);
-    s=endTurn({...s,activePlayerIndex:0,phase:"turn-end"});
+    s={
+      ...s,
+      players:s.players.map((p,i)=>i===0?{...p,position:2,balance:150}:p),
+      properties:{...s.properties,1:{spaceIndex:1,ownerId:"human-1",level:0}}
+    };
+    s=resolveMathMove(rollDice(s,5),false,()=>0);
     expect(s.players[0]!.bankrupt).toBe(false);
+    expect(s.players[0]!.balance).toBe(34);
+    expect(s.properties[1]!.ownerId).toBeNull();
   });
 
   it("compra propriedade disponível",()=>{
@@ -66,10 +68,11 @@ describe("Banco Imobiliário Matemático",()=>{
 
   it("evento de crédito altera saldo",()=>{
     let s=game();
-    s={...s,players:s.players.map((p,i)=>i===0?{...p,position:34}:p)};
+    s={...s,players:s.players.map((p,i)=>i===0?{...p,position:30}:p)};
     const before=s.players[0]!.balance;
-    s=resolveMathMove(rollDice(s,2),true,()=>0);
-    expect(s.players[0]!.balance).toBeGreaterThan(before);
+    s=resolveMathMove(rollDice(s,1),true,()=>0);
+    expect(s.players[0]!.position).toBe(31);
+    expect(s.players[0]!.balance).toBe(before+120);
   });
 
   it("falência ocorre quando patrimônio e caixa não cobrem dívida",()=>{
