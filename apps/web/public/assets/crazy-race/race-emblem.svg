@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-labelledby="t d">
+<title id="t">Emblema original da Corrida Maluca</title><desc id="d">Pista circular, carro estilizado e símbolos matemáticos.</desc>
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#1f4aa8"/><stop offset="1" stop-color="#6f3cc3"/></linearGradient></defs>
+<circle cx="120" cy="120" r="106" fill="#f5f7ff" stroke="#172a56" stroke-width="8"/>
+<path d="M45 145c30-60 115-75 154-22-30 64-112 77-154 22z" fill="none" stroke="url(#g)" stroke-width="18" stroke-linecap="round"/>
+<path d="M78 131h67l22 17-15 23H82l-20-19z" fill="#f0a93d" stroke="#172a56" stroke-width="7" stroke-linejoin="round"/>
+<circle cx="91" cy="172" r="13" fill="#172a56"/><circle cx="145" cy="172" r="13" fill="#172a56"/>
+<path d="M97 111l10-17h33l13 22" fill="#dfe9ff" stroke="#172a56" stroke-width="6" stroke-linejoin="round"/>
+<text x="55" y="73" font-family="Arial,sans-serif" font-size="26" font-weight="700" fill="#6f3cc3">+ × ÷</text>
+</svg>
