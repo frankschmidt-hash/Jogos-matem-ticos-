@@ -58,3 +58,16 @@
 @media(max-width:850px){.crazy-hud{grid-template-columns:repeat(3,1fr)}.crazy-lower{grid-template-columns:1fr}.crazy-track{padding-left:36px}.race-lane{height:66px}}
 @media(max-width:560px){.crazy-shell,.crazy-page{padding:14px}.crazy-mode-grid{grid-template-columns:1fr}.crazy-header{align-items:flex-start}.crazy-hud{grid-template-columns:repeat(2,1fr)}.crazy-track{overflow-x:hidden;padding-right:16px}.race-car{width:58px}.race-question-card h2{font-size:1.55rem}.race-question-card form,.bomb-dialog form{grid-template-columns:1fr}.race-ranking>div{align-items:flex-start;flex-direction:column}}
 @media(prefers-reduced-motion:reduce){.race-car{transition:none}}
+
+/* Prompt 07 — arte, velocidade, touch e redução de movimento */
+.crazy-track::before{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(100deg,transparent 0 54px,rgba(255,255,255,.055) 55px 57px,transparent 58px 110px);animation:raceFlow 2.4s linear infinite}
+.race-car.player-car::after{content:"";position:absolute;right:52px;top:13px;width:58px;height:8px;background:linear-gradient(90deg,transparent,rgba(99,205,255,.75));filter:blur(2px);z-index:-1;animation:speedTrail .75s ease-in-out infinite alternate}
+.bomb-warning::before{content:"⚠ ";font-weight:950}
+.connection-pill{display:inline-flex;align-items:center;gap:7px}
+.connection-pill::before{content:"";width:8px;height:8px;border-radius:50%;background:#30985f}
+.race-question-card input,.bomb-dialog input{min-height:48px;font-size:1rem}
+.bomb-controls button{min-height:48px}
+@keyframes raceFlow{to{background-position:110px 0}}@keyframes speedTrail{to{width:82px;opacity:.45}}
+@media(min-width:1500px){.crazy-page{max-width:1640px}.race-lane{height:78px}}
+@media(max-width:420px){.crazy-page{padding:10px}.crazy-hud{gap:6px}.crazy-hud>div{padding:9px}.crazy-track{border-radius:16px;padding-left:33px;padding-right:11px}.race-lane{height:61px}.lane-name{max-width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.race-car{width:53px;height:32px}.race-car .car-window{width:26px;left:13px}.bomb-dialog{padding:19px}.crazy-header{gap:8px}.connection-pill{font-size:.76rem;padding:7px 9px}}
+html.reduce-motion .race-car{transition:none}html.reduce-motion .crazy-track::before,html.reduce-motion .race-car.player-car::after{animation:none}

@@ -210,7 +210,7 @@ function SoloRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
   };
 
   if(race.phase==="finished"){
-    return <main className="crazy-shell"><RaceFinish racers={race.racers} winnerId={race.winnerId} humanId={session.sessionId} onAgain={restart}/></main>;
+    return <main id="main-content" className="crazy-shell"><RaceFinish racers={race.racers} winnerId={race.winnerId} humanId={session.sessionId} onAgain={restart}/></main>;
   }
 
   const submit=(event:FormEvent)=>{
@@ -241,7 +241,7 @@ function SoloRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
     }
   };
 
-  return <main className="crazy-page">
+  return <main id="main-content" className="crazy-page">
     <header className="crazy-header">
       <div><p className="eyebrow">Modo solo · 1 humano + 5 NPCs</p><h1>Corrida Maluca</h1></div>
       <button className="button-ghost" onClick={()=>window.confirm("Sair da corrida atual?")&&onExit()}>Sair</button>
@@ -378,7 +378,7 @@ function OnlineRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
   };
 
   if(!room){
-    return <main className="crazy-shell">
+    return <main id="main-content" className="crazy-shell">
       <section className="panel crazy-online-menu">
         <img src="/assets/crazy-race/race-emblem.svg" alt="" className="crazy-logo"/>
         <p className="eyebrow">Multiplayer online</p>
@@ -401,7 +401,7 @@ function OnlineRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
 
   if(room.status==="waiting"){
     const isHost=room.hostSessionId===session.sessionId;
-    return <main className="crazy-shell">
+    return <main id="main-content" className="crazy-shell">
       <section className="panel crazy-room-lobby">
         <p className="eyebrow">Sala privada</p>
         <h1>Código {room.code}</h1>
@@ -424,10 +424,10 @@ function OnlineRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
     </main>;
   }
 
-  if(!room.race) return <main className="crazy-shell"><p>Sincronizando corrida...</p></main>;
+  if(!room.race) return <main id="main-content" className="crazy-shell"><p>Sincronizando corrida...</p></main>;
 
   if(room.status==="finished"||room.race.phase==="finished"){
-    return <main className="crazy-shell">
+    return <main id="main-content" className="crazy-shell">
       <RaceFinish racers={room.race.racers} winnerId={room.race.winnerId} humanId={session.sessionId} onAgain={leave}/>
     </main>;
   }
@@ -436,7 +436,7 @@ function OnlineRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
   const human=room.race.racers.find(r=>r.id===session.sessionId);
   const receivedBomb=room.race.bombTargets.includes(session.sessionId);
 
-  return <main className="crazy-page">
+  return <main id="main-content" className="crazy-page">
     <header className="crazy-header">
       <div>
         <p className="eyebrow">Sala {room.code} · multiplayer</p>
@@ -488,7 +488,7 @@ export function CrazyRace({session}:{session:ClientSession}) {
   if(mode==="solo") return <SoloRace session={session} onExit={()=>setMode("setup")}/>;
   if(mode==="online") return <OnlineRace session={session} onExit={()=>setMode("setup")}/>;
 
-  return <main className="crazy-shell">
+  return <main id="main-content" className="crazy-shell">
     <section className="panel crazy-setup">
       <img src="/assets/crazy-race/race-emblem.svg" alt="" className="crazy-logo"/>
       <p className="eyebrow">Arcade matemático</p>

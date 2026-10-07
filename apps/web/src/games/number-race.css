@@ -49,3 +49,15 @@
 @media(max-width:900px){.number-hud{grid-template-columns:repeat(3,1fr)}.number-lower{grid-template-columns:1fr}.number-stat-row{grid-template-columns:1.5fr repeat(2,1fr)}}
 @media(max-width:560px){.number-shell,.number-page{padding:14px}.number-mode-grid{grid-template-columns:1fr}.number-header{align-items:flex-start}.number-hud{grid-template-columns:repeat(2,1fr)}.number-track{padding-right:16px}.number-car{width:56px}.number-question h2{font-size:1.55rem}.number-question form{grid-template-columns:1fr}.number-boost{align-items:flex-start}.number-boost img{width:62px;height:62px}.number-stat-row{grid-template-columns:1fr 1fr;align-items:start}}
 @media(prefers-reduced-motion:reduce){.number-car{transition:none}}
+
+/* Prompt 07 — identidade numérica, portais e feedback de progresso */
+.number-portal{box-shadow:0 0 18px rgba(83,236,194,.22);animation:portalPulse 1.8s ease-in-out infinite alternate}
+.number-portal::after{content:"";position:absolute;inset:9px -8px;border-radius:50%;border:1px solid rgba(137,255,221,.32)}
+.number-player::after{content:"";position:absolute;right:50px;top:15px;width:52px;height:7px;background:linear-gradient(90deg,transparent,rgba(84,231,195,.75));filter:blur(2px);z-index:-1}
+.number-question input{min-height:48px}
+.number-boost{background:linear-gradient(135deg,#fff,#ecfaf5)}
+.number-connection{display:inline-flex;align-items:center;gap:7px}.number-connection::before{content:"";width:8px;height:8px;border-radius:50%;background:#2f9c72}
+@keyframes portalPulse{to{filter:brightness(1.18);box-shadow:0 0 28px rgba(83,236,194,.38)}}
+@media(min-width:1500px){.number-page{max-width:1640px}.number-lane{height:78px}}
+@media(max-width:420px){.number-page{padding:10px}.number-hud{gap:6px}.number-hud>div{padding:9px}.number-track{border-radius:16px;padding-left:34px;padding-right:11px}.number-lane{height:61px}.number-lane-name{max-width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.number-car{width:52px;height:33px}.number-car-screen{left:12px}.number-header{gap:8px}.number-connection{font-size:.76rem;padding:7px 9px}}
+html.reduce-motion .number-car{transition:none}html.reduce-motion .number-portal{animation:none}

@@ -213,10 +213,10 @@ function SoloFootball({
   };
 
   if(match.phase==="finished"){
-    return <main className="football-shell"><FinalPanel match={match} humanId={session.sessionId} onAgain={restart} onLobby={onExit}/></main>;
+    return <main id="main-content" className="football-shell"><FinalPanel match={match} humanId={session.sessionId} onAgain={restart} onLobby={onExit}/></main>;
   }
 
-  return <main className="football-page">
+  return <main id="main-content" className="football-page">
     <header className="football-header">
       <div><p className="eyebrow">Modo solo · {skill==="easy"?"Fácil":skill==="medium"?"Médio":"Difícil"}</p><h1>Futebol Matemático</h1></div>
       <button className="button-ghost" onClick={()=>window.confirm("Sair da disputa atual?")&&onExit()}>Sair</button>
@@ -320,7 +320,7 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
   };
 
   if(!room){
-    return <main className="football-shell"><section className="panel football-online-menu">
+    return <main id="main-content" className="football-shell"><section className="panel football-online-menu">
       <img src="/assets/math-football/football-emblem.svg" alt="" className="football-logo"/>
       <p className="eyebrow">Duelo online</p>
       <h1>Futebol Matemático</h1>
@@ -345,7 +345,7 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
 
   if(room.status==="waiting"){
     const isHost=room.hostSessionId===session.sessionId;
-    return <main className="football-shell"><section className="panel football-room-lobby">
+    return <main id="main-content" className="football-shell"><section className="panel football-room-lobby">
       <p className="eyebrow">Sala privada · 2 jogadores</p>
       <h1>{room.code}</h1>
       <p>Nível: <strong>{room.gradeLevel==="mixed"?"Misto":room.gradeLevel+"º ano"}</strong></p>
@@ -365,10 +365,10 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
     </section></main>;
   }
 
-  if(!room.match) return <main className="football-shell"><p>Sincronizando partida...</p></main>;
+  if(!room.match) return <main id="main-content" className="football-shell"><p>Sincronizando partida...</p></main>;
 
   if(room.status==="finished"||room.match.phase==="finished"){
-    return <main className="football-shell">
+    return <main id="main-content" className="football-shell">
       <FinalPanel match={room.match} humanId={session.sessionId} onAgain={rematch} onLobby={leave}/>
       {error&&<p className="error">{error}</p>}
     </main>;
@@ -378,7 +378,7 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
   const myTurn=shooter.id===session.sessionId;
   const resolving=room.match.phase==="kick-resolution";
 
-  return <main className="football-page">
+  return <main id="main-content" className="football-page">
     <header className="football-header">
       <div><p className="eyebrow">Sala {room.code} · {socket.connected?"Conectado":"Reconectando"}</p><h1>Futebol Matemático</h1></div>
       <button className="button-ghost" onClick={()=>window.confirm("Abandonar a partida?")&&leave()}>Sair</button>
@@ -412,7 +412,7 @@ export function MathFootball({session}:{session:ClientSession}){
   if(mode==="solo") return <SoloFootball session={session} skill={skill} timeMs={timeMs} onExit={()=>setMode("setup")}/>;
   if(mode==="online") return <OnlineFootball session={session} onExit={()=>setMode("setup")}/>;
 
-  return <main className="football-shell"><section className="panel football-setup">
+  return <main id="main-content" className="football-shell"><section className="panel football-setup">
     <img src="/assets/math-football/football-emblem.svg" alt="" className="football-logo"/>
     <p className="eyebrow">Matemática decide a cobrança</p>
     <h1>Futebol Matemático</h1>

@@ -29,7 +29,7 @@ function GameSetup({session,onStart}:{session:ClientSession;onStart:(game:GameSt
   const [mode,setMode]=useState<MatchMode>("short");
   const [rounds,setRounds]=useState(12);
 
-  return <main className="property-shell">
+  return <main id="main-content" className="property-shell">
     <section className="property-setup panel">
       <img src="/assets/property-game/cidade-prisma.svg" alt="" className="property-logo"/>
       <p className="eyebrow">Jogo de propriedades e estratégia</p>
@@ -276,7 +276,7 @@ export function PropertyGame({session}:{session:ClientSession}) {
   };
 
   if(game.phase==="finished"){
-    return <main className="property-shell">
+    return <main id="main-content" className="property-shell">
       <section className="panel property-finish">
         <img src="/assets/property-game/trofeu-prisma.svg" alt="" className="property-trophy"/>
         <p className="eyebrow">Partida encerrada</p>
@@ -294,7 +294,7 @@ export function PropertyGame({session}:{session:ClientSession}) {
 
   const pendingSpace=game.pendingPropertyIndex!==null?getSpace(game.pendingPropertyIndex):null;
 
-  return <main className="property-page">
+  return <main id="main-content" className="property-page">
     <header className="property-header">
       <div>
         <p className="eyebrow">Banco Imobiliário Matemático</p>

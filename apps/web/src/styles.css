@@ -199,3 +199,9 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .turn-hint{border:1px solid #f2dea4}
 @media(max-width:900px){.property-board-wrap{max-height:min(68dvh,680px)}}
 @media(max-width:560px){.property-board-wrap{padding:6px;border-radius:14px}.property-board{min-width:720px}.property-actions button,.purchase-card button{min-height:48px}.portfolio-actions button{min-height:46px}}
+
+.property-art-strip{display:flex;gap:8px;justify-content:center;margin:-2px 0 10px}
+.property-art-strip img{width:38px;height:38px;filter:drop-shadow(0 5px 5px rgba(40,52,91,.13))}
+.property-board-wrap{touch-action:pan-x pan-y}
+@media(min-width:1600px){.property-page{max-width:1720px}.property-layout{grid-template-columns:280px minmax(820px,1fr) 280px}}
+html.reduce-motion .dice.rolling{animation:none}

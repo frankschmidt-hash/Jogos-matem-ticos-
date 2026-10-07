@@ -184,7 +184,7 @@ function SoloNumberRace({session,onExit}:{session:ClientSession;onExit:()=>void}
   };
 
   if(race.phase==="finished"){
-    return <main className="number-shell"><FinalStats racers={race.racers} winnerId={race.winnerId} humanId={session.sessionId} onAgain={restart}/></main>;
+    return <main id="main-content" className="number-shell"><FinalStats racers={race.racers} winnerId={race.winnerId} humanId={session.sessionId} onAgain={restart}/></main>;
   }
 
   const submit=(event:FormEvent)=>{
@@ -203,7 +203,7 @@ function SoloNumberRace({session,onExit}:{session:ClientSession;onExit:()=>void}
   };
 
   const human=race.racers.find(r=>r.id===session.sessionId)!;
-  return <main className="number-page">
+  return <main id="main-content" className="number-page">
     <header className="number-header">
       <div><p className="eyebrow">Modo solo · precisão antes da velocidade</p><h1>Corrida Numérica</h1></div>
       <button className="button-ghost" onClick={()=>window.confirm("Sair da corrida atual?")&&onExit()}>Sair</button>
@@ -308,7 +308,7 @@ function OnlineNumberRace({session,onExit}:{session:ClientSession;onExit:()=>voi
   };
 
   if(!room){
-    return <main className="number-shell">
+    return <main id="main-content" className="number-shell">
       <section className="panel number-online-menu">
         <img src="/assets/number-race/number-emblem.svg" alt="" className="number-logo"/>
         <p className="eyebrow">Multiplayer pedagógico</p>
@@ -336,7 +336,7 @@ function OnlineNumberRace({session,onExit}:{session:ClientSession;onExit:()=>voi
 
   if(room.status==="waiting"){
     const isHost=room.hostSessionId===session.sessionId;
-    return <main className="number-shell">
+    return <main id="main-content" className="number-shell">
       <section className="panel number-room-lobby">
         <p className="eyebrow">Sala privada · nível bloqueado após largada</p>
         <h1>{room.code}</h1>
@@ -358,10 +358,10 @@ function OnlineNumberRace({session,onExit}:{session:ClientSession;onExit:()=>voi
     </main>;
   }
 
-  if(!room.race) return <main className="number-shell"><p>Sincronizando...</p></main>;
+  if(!room.race) return <main id="main-content" className="number-shell"><p>Sincronizando...</p></main>;
 
   if(room.status==="finished"||room.race.phase==="finished"){
-    return <main className="number-shell">
+    return <main id="main-content" className="number-shell">
       <FinalStats racers={room.race.racers} winnerId={room.race.winnerId} humanId={session.sessionId} onAgain={leave}/>
     </main>;
   }
@@ -369,7 +369,7 @@ function OnlineNumberRace({session,onExit}:{session:ClientSession;onExit:()=>voi
   const answered=room.race.answeredIds.includes(session.sessionId);
   const human=room.race.racers.find(r=>r.id===session.sessionId);
 
-  return <main className="number-page">
+  return <main id="main-content" className="number-page">
     <header className="number-header">
       <div>
         <p className="eyebrow">Sala {room.code} · {room.gradeLevel==="mixed"?"Misto":room.gradeLevel+"º ano"}</p>
@@ -410,7 +410,7 @@ export function NumberRace({session}:{session:ClientSession}){
   if(mode==="solo") return <SoloNumberRace session={session} onExit={()=>setMode("setup")}/>;
   if(mode==="online") return <OnlineNumberRace session={session} onExit={()=>setMode("setup")}/>;
 
-  return <main className="number-shell">
+  return <main id="main-content" className="number-shell">
     <section className="panel number-setup">
       <img src="/assets/number-race/number-emblem.svg" alt="" className="number-logo"/>
       <p className="eyebrow">Precisão · sequência · impulso</p>
