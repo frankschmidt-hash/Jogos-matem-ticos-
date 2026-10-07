@@ -239,22 +239,25 @@ export class CrazyRaceRoomManager{
 
   submitBombAnswer(
     code:string,sessionId:string,questionId:string,answer:string,clientSubmissionId:string,now=Date.now()
-  ):CrazyRoom{
+  ):{room:CrazyRoom;correct:boolean|null;correctAnswer:string|null}{
     const room=this.mustPlaying(code);
+    this.infra.assertActionRate("crazy-bomb-answer:"+room.code,sessionId,now);
+    if(this.infra.isReplay("crazy-bomb-answer:"+room.code+":"+questionId,sessionId,clientSubmissionId,now)){
+      return {room,correct:null,correctAnswer:null};
+    }
     if(!room.race) throw new Error("Corrida indisponível.");
     const question=room.bombQuestions[sessionId];
     const challenge=room.race.bombChallenges[sessionId];
     if(!question||question.id!==questionId||!challenge||challenge.resolved) throw new Error("Bomba matemática inválida.");
-    this.infra.assertActionRate("crazy-bomb-answer:"+room.code,sessionId,now);
-    if(this.infra.isReplay("crazy-bomb-answer:"+room.code+":"+questionId,sessionId,clientSubmissionId,now)) return room;
     if(now>challenge.deadlineAt+NETWORK_GRACE_MS) throw new Error("O tempo da bomba terminou.");
 
     const acceptedAt=Math.min(now,challenge.deadlineAt);
     const correct=validateAnswer(question,answer);
+    const correctAnswer=question.correctAnswer;
     room.race=resolveBombAnswer(room.race,sessionId,correct,acceptedAt);
     delete room.bombQuestions[sessionId];
     room.updatedAt=now;
-    return room;
+    return {room,correct,correctAnswer};
   }
 
   finalizeRound(code:string,now=Date.now()):CrazyRoom{
