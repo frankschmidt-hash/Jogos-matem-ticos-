@@ -74,10 +74,21 @@ describe("FootballRoomManager",()=>{
     expect(room.match?.winnerId).toBe(guest.sessionId);
   });
 
-  it("revanche reinicia placar e abre nova cobrança",()=>{
-    const {manager,room}=started();
-    manager.abandon(room.code,host.sessionId,2000);
-    manager.rematch(room.code,guest.sessionId,3000);
+  it("revanche após término normal reinicia placar e abre nova cobrança",()=>{
+    const {manager,room}=started(1000);
+    let now=2000;
+    let submission=0;
+    while(room.status!=="finished"&&submission<10){
+      const q=room.question!;
+      const shooter=room.match!.currentShooterId;
+      const answer=shooter===host.sessionId?q.correctAnswer:"resposta-incorreta";
+      manager.submitAnswer(room.code,shooter,q.id,answer,"finish-submit-"+String(submission).padStart(4,"0"),now);
+      submission++;
+      now+=2000;
+      if(room.status==="playing") manager.openNextKick(room.code,now);
+    }
+    expect(room.status).toBe("finished");
+    manager.rematch(room.code,guest.sessionId,now+1000);
     expect(room.status).toBe("playing");
     expect(room.match?.goals[host.sessionId]).toBe(0);
     expect(room.match?.phase).toBe("kick-open");
