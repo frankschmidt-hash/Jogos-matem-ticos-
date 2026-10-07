@@ -14,8 +14,11 @@ type NumberRoom={
   code:string;
   hostSessionId:string;
   gradeLevel:5|6|7|"mixed";
-  members:Array<{sessionId:string;nickname:string;connected:boolean}>;
+  members:Array<{sessionId:string;nickname:string;connected:boolean;presence:"connected"|"reconnecting"|"disconnected"|"abandoned"}>;
   status:"waiting"|"playing"|"finished";
+  lifecycleState:"waiting"|"ready"|"countdown"|"playing"|"round-resolution"|"finished"|"closed";
+  capacity:{max:number;occupied:number;available:number};
+  serverNow:number;
   race:RoomRace|null;
   question:null|{id:string;expression:string;gradeLevel:number;difficulty:number;deadlineAt:number|null};
   updatedAt:number;
@@ -25,11 +28,15 @@ type AckResponse={ok:boolean;room?:NumberRoom;error?:string};
 const ROOM_KEY="number-race-room-code";
 const auth=(session:ClientSession)=>({sessionId:session.sessionId,reconnectToken:session.reconnectToken});
 
-function useNow(active:boolean){
+function useNow(active:boolean,serverNow?:number){
+  const offset=useRef(0);
   const [now,setNow]=useState(Date.now());
   useEffect(()=>{
+    if(typeof serverNow==="number") offset.current=serverNow-Date.now();
+  },[serverNow]);
+  useEffect(()=>{
     if(!active) return;
-    const timer=window.setInterval(()=>setNow(Date.now()),200);
+    const timer=window.setInterval(()=>setNow(Date.now()+offset.current),200);
     return ()=>window.clearInterval(timer);
   },[active]);
   return now;
@@ -239,7 +246,7 @@ function OnlineNumberRace({session,onExit}:{session:ClientSession;onExit:()=>voi
   const [grade,setGrade]=useState<5|6|7|"mixed">(session.gradeLevel);
   const [answer,setAnswer]=useState("");
   const [error,setError]=useState("");
-  const now=useNow(Boolean(room?.race?.phase==="round-open"));
+  const now=useNow(Boolean(room?.race?.phase==="round-open"),room?.serverNow);
 
   const apply=(response:AckResponse)=>{
     if(!response.ok){
@@ -290,6 +297,7 @@ function OnlineNumberRace({session,onExit}:{session:ClientSession;onExit:()=>voi
     });
   };
   const leave=()=>{
+    if(room) socket.emit("number:leave",{...auth(session),code:room.code},()=>{});
     sessionStorage.removeItem(ROOM_KEY);
     socket.disconnect();
     onExit();
@@ -329,14 +337,17 @@ function OnlineNumberRace({session,onExit}:{session:ClientSession;onExit:()=>voi
         <p className="eyebrow">Sala privada · nível bloqueado após largada</p>
         <h1>{room.code}</h1>
         <p>Nível da sala: <strong>{room.gradeLevel==="mixed"?"Misto":room.gradeLevel+"º ano"}</strong></p>
+        <p><strong>Vagas:</strong> {room.capacity.occupied}/{room.capacity.max} · {room.capacity.available} disponível(is)</p>
+        <button className="button-secondary" onClick={()=>void navigator.clipboard?.writeText(room.code)}>Copiar código</button>
         <div className="number-members">
           {room.members.map(member=><div key={member.sessionId}>
             <span className={member.connected?"online-dot":"online-dot offline"}/>
             <strong>{member.nickname}</strong>
+            <small>{member.presence==="connected"?"Conectado":member.presence==="reconnecting"?"Reconectando":member.presence==="disconnected"?"Desconectado":"Abandonou"}</small>
             {member.sessionId===room.hostSessionId&&<small>Host</small>}
           </div>)}
         </div>
-        {isHost?<button onClick={start}>Iniciar com {room.members.length} humano(s)</button>:<p>Aguardando o host iniciar...</p>}
+        {isHost?<button disabled={room.lifecycleState!=="ready"} onClick={start}>Iniciar com {room.capacity.occupied} humano(s)</button>:<p>Aguardando o host iniciar...</p>}
         <button className="button-ghost" onClick={leave}>Sair da sala</button>
         {error&&<p className="error">{error}</p>}
       </section>

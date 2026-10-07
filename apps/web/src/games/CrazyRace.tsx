@@ -19,8 +19,11 @@ type OnlineRoom = {
   code:string;
   hostSessionId:string;
   gradeLevel:5|6|7|"mixed";
-  members:Array<{sessionId:string;nickname:string;gradeLevel:5|6|7|"mixed";connected:boolean}>;
+  members:Array<{sessionId:string;nickname:string;gradeLevel:5|6|7|"mixed";connected:boolean;presence:"connected"|"reconnecting"|"disconnected"|"abandoned"}>;
   status:"waiting"|"playing"|"finished";
+  lifecycleState:"waiting"|"ready"|"countdown"|"playing"|"round-resolution"|"finished"|"closed";
+  capacity:{max:number;occupied:number;available:number};
+  serverNow:number;
   race:RoomRace|null;
   question:null|{id:string;expression:string;gradeLevel:number;difficulty:number;deadlineAt:number|null};
   updatedAt:number;
@@ -36,11 +39,15 @@ const auth=(session:ClientSession)=>({
   reconnectToken:session.reconnectToken
 });
 
-function useNow(active:boolean) {
+function useNow(active:boolean,serverNow?:number) {
+  const offset=useRef(0);
   const [now,setNow]=useState(Date.now());
   useEffect(()=>{
+    if(typeof serverNow==="number") offset.current=serverNow-Date.now();
+  },[serverNow]);
+  useEffect(()=>{
     if(!active) return;
-    const timer=window.setInterval(()=>setNow(Date.now()),200);
+    const timer=window.setInterval(()=>setNow(Date.now()+offset.current),200);
     return ()=>window.clearInterval(timer);
   },[active]);
   return now;
@@ -277,7 +284,7 @@ function OnlineRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
   const [answer,setAnswer]=useState("");
   const [bombQuestion,setBombQuestion]=useState<BombQuestion|null>(null);
   const [bombAnswer,setBombAnswer]=useState("");
-  const now=useNow(Boolean(room?.race?.phase==="round-open"));
+  const now=useNow(Boolean(room?.race?.phase==="round-open"),room?.serverNow);
   const roomRef=useRef<OnlineRoom|null>(null);
 
   useEffect(()=>{roomRef.current=room},[room]);
@@ -345,13 +352,13 @@ function OnlineRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
   };
   const bomb=(direction:BombDirection)=>{
     if(!room) return;
-    socket.emit("crazy:bomb",{...auth(session),code:room.code,direction},(response:AckResponse)=>applyAck(response));
+    socket.emit("crazy:bomb",{...auth(session),code:room.code,direction,clientSubmissionId:crypto.randomUUID()},(response:AckResponse)=>applyAck(response));
   };
   const answerBomb=(event:FormEvent)=>{
     event.preventDefault();
     if(!room||!bombQuestion) return;
     socket.emit("crazy:bomb-answer",{
-      ...auth(session),code:room.code,questionId:bombQuestion.id,answer:bombAnswer
+      ...auth(session),code:room.code,questionId:bombQuestion.id,answer:bombAnswer,clientSubmissionId:crypto.randomUUID()
     },(response:AckResponse)=>{
       if(applyAck(response)){
         setBombQuestion(null);
@@ -360,6 +367,7 @@ function OnlineRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
     });
   };
   const leave=()=>{
+    if(room) socket.emit("crazy:leave",{...auth(session),code:room.code},()=>{});
     sessionStorage.removeItem(ROOM_KEY);
     socket.disconnect();
     onExit();
@@ -394,14 +402,17 @@ function OnlineRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
         <p className="eyebrow">Sala privada</p>
         <h1>Código {room.code}</h1>
         <p>Compartilhe o código e a senha com os outros jogadores. Cada humano substituirá um NPC até o limite de 6 competidores.</p>
+        <p><strong>Vagas:</strong> {room.capacity.occupied}/{room.capacity.max} · {room.capacity.available} disponível(is)</p>
+        <button className="button-secondary" onClick={()=>void navigator.clipboard?.writeText(room.code)}>Copiar código</button>
         <div className="room-members">
           {room.members.map(member=><div key={member.sessionId}>
             <span className={member.connected?"online-dot":"online-dot offline"}/>
             <strong>{member.nickname}</strong>
+            <small>{member.presence==="connected"?"Conectado":member.presence==="reconnecting"?"Reconectando":member.presence==="disconnected"?"Desconectado":"Abandonou"}</small>
             {member.sessionId===room.hostSessionId&&<small>Host</small>}
           </div>)}
         </div>
-        {isHost&&<button onClick={start}>Iniciar corrida com {room.members.length} humano(s)</button>}
+        {isHost&&<button disabled={room.lifecycleState!=="ready"} onClick={start}>Iniciar corrida com {room.capacity.occupied} humano(s)</button>}
         {!isHost&&<p>Aguardando o host iniciar...</p>}
         <button className="button-ghost" onClick={leave}>Sair da sala</button>
         {error&&<p className="error" role="alert">{error}</p>}

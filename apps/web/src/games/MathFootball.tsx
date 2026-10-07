@@ -21,8 +21,11 @@ type FootballRoom={
   code:string;
   hostSessionId:string;
   gradeLevel:5|6|7|"mixed";
-  members:Array<{sessionId:string;nickname:string;connected:boolean}>;
+  members:Array<{sessionId:string;nickname:string;connected:boolean;presence:"connected"|"reconnecting"|"disconnected"|"abandoned"}>;
   status:"waiting"|"playing"|"finished";
+  lifecycleState:"waiting"|"ready"|"countdown"|"playing"|"round-resolution"|"finished"|"closed";
+  capacity:{max:number;occupied:number;available:number};
+  serverNow:number;
   match:PenaltyMatchState|null;
   question:RoomQuestion|null;
   lastCorrectAnswer:string|null;
@@ -33,11 +36,15 @@ type AckResponse={ok:boolean;room?:FootballRoom;error?:string};
 const ROOM_KEY="math-football-room-code";
 const auth=(session:ClientSession)=>({sessionId:session.sessionId,reconnectToken:session.reconnectToken});
 
-function useNow(active:boolean){
+function useNow(active:boolean,serverNow?:number){
+  const offset=useRef(0);
   const [now,setNow]=useState(Date.now());
   useEffect(()=>{
+    if(typeof serverNow==="number") offset.current=serverNow-Date.now();
+  },[serverNow]);
+  useEffect(()=>{
     if(!active) return;
-    const timer=window.setInterval(()=>setNow(Date.now()),200);
+    const timer=window.setInterval(()=>setNow(Date.now()+offset.current),200);
     return ()=>window.clearInterval(timer);
   },[active]);
   return now;
@@ -238,7 +245,7 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
   const [grade,setGrade]=useState<5|6|7|"mixed">(session.gradeLevel);
   const [answer,setAnswer]=useState("");
   const [error,setError]=useState("");
-  const now=useNow(Boolean(room?.match?.phase==="kick-open"));
+  const now=useNow(Boolean(room?.match?.phase==="kick-open"),room?.serverNow);
   const authData=()=>auth(session);
 
   const apply=(response:AckResponse)=>{
@@ -330,14 +337,17 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
       <p className="eyebrow">Sala privada · 2 jogadores</p>
       <h1>{room.code}</h1>
       <p>Nível: <strong>{room.gradeLevel==="mixed"?"Misto":room.gradeLevel+"º ano"}</strong></p>
+      <p><strong>Vagas:</strong> {room.capacity.occupied}/{room.capacity.max} · {room.capacity.available} disponível(is)</p>
+      <button className="button-secondary" onClick={()=>void navigator.clipboard?.writeText(room.code)}>Copiar código</button>
       <div className="football-members">
         {room.members.map(member=><div key={member.sessionId}>
           <span className={member.connected?"online-dot":"online-dot offline"}/>
           <strong>{member.nickname}</strong>
+          <small>{member.presence==="connected"?"Conectado":member.presence==="reconnecting"?"Reconectando":member.presence==="disconnected"?"Desconectado":"Abandonou"}</small>
           {member.sessionId===room.hostSessionId&&<small>Host</small>}
         </div>)}
       </div>
-      {isHost?<button disabled={room.members.length!==2} onClick={start}>{room.members.length===2?"Iniciar disputa":"Aguardando adversário"}</button>:<p>Aguardando o host iniciar...</p>}
+      {isHost?<button disabled={room.lifecycleState!=="ready"} onClick={start}>{room.lifecycleState==="ready"?"Iniciar disputa":"Aguardando adversário"}</button>:<p>Aguardando o host iniciar...</p>}
       <button className="button-ghost" onClick={leave}>Sair da sala</button>
       {error&&<p className="error">{error}</p>}
     </section></main>;
