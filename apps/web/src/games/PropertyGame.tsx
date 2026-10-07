@@ -27,7 +27,7 @@ const boardCoordinate=(index:number):{row:number;col:number}=>{
 function GameSetup({session,onStart}:{session:ClientSession;onStart:(game:GameState)=>void}) {
   const [totalPlayers,setTotalPlayers]=useState<2|3|4>(2);
   const [mode,setMode]=useState<MatchMode>("short");
-  const [rounds,setRounds]=useState(12);
+  const [rounds,setRounds]=useState(8);
 
   return <main id="main-content" className="property-shell">
     <section className="property-setup panel">
@@ -180,6 +180,7 @@ export function PropertyGame({session}:{session:ClientSession}) {
   const [lastDie,setLastDie]=useState<number|null>(null);
   const [actionError,setActionError]=useState("");
   const answerLock=useRef(false);
+  const rollTimer=useRef<number|null>(null);
 
   const player=game?activePlayer(game):null;
   const winner=useMemo(()=>game?.winnerId?game.players.find(p=>p.id===game.winnerId)??null:null,[game]);
@@ -187,6 +188,10 @@ export function PropertyGame({session}:{session:ClientSession}) {
   useEffect(()=>{
     if(game?.phase==="finished") playSound("victory");
   },[game?.phase]);
+
+  useEffect(()=>()=> {
+    if(rollTimer.current!==null) window.clearTimeout(rollTimer.current);
+  },[]);
 
   useEffect(()=>{
     if(!game||!player||player.kind!=="npc"||game.phase==="finished") return;
@@ -228,7 +233,8 @@ export function PropertyGame({session}:{session:ClientSession}) {
     playSound("dice");
     setFeedback(null);
     setActionError("");
-    window.setTimeout(()=>{
+    if(rollTimer.current!==null) window.clearTimeout(rollTimer.current);
+    rollTimer.current=window.setTimeout(()=>{
       const die=randomDie();
       setLastDie(die);
       setGame(current=>current?rollDice(current,die):current);
@@ -238,6 +244,7 @@ export function PropertyGame({session}:{session:ClientSession}) {
         seed:"property-"+game.round+"-"+game.activePlayerIndex+"-"+Date.now()+"-"+die
       }));
       setRolling(false);
+      rollTimer.current=null;
     },450);
   };
 
