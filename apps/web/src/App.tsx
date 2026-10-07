@@ -6,6 +6,7 @@ import {
   claimSession, heartbeatSession, loadSession, notifyDisconnect,
   reconnectSession, type ClientSession
 } from "./session";
+import { PropertyGame } from "./games/PropertyGame";
 
 function Home({onSession}:{onSession:(s:ClientSession)=>void}) {
   const nav=useNavigate();
@@ -72,7 +73,7 @@ function Lobby({session}:{session:ClientSession}) {
           key={game.id}
           name={game.name}
           description={game.description}
-          href={`/game/${game.id}`}
+          href={"/game/"+game.id}
           artLabel={game.name.slice(0,1)}
         />
       )}
@@ -137,10 +138,11 @@ export function App(){
   return <Routes>
     <Route path="/" element={<Home onSession={setSession}/>}/>
     <Route path="/lobby" element={session?<Lobby session={session}/>:<Navigate to="/" replace/>}/>
-    {GAME_CATALOG.map(g=>
+    <Route path="/game/property-math" element={session?<PropertyGame session={session}/>:<Navigate to="/" replace/>}/>
+    {GAME_CATALOG.filter(g=>g.id!=="property-math").map(g=>
       <Route
         key={g.id}
-        path={`/game/${g.id}`}
+        path={"/game/"+g.id}
         element={session?<GamePlaceholder id={g.id}/>:<Navigate to="/" replace/>}
       />
     )}
