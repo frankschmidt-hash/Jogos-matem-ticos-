@@ -77,14 +77,17 @@ describe("CrazyRaceRoomManager",()=>{
     expect(()=>manager.startRoom(room.code,guest(1).sessionId,1000)).toThrow(/host/i);
   });
 
-  it("finaliza rodada e abre a próxima sob controle do servidor",()=>{
+  it("finaliza rodada, libera correção somente depois do deadline e abre a próxima",()=>{
     const manager=new CrazyRaceRoomManager();
     const room=manager.createRoom(host,"abcd",0);
     manager.startRoom(room.code,host.sessionId,1000);
+    expect(manager.publicSnapshot(room.code).lastCorrectAnswer).toBeNull();
     manager.finalizeRound(room.code,21000);
     expect(room.race?.phase).toBe("round-resolution");
+    expect(manager.publicSnapshot(room.code).lastCorrectAnswer).toBeTruthy();
     manager.openNextRound(room.code,22000);
     expect(room.race?.round).toBe(2);
     expect(room.race?.roundDeadlineAt).toBe(42000);
+    expect(manager.publicSnapshot(room.code).lastCorrectAnswer).toBeNull();
   });
 });
