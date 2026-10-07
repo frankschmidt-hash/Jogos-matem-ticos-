@@ -1,0 +1,31 @@
+name: Prompt 04 CI
+
+on:
+  push:
+    branches:
+      - feat/prompt-04-number-race
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate-number-race:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Number race focused tests
+        run: npm run test -w @jogos/number-race
+      - name: Number race realtime room tests
+        run: npm run test -w @jogos/server -- number-race-room-manager.test.ts
+      - name: Math engine compatibility tests
+        run: npm run test -w @jogos/math-engine
+      - name: Build
+        run: npm run build
