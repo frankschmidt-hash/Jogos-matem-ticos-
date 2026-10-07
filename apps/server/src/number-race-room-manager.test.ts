@@ -81,14 +81,17 @@ describe("NumberRaceRoomManager",()=>{
     expect(room.members[0]!.connected).toBe(true);
   });
 
-  it("finaliza e abre próxima rodada",()=>{
+  it("finaliza, libera correção somente depois do deadline e abre próxima rodada",()=>{
     const manager=new NumberRaceRoomManager();
     const room=manager.createRoom(host,"1234",5,0);
     manager.startRoom(room.code,host.sessionId,1000);
+    expect(manager.publicSnapshot(room.code).lastCorrectAnswer).toBeNull();
     manager.finalizeRound(room.code,21000);
     expect(room.race?.phase).toBe("round-resolution");
+    expect(manager.publicSnapshot(room.code).lastCorrectAnswer).toBeTruthy();
     manager.openNextRound(room.code,22000);
     expect(room.race?.round).toBe(2);
     expect(room.race?.roundDeadlineAt).toBe(42000);
+    expect(manager.publicSnapshot(room.code).lastCorrectAnswer).toBeNull();
   });
 });
