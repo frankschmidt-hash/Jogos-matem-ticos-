@@ -13,6 +13,7 @@ import { CrazyRaceRoomManager } from "./crazy-race-room-manager";
 import { NumberRaceRoomManager } from "./number-race-room-manager";
 import { FootballRoomManager } from "./football-room-manager";
 import { roomInfrastructure } from "./room-infrastructure";
+import { pruneMissingTimers } from "./timer-registry";
 
 const app = Fastify({ logger: true, bodyLimit: 16_384 });
 const allowedOrigins=(process.env.WEB_ORIGIN ?? "http://localhost:5173").split(",").map(x=>x.trim()).filter(Boolean);
@@ -99,7 +100,7 @@ const scheduleRaceRound=(code:string)=>{
           }catch(error){
             app.log.error({err:error,code},"Falha ao abrir próxima rodada da Corrida Maluca");
           }
-        },1200);
+        },1600);
         raceTimers.set(code,next);
       }else{
         raceTimers.delete(code);
@@ -140,7 +141,7 @@ const scheduleNumberRound=(code:string)=>{
           }catch(error){
             app.log.error({err:error,code},"Falha ao abrir próxima rodada da Corrida Numérica");
           }
-        },1200);
+        },1600);
         numberRaceTimers.set(code,next);
       }else{
         numberRaceTimers.delete(code);
@@ -178,7 +179,7 @@ function scheduleFootballAdvance(code:string){
       app.log.error({err:error,code},"Falha ao abrir próxima cobrança do Futebol Matemático");
       footballKickTimers.delete(code);
     }
-  },1200);
+  },1600);
   footballKickTimers.set(code,timer);
 }
 
@@ -654,6 +655,10 @@ setInterval(() => {
     }
     emitFootballState(code);
   }
+
+  pruneMissingTimers(raceTimers,code=>Boolean(crazyRooms.getRoom(code)),timer=>clearTimeout(timer));
+  pruneMissingTimers(numberRaceTimers,code=>Boolean(numberRooms.getRoom(code)),timer=>clearTimeout(timer));
+  pruneMissingTimers(footballKickTimers,code=>Boolean(footballRooms.getRoom(code)),timer=>clearTimeout(timer));
   roomInfrastructure.cleanup();
 }, 15_000).unref();
 
