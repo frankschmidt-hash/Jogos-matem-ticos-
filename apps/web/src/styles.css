@@ -24,3 +24,83 @@ details{margin-top:24px}
 @media(max-width:900px){.game-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:560px){.center{padding:14px}.panel{padding:22px}.page{padding:20px 14px}.topbar{align-items:flex-start;flex-direction:column}.game-grid{grid-template-columns:1fr}.card p{min-height:auto}.game-art{height:110px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+
+/* Banco Imobiliário Matemático — Cidade Prisma */
+.property-shell{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at top,#eef2ff 0,#f3f6fb 55%)}
+.property-setup{width:min(720px,100%)}
+.property-logo{width:92px;height:92px;display:block;margin-bottom:12px}
+.setup-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:24px 0}
+.setup-grid label{display:grid;gap:7px;font-weight:700}
+.property-page{max-width:1600px;margin:auto;padding:24px}
+.property-header{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:18px}
+.property-header h1{margin:.15rem 0 .3rem}
+.dice{width:72px;height:72px;border:3px solid #243b77;border-radius:18px;display:grid;place-items:center;background:#fff;font-size:2rem;font-weight:900;box-shadow:0 8px 20px rgba(36,59,119,.15)}
+.dice.rolling{animation:dice-roll .45s ease-in-out}
+@keyframes dice-roll{0%{transform:rotate(0) scale(1)}50%{transform:rotate(160deg) scale(1.12)}100%{transform:rotate(360deg) scale(1)}}
+.property-layout{display:grid;grid-template-columns:250px minmax(760px,1fr) 250px;gap:18px;align-items:start}
+.property-scoreboard,.property-actions,.property-portfolio,.property-log{background:#fff;border:1px solid #dfe5ef;border-radius:18px;padding:16px;box-shadow:0 8px 24px rgba(28,44,74,.06)}
+.property-scoreboard h2,.property-actions h2,.property-portfolio h2,.property-log h2{margin-top:0}
+.score-row{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px 8px;border-radius:12px;border:1px solid transparent}
+.score-row.active{background:#eef3ff;border-color:#b8c7ef}
+.score-row.bankrupt{opacity:.45;text-decoration:line-through}
+.score-row small{display:block;color:#67738a;margin-top:2px}
+.player-dot,.owner-mark{display:inline-block;border-radius:999px}
+.player-dot{width:12px;height:12px}
+.owner-mark{position:absolute;right:5px;top:5px;width:10px;height:10px;border:2px solid white;box-shadow:0 0 0 1px rgba(0,0,0,.2)}
+.human{background:#2645a5}.npc-a{background:#cb5b28}.npc-b{background:#3e8b63}.npc-c{background:#8b4fa7}
+.property-board-wrap{overflow:auto;border-radius:20px;background:#dfe7f2;padding:10px}
+.property-board{min-width:760px;aspect-ratio:1/1;display:grid;grid-template-columns:repeat(10,1fr);grid-template-rows:repeat(10,1fr);gap:3px;background:#d3dce9;border:5px solid #243b77;border-radius:18px;padding:3px}
+.board-space{position:relative;background:#fff;border:1px solid #bfc8d7;border-radius:7px;padding:5px;min-width:0;overflow:hidden;font-size:.68rem;display:flex;flex-direction:column;justify-content:center}
+.board-space strong{line-height:1.08}
+.board-space small{font-size:.58rem;color:#5f6a7b;margin-top:3px}
+.space-index{position:absolute;left:4px;top:3px;font-size:.55rem;color:#7b8798}
+.type-start{background:#fff4d8}
+.type-event{background:#f3eaff}
+.type-tax,.type-penalty,.type-service{background:#fff0f0}
+.type-bonus,.type-transport{background:#ebf8ef}
+.type-rest{background:#edf7ff}
+.group-horizonte{border-top:5px solid #5479c8}
+.group-prisma{border-top:5px solid #7a59ba}
+.group-aurora{border-top:5px solid #e1a53b}
+.group-circuito{border-top:5px solid #4b9a77}
+.group-orbita{border-top:5px solid #cc6b51}
+.group-saber{border-top:5px solid #3d637e}
+.level-chip{position:absolute;left:4px;bottom:3px;font-size:.55rem;font-weight:900;background:#1f376d;color:#fff;padding:2px 4px;border-radius:5px}
+.token-stack{position:absolute;right:3px;bottom:3px;display:flex;gap:2px;flex-wrap:wrap;max-width:48px;justify-content:flex-end}
+.board-token{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:.55rem;font-weight:900;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.board-center{grid-column:2/10;grid-row:2/10;display:grid;place-items:center;align-content:center;text-align:center;padding:20px;background:linear-gradient(135deg,#f8f9ff,#fff8ec);border-radius:18px}
+.board-center h2{margin:.4rem 0}
+.board-center p{color:#647084}
+.board-emblem{width:min(180px,34%);margin-bottom:12px}
+.property-actions{position:sticky;top:12px}
+.property-actions button,.purchase-card button{width:100%;margin:5px 0}
+.purchase-card{border:1px solid #d9e0ec;border-radius:14px;padding:14px;background:#fbfcff}
+.turn-hint{display:grid;grid-template-columns:38px 1fr;align-items:center;gap:4px 10px;margin:18px 0;padding:12px;border-radius:14px;background:#fff6df}
+.turn-hint img{width:38px;height:38px;grid-row:1/3}
+.turn-hint span{font-size:.72rem;color:#73633f}
+.npc-thinking{padding:12px;border-radius:12px;background:#eef3ff;font-weight:700}
+.property-lower{display:grid;grid-template-columns:1.4fr 1fr;gap:18px;margin-top:18px}
+.section-title{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.section-title h2{margin-bottom:8px}
+.section-title span{font-weight:900;color:#243b77}
+.muted{color:#6a7587}
+.portfolio-list{display:grid;gap:8px}
+.portfolio-item{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px;border:1px solid #e0e5ee;border-radius:12px}
+.portfolio-item small{display:block;color:#667184;margin-top:3px}
+.portfolio-actions{display:flex;gap:6px}
+.button-secondary,.button-ghost{background:#eef2fb;color:#243b77;border:1px solid #bdc9e4}
+.button-ghost{background:#fff}
+button:disabled{opacity:.45;cursor:not-allowed}
+.property-log ol{padding-left:20px;margin-bottom:0}
+.property-log li{padding:5px 0;color:#526075}
+.math-answer-form{display:grid;gap:10px;margin-top:16px}
+.math-answer-form label{font-weight:800}
+.property-finish{text-align:center;width:min(600px,100%)}
+.property-trophy{width:110px}
+.final-ranking{display:grid;gap:8px;margin:18px 0}
+.final-ranking div{display:flex;justify-content:space-between;gap:16px;padding:10px 12px;border-radius:10px;background:#f4f6fa}
+.property-finish .button{margin:6px}
+@media(max-width:1250px){.property-layout{grid-template-columns:220px minmax(700px,1fr)}.property-actions{grid-column:1/-1;position:static;display:grid;grid-template-columns:1fr 1fr;gap:12px}.turn-hint{margin:0}}
+@media(max-width:900px){.setup-grid{grid-template-columns:1fr}.property-layout{display:block}.property-scoreboard,.property-actions{margin-bottom:14px}.property-board-wrap{margin-bottom:14px}.property-actions{display:block}.property-lower{grid-template-columns:1fr}.property-header{align-items:flex-start}.portfolio-item{align-items:flex-start;flex-direction:column}.portfolio-actions{width:100%}.portfolio-actions button{flex:1}}
+@media(max-width:560px){.property-page{padding:14px}.property-header{gap:10px}.dice{width:58px;height:58px}.property-shell{padding:14px}.property-setup{padding:20px}.board-space{font-size:.62rem}.property-lower{gap:12px}}
