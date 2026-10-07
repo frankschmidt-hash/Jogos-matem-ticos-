@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { GAME_CATALOG, type GameId } from "@jogos/game-core";
 import { ConnectionStatus, GameCard, HelpRules } from "@jogos/ui";
@@ -14,11 +14,19 @@ function Home({onSession}:{onSession:(s:ClientSession)=>void}) {
   const [error,setError]=useState("");
   const [loading,setLoading]=useState(false);
 
-  const submit=async(e:React.FormEvent)=>{
-    e.preventDefault(); setError(""); setLoading(true);
-    try { const s=await claimSession(nickname,grade); onSession(s); nav("/lobby"); }
-    catch(err){ setError(err instanceof Error?err.message:"Erro ao entrar."); }
-    finally{ setLoading(false); }
+  const submit=async(e:FormEvent)=>{
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const s=await claimSession(nickname,grade);
+      onSession(s);
+      nav("/lobby");
+    } catch(err) {
+      setError(err instanceof Error?err.message:"Erro ao entrar.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return <main className="center">
@@ -48,14 +56,28 @@ function Home({onSession}:{onSession:(s:ClientSession)=>void}) {
 function Lobby({session}:{session:ClientSession}) {
   return <main className="page">
     <header className="topbar">
-      <div><span className="eyebrow">Lobby</span><h1>Escolha um jogo</h1></div>
-      <div><strong>{session.nickname}</strong><br/><ConnectionStatus state={session.connectionState}/></div>
+      <div>
+        <span className="eyebrow">Lobby</span>
+        <h1>Escolha um jogo</h1>
+      </div>
+      <div>
+        <strong>{session.nickname}</strong><br/>
+        <ConnectionStatus state={session.connectionState}/>
+      </div>
     </header>
+
     <section className="game-grid">
       {GAME_CATALOG.map(game=>
-        <GameCard key={game.id} name={game.name} description={game.description} href={`/game/${game.id}`} artLabel={game.name.slice(0,1)}/>
+        <GameCard
+          key={game.id}
+          name={game.name}
+          description={game.description}
+          href={`/game/${game.id}`}
+          artLabel={game.name.slice(0,1)}
+        />
       )}
     </section>
+
     <HelpRules>
       <p>As contas são adaptadas ao nível escolhido. Cada jogo explicará suas regras antes da partida.</p>
     </HelpRules>
@@ -80,26 +102,48 @@ export function App(){
 
   useEffect(()=>{
     const saved=loadSession();
-    if(!saved){ setChecking(false); return; }
-    reconnectSession(saved).then(setSession).catch(()=>setSession(null)).finally(()=>setChecking(false));
+    if(!saved){
+      setChecking(false);
+      return;
+    }
+    reconnectSession(saved)
+      .then(setSession)
+      .catch(()=>setSession(null))
+      .finally(()=>setChecking(false));
   },[]);
 
   useEffect(()=>{
     if(!session) return;
+
     const timer=window.setInterval(()=>{
-      heartbeatSession(session).then(setSession).catch(()=>setSession(current=>current?{...current,connectionState:"reconnecting"}:null));
+      heartbeatSession(session)
+        .then(setSession)
+        .catch(()=>setSession(current=>current?{...current,connectionState:"reconnecting"}:null));
     },20_000);
+
     const pageHide=()=>notifyDisconnect(session);
     window.addEventListener("pagehide",pageHide);
-    return ()=>{window.clearInterval(timer);window.removeEventListener("pagehide",pageHide);};
+
+    return ()=>{
+      window.clearInterval(timer);
+      window.removeEventListener("pagehide",pageHide);
+    };
   },[session?.sessionId]);
 
-  if(checking) return <main className="center"><p role="status">Reconectando...</p></main>;
+  if(checking) {
+    return <main className="center"><p role="status">Reconectando...</p></main>;
+  }
 
   return <Routes>
     <Route path="/" element={<Home onSession={setSession}/>}/>
     <Route path="/lobby" element={session?<Lobby session={session}/>:<Navigate to="/" replace/>}/>
-    {GAME_CATALOG.map(g=><Route key={g.id} path={`/game/${g.id}`} element={session?<GamePlaceholder id={g.id}/>:<Navigate to="/" replace/>}/>)}
+    {GAME_CATALOG.map(g=>
+      <Route
+        key={g.id}
+        path={`/game/${g.id}`}
+        element={session?<GamePlaceholder id={g.id}/>:<Navigate to="/" replace/>}
+      />
+    )}
     <Route path="*" element={<Navigate to={session?"/lobby":"/"} replace/>}/>
   </Routes>;
 }
