@@ -1,0 +1,29 @@
+name: Prompt 07 CI
+
+on:
+  push:
+    branches:
+      - feat/prompt-07-ui-ux-a11y
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate-ui-ux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: UI UX accessibility contracts
+        run: npm run test -w @jogos/server -- ui-ux-contract.test.ts
+      - name: Focused game room compatibility
+        run: npm run test -w @jogos/server -- multiplayer-consolidation.test.ts
+      - name: Build
+        run: npm run build
