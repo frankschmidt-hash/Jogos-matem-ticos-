@@ -1,151 +1,172 @@
-import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import {
+  EMPTY_ROOM_TTL_MS, NETWORK_GRACE_MS, ROOM_TTL_MS, roomInfrastructure,
+  type CoreRoomMember, type LifecycleCarrier, type RoomInfrastructure,
+  type RoomLifecycleState, type StoredPassword
+} from "./room-infrastructure";
 import {
   createRace, resolveBombAnswer, resolveNpcBombIfNeeded, resolveRound, startRound,
   submitNpcAnswers, submitRoundAnswer, useBomb, type BombDirection, type RaceState
 } from "@jogos/crazy-race";
 import { generateQuestion, validateAnswer, type GradeLevel, type MathQuestion } from "@jogos/math-engine";
 
-export type CrazyRoomMember = {
+export type CrazyRoomMember=CoreRoomMember & {gradeLevel:GradeLevel};
+export type CrazyRoomMemberInput={
   sessionId:string;
   nickname:string;
   gradeLevel:GradeLevel;
-  connected:boolean;
+  connected?:boolean;
 };
 
-type StoredPassword = {salt:string;hash:string};
+type BombActionResult={targetId:string;targetKind:"human"|"npc"};
 
-export type CrazyRoom = {
+export type CrazyRoom=LifecycleCarrier & {
   code:string;
   password:StoredPassword;
   hostSessionId:string;
   gradeLevel:GradeLevel;
   members:CrazyRoomMember[];
   status:"waiting"|"playing"|"finished";
-  race:RaceState | null;
-  question:MathQuestion | null;
+  race:RaceState|null;
+  question:MathQuestion|null;
   bombQuestions:Record<string,MathQuestion>;
-  submissionIds:Set<string>;
+  bombActionResults:Map<string,BombActionResult>;
   createdAt:number;
   updatedAt:number;
 };
 
-export type PublicCrazyRoom = {
+export type PublicCrazyRoom={
   code:string;
   hostSessionId:string;
   gradeLevel:GradeLevel;
   members:CrazyRoomMember[];
   status:"waiting"|"playing"|"finished";
+  lifecycleState:RoomLifecycleState;
+  capacity:{max:number;occupied:number;available:number};
+  serverNow:number;
   race:Omit<RaceState,"submissions"|"bombChallenges"> & {
     answeredIds:string[];
     bombTargets:string[];
-  } | null;
-  question:null | {
+  }|null;
+  question:null|{
     id:string;
     expression:string;
     gradeLevel:number;
     difficulty:number;
-    deadlineAt:number | null;
+    deadlineAt:number|null;
+    startedAt:number|null;
   };
   updatedAt:number;
 };
 
-const ROOM_ALPHABET="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-
-function hashPassword(password:string,salt=randomBytes(16).toString("hex")):StoredPassword {
-  return {salt,hash:scryptSync(password,salt,32).toString("hex")};
-}
-
-function verifyPassword(password:string,stored:StoredPassword):boolean {
-  const candidate=scryptSync(password,stored.salt,32);
-  const expected=Buffer.from(stored.hash,"hex");
-  return candidate.length===expected.length && timingSafeEqual(candidate,expected);
-}
-
-function difficultyForRound(round:number):1|2|3 {
+function difficultyForRound(round:number):1|2|3{
   return round<4?1:round<8?2:3;
 }
 
-export class CrazyRaceRoomManager {
+export class CrazyRaceRoomManager{
   private rooms=new Map<string,CrazyRoom>();
 
-  private makeCode():string {
-    for(let attempt=0;attempt<50;attempt++){
-      const bytes=randomBytes(6);
-      let code="";
-      for(let i=0;i<6;i++) code+=ROOM_ALPHABET[bytes[i]!%ROOM_ALPHABET.length]!;
-      if(!this.rooms.has(code)) return code;
-    }
-    throw new Error("Não foi possível gerar um código de sala.");
-  }
+  constructor(private infra:RoomInfrastructure=roomInfrastructure){}
 
-  createRoom(host:CrazyRoomMember,password:string,now=Date.now()):CrazyRoom {
-    if(password.length<4 || password.length>32) throw new Error("A senha deve ter entre 4 e 32 caracteres.");
-    const code=this.makeCode();
+  createRoom(host:CrazyRoomMemberInput,password:string,now=Date.now()):CrazyRoom{
+    const code=this.infra.allocateCode("crazy-race");
+    const core=this.infra.createMember(host,now);
+    const member:CrazyRoomMember={...core,gradeLevel:host.gradeLevel};
     const room:CrazyRoom={
-      code,
-      password:hashPassword(password),
-      hostSessionId:host.sessionId,
-      gradeLevel:host.gradeLevel,
-      members:[{...host,connected:true}],
-      status:"waiting",
-      race:null,
-      question:null,
-      bombQuestions:{},
-      submissionIds:new Set(),
-      createdAt:now,
-      updatedAt:now
+      code,password:this.infra.createPassword(password),hostSessionId:member.sessionId,
+      gradeLevel:host.gradeLevel,members:[member],status:"waiting",race:null,question:null,
+      bombQuestions:{},bombActionResults:new Map(),
+      lifecycleState:"ready",lifecycleHistory:["ready"],createdAt:now,updatedAt:now
     };
     this.rooms.set(code,room);
     return room;
   }
 
-  joinRoom(code:string,password:string,member:CrazyRoomMember,now=Date.now()):CrazyRoom {
+  joinRoom(code:string,password:string,input:CrazyRoomMemberInput,now=Date.now()):CrazyRoom{
     const room=this.mustRoom(code);
     if(room.status!=="waiting") throw new Error("A partida já foi iniciada.");
-    if(!verifyPassword(password,room.password)) throw new Error("Código ou senha inválidos.");
-    const existing=room.members.find(m=>m.sessionId===member.sessionId);
+    this.infra.verifyPassword("crazy-race",room.code,input.sessionId,password,room.password,now);
+    const existing=room.members.find(m=>m.sessionId===input.sessionId);
     if(existing){
-      existing.connected=true;
+      this.infra.reconnectMember(existing,now);
+      this.syncWaitingLifecycle(room);
       room.updatedAt=now;
       return room;
     }
-    if(room.members.length>=6) throw new Error("A sala está cheia.");
-    room.members.push({...member,connected:true});
+    if(this.infra.capacity(room.members,6).available<=0) throw new Error("A sala está cheia.");
+    const core=this.infra.createMember(input,now);
+    room.members.push({...core,gradeLevel:input.gradeLevel});
+    this.syncWaitingLifecycle(room);
     room.updatedAt=now;
     return room;
   }
 
-  reconnect(code:string,sessionId:string,now=Date.now()):CrazyRoom {
+  reconnect(code:string,sessionId:string,now=Date.now()):CrazyRoom{
     const room=this.mustRoom(code);
     const member=room.members.find(m=>m.sessionId===sessionId);
     if(!member) throw new Error("Jogador não pertence a esta sala.");
-    member.connected=true;
+    this.infra.reconnectMember(member,now);
+    this.syncWaitingLifecycle(room);
     room.updatedAt=now;
     return room;
   }
 
-  disconnect(code:string,sessionId:string,now=Date.now()):void {
-    const room=this.rooms.get(code.toUpperCase());
+  disconnect(code:string,sessionId:string,now=Date.now()):void{
+    const room=this.rooms.get(this.infra.normalizeCode(code));
     const member=room?.members.find(m=>m.sessionId===sessionId);
-    if(member){
-      member.connected=false;
-      room!.updatedAt=now;
+    if(member&&room){
+      this.infra.disconnectMember(member,now);
+      this.syncWaitingLifecycle(room);
+      room.updatedAt=now;
     }
   }
 
-  startRoom(code:string,hostSessionId:string,now=Date.now()):CrazyRoom {
+  leaveRoom(code:string,sessionId:string,now=Date.now()):CrazyRoom|null{
+    const room=this.mustRoom(code);
+    const member=room.members.find(m=>m.sessionId===sessionId);
+    if(!member) throw new Error("Jogador não pertence a esta sala.");
+
+    if(room.status==="waiting"){
+      room.members=room.members.filter(m=>m.sessionId!==sessionId);
+      if(room.members.length===0){
+        this.infra.transition(room,"closed");
+        this.rooms.delete(room.code);
+        this.infra.releaseCode(room.code);
+        return null;
+      }
+      if(room.hostSessionId===sessionId){
+        room.hostSessionId=this.infra.nextHost(room.members,sessionId)??room.members[0]!.sessionId;
+      }
+      this.syncWaitingLifecycle(room);
+    }else{
+      this.infra.abandonMember(member,now);
+      if(room.hostSessionId===sessionId){
+        room.hostSessionId=this.infra.nextHost(room.members,sessionId)??room.hostSessionId;
+      }
+    }
+    room.updatedAt=now;
+    return room;
+  }
+
+  startRoom(code:string,hostSessionId:string,now=Date.now()):CrazyRoom{
     const room=this.mustRoom(code);
     if(room.hostSessionId!==hostSessionId) throw new Error("Somente o host pode iniciar.");
     if(room.status!=="waiting") throw new Error("A sala já foi iniciada.");
-    room.race=createRace(room.members.map(m=>({id:m.sessionId,name:m.nickname})));
+    this.syncWaitingLifecycle(room);
+    if(room.lifecycleState!=="ready") throw new Error("A sala ainda não está pronta.");
+    const humans=room.members.filter(m=>m.connected&&m.presence==="connected");
+    if(humans.length<1) throw new Error("Nenhum jogador conectado.");
+
+    this.infra.transition(room,"countdown");
+    room.race=createRace(humans.map(m=>({id:m.sessionId,name:m.nickname})));
     room.status="playing";
+    this.infra.transition(room,"playing");
     room.updatedAt=now;
     this.openRound(room,now);
     return room;
   }
 
-  private openRound(room:CrazyRoom,now:number):void {
-    if(!room.race || room.race.phase==="finished") return;
+  private openRound(room:CrazyRoom,now:number):void{
+    if(!room.race||room.race.phase==="finished") return;
     room.race=startRound(room.race,now);
     room.race=submitNpcAnswers(room.race);
     room.question=generateQuestion(room.gradeLevel,{
@@ -153,39 +174,46 @@ export class CrazyRaceRoomManager {
       seed:"crazy:"+room.code+":round:"+room.race.round
     });
     room.bombQuestions={};
-    room.submissionIds.clear();
+    room.bombActionResults.clear();
     room.updatedAt=now;
   }
 
   submitAnswer(
     code:string,sessionId:string,questionId:string,answer:string,clientSubmissionId:string,now=Date.now()
-  ):CrazyRoom {
+  ):CrazyRoom{
     const room=this.mustPlaying(code);
-    if(!room.race || !room.question || room.race.roundStartedAt===null || room.race.roundDeadlineAt===null) {
+    if(!room.race||!room.question||room.race.roundStartedAt===null||room.race.roundDeadlineAt===null){
       throw new Error("Rodada indisponível.");
     }
     if(room.question.id!==questionId) throw new Error("Questão não pertence à rodada atual.");
-    if(room.submissionIds.has(clientSubmissionId)) return room;
-    if(now>room.race.roundDeadlineAt) throw new Error("O tempo da rodada terminou.");
+    this.infra.assertActionRate("crazy-answer:"+room.code,sessionId,now);
+    if(this.infra.isReplay("crazy-answer:"+room.code+":"+questionId,sessionId,clientSubmissionId,now)) return room;
+    if(now>room.race.roundDeadlineAt+NETWORK_GRACE_MS) throw new Error("O tempo da rodada terminou.");
 
-    const responseMs=now-room.race.roundStartedAt;
+    const acceptedAt=Math.min(now,room.race.roundDeadlineAt);
+    const responseMs=acceptedAt-room.race.roundStartedAt;
     const correct=validateAnswer(room.question,answer);
-    room.race=submitRoundAnswer(room.race,sessionId,correct,responseMs,now);
-    room.submissionIds.add(clientSubmissionId);
+    room.race=submitRoundAnswer(room.race,sessionId,correct,responseMs,acceptedAt);
     room.updatedAt=now;
     return room;
   }
 
-  useBomb(code:string,sessionId:string,direction:BombDirection,now=Date.now()):{
-    room:CrazyRoom;
-    targetId:string;
-    targetKind:"human"|"npc";
-  } {
+  useBomb(
+    code:string,sessionId:string,direction:BombDirection,clientSubmissionId:string,now=Date.now()
+  ): {room:CrazyRoom;targetId:string;targetKind:"human"|"npc"}{
     const room=this.mustPlaying(code);
     if(!room.race) throw new Error("Corrida indisponível.");
+    this.infra.assertActionRate("crazy-bomb:"+room.code,sessionId,now,12,10_000);
+    const replayKey=sessionId+":"+clientSubmissionId;
+    const previous=room.bombActionResults.get(replayKey);
+    if(previous) return {room,...previous};
+    if(this.infra.isReplay("crazy-bomb:"+room.code,sessionId,clientSubmissionId,now)){
+      throw new Error("Ação já processada.");
+    }
+
     const before=new Set(Object.keys(room.race.bombChallenges));
     room.race=useBomb(room.race,sessionId,direction,now);
-    const challenge=Object.values(room.race.bombChallenges).find(c=>!before.has(c.targetId) && c.attackerId===sessionId);
+    const challenge=Object.values(room.race.bombChallenges).find(c=>!before.has(c.targetId)&&c.attackerId===sessionId);
     if(!challenge) throw new Error("Não foi possível identificar o alvo.");
 
     const target=room.race.racers.find(r=>r.id===challenge.targetId)!;
@@ -200,47 +228,62 @@ export class CrazyRaceRoomManager {
       delete room.bombQuestions[target.id];
     }
 
+    const result:BombActionResult={targetId:challenge.targetId,targetKind:target.kind};
+    room.bombActionResults.set(replayKey,result);
     room.updatedAt=now;
-    return {room,targetId:challenge.targetId,targetKind:target.kind};
+    return {room,...result};
   }
 
   submitBombAnswer(
-    code:string,sessionId:string,questionId:string,answer:string,now=Date.now()
-  ):CrazyRoom {
+    code:string,sessionId:string,questionId:string,answer:string,clientSubmissionId:string,now=Date.now()
+  ):CrazyRoom{
     const room=this.mustPlaying(code);
     if(!room.race) throw new Error("Corrida indisponível.");
     const question=room.bombQuestions[sessionId];
-    if(!question || question.id!==questionId) throw new Error("Bomba matemática inválida.");
+    const challenge=room.race.bombChallenges[sessionId];
+    if(!question||question.id!==questionId||!challenge||challenge.resolved) throw new Error("Bomba matemática inválida.");
+    this.infra.assertActionRate("crazy-bomb-answer:"+room.code,sessionId,now);
+    if(this.infra.isReplay("crazy-bomb-answer:"+room.code+":"+questionId,sessionId,clientSubmissionId,now)) return room;
+    if(now>challenge.deadlineAt+NETWORK_GRACE_MS) throw new Error("O tempo da bomba terminou.");
+
+    const acceptedAt=Math.min(now,challenge.deadlineAt);
     const correct=validateAnswer(question,answer);
-    room.race=resolveBombAnswer(room.race,sessionId,correct,now);
+    room.race=resolveBombAnswer(room.race,sessionId,correct,acceptedAt);
     delete room.bombQuestions[sessionId];
     room.updatedAt=now;
     return room;
   }
 
-  finalizeRound(code:string,now=Date.now()):CrazyRoom {
+  finalizeRound(code:string,now=Date.now()):CrazyRoom{
     const room=this.mustPlaying(code);
-    if(!room.race || room.race.roundDeadlineAt===null) throw new Error("Rodada indisponível.");
+    if(!room.race||room.race.roundDeadlineAt===null) throw new Error("Rodada indisponível.");
     room.race=resolveRound(room.race,Math.max(now,room.race.roundDeadlineAt));
     room.question=null;
     room.bombQuestions={};
+    room.bombActionResults.clear();
     room.updatedAt=now;
-    if(room.race.phase==="finished") room.status="finished";
+    if(room.race.phase==="finished"){
+      room.status="finished";
+      this.infra.transition(room,"finished");
+    }else{
+      this.infra.transition(room,"round-resolution");
+    }
     return room;
   }
 
-  openNextRound(code:string,now=Date.now()):CrazyRoom {
+  openNextRound(code:string,now=Date.now()):CrazyRoom{
     const room=this.mustRoom(code);
-    if(room.status!=="playing" || !room.race || room.race.phase!=="round-resolution") {
+    if(room.status!=="playing"||!room.race||room.race.phase!=="round-resolution"){
       throw new Error("A próxima rodada ainda não pode começar.");
     }
+    this.infra.transition(room,"playing");
     this.openRound(room,now);
     return room;
   }
 
-  publicSnapshot(code:string):PublicCrazyRoom {
+  publicSnapshot(code:string):PublicCrazyRoom{
     const room=this.mustRoom(code);
-    const race=room.race ? {
+    const race=room.race?{
       racers:room.race.racers,
       round:room.race.round,
       phase:room.race.phase,
@@ -253,7 +296,7 @@ export class CrazyRaceRoomManager {
       nextLogId:room.race.nextLogId,
       answeredIds:Object.keys(room.race.submissions),
       bombTargets:Object.values(room.race.bombChallenges).filter(c=>!c.resolved).map(c=>c.targetId)
-    } : null;
+    }:null;
 
     return {
       code:room.code,
@@ -261,52 +304,99 @@ export class CrazyRaceRoomManager {
       gradeLevel:room.gradeLevel,
       members:room.members.map(m=>({...m})),
       status:room.status,
+      lifecycleState:room.lifecycleState,
+      capacity:this.infra.capacity(room.members,6),
+      serverNow:Date.now(),
       race,
-      question:room.question && room.race ? {
+      question:room.question&&room.race?{
         id:room.question.id,
         expression:room.question.expression,
         gradeLevel:room.question.gradeLevel,
         difficulty:room.question.difficulty,
-        deadlineAt:room.race.roundDeadlineAt
-      } : null,
+        deadlineAt:room.race.roundDeadlineAt,
+        startedAt:room.race.roundStartedAt
+      }:null,
       updatedAt:room.updatedAt
     };
   }
 
-  bombQuestionFor(code:string,sessionId:string):null|{id:string;expression:string;deadlineAt:number} {
+  bombQuestionFor(code:string,sessionId:string):null|{id:string;expression:string;deadlineAt:number}{
     const room=this.mustRoom(code);
     const question=room.bombQuestions[sessionId];
     const challenge=room.race?.bombChallenges[sessionId];
-    if(!question || !challenge || challenge.resolved) return null;
+    if(!question||!challenge||challenge.resolved) return null;
     return {id:question.id,expression:question.expression,deadlineAt:challenge.deadlineAt};
   }
 
-  memberIds(code:string):string[] {
-    return this.mustRoom(code).members.map(m=>m.sessionId);
+  memberIds(code:string):string[]{
+    return this.mustRoom(code).members.filter(m=>m.presence!=="abandoned").map(m=>m.sessionId);
   }
 
-  getRoom(code:string):CrazyRoom|undefined {
-    return this.rooms.get(code.toUpperCase());
+  getRoom(code:string):CrazyRoom|undefined{
+    return this.rooms.get(this.infra.normalizeCode(code));
   }
 
-  cleanup(now=Date.now(),ttlMs=2*60*60*1000):number {
-    let removed=0;
+  cleanup(now=Date.now(),ttlMs=ROOM_TTL_MS):string[]{
+    const changed:string[]=[];
     for(const [code,room] of this.rooms){
+      let roomChanged=this.infra.sweepPresence(room.members,now);
+
+      if(room.status==="waiting"){
+        const before=room.members.length;
+        room.members=room.members.filter(m=>m.presence!=="abandoned");
+        roomChanged=roomChanged||room.members.length!==before;
+        if(room.members.length===0){
+          if(now-room.updatedAt>=EMPTY_ROOM_TTL_MS||before>0){
+            this.infra.transition(room,"closed");
+            this.rooms.delete(code);
+            this.infra.releaseCode(code);
+            continue;
+          }
+        }else{
+          const nextHost=this.infra.nextHost(room.members,room.hostSessionId);
+          if(nextHost&&nextHost!==room.hostSessionId){
+            room.hostSessionId=nextHost;
+            roomChanged=true;
+          }
+          const beforeState=room.lifecycleState;
+          this.syncWaitingLifecycle(room);
+          roomChanged=roomChanged||beforeState!==room.lifecycleState;
+        }
+      }else{
+        const nextHost=this.infra.nextHost(room.members,room.hostSessionId);
+        if(nextHost&&nextHost!==room.hostSessionId){
+          room.hostSessionId=nextHost;
+          roomChanged=true;
+        }
+      }
+
       if(now-room.updatedAt>ttlMs){
+        if(room.lifecycleState!=="closed") this.infra.transition(room,"closed");
         this.rooms.delete(code);
-        removed++;
+        this.infra.releaseCode(code);
+        continue;
+      }
+      if(roomChanged){
+        room.updatedAt=now;
+        changed.push(code);
       }
     }
-    return removed;
+    return changed;
   }
 
-  private mustRoom(code:string):CrazyRoom {
-    const room=this.rooms.get(code.toUpperCase());
+  private syncWaitingLifecycle(room:CrazyRoom):void{
+    if(room.status!=="waiting") return;
+    const desired=this.infra.waitingState(room.members,1);
+    if(room.lifecycleState!==desired) this.infra.transition(room,desired);
+  }
+
+  private mustRoom(code:string):CrazyRoom{
+    const room=this.rooms.get(this.infra.normalizeCode(code));
     if(!room) throw new Error("Sala não encontrada.");
     return room;
   }
 
-  private mustPlaying(code:string):CrazyRoom {
+  private mustPlaying(code:string):CrazyRoom{
     const room=this.mustRoom(code);
     if(room.status!=="playing") throw new Error("A corrida ainda não está em andamento.");
     return room;
