@@ -194,7 +194,7 @@ function SoloRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
         setMessage("");
         return next;
       });
-    },1200);
+    },1600);
     return ()=>window.clearTimeout(timer);
   },[race.phase,session.gradeLevel,session.sessionId]);
 
