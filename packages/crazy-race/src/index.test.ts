@@ -115,6 +115,17 @@ describe("Corrida Maluca",()=>{
     expect(s.winnerId).toBe("h1");
   });
 
+  it("empate exato na chegada abre rodada extra",()=>{
+    let s=createRace([{id:"a",name:"A"},{id:"b",name:"B"}],100);
+    s=startRound(s,0);
+    s=submitRoundAnswer(s,"a",true,3000,3000);
+    s=submitRoundAnswer(s,"b",true,3000,3000);
+    s=resolveRound(s,ROUND_DURATION_MS);
+    expect(s.phase).toBe("round-resolution");
+    expect(s.tieBreaker).toBe(true);
+    expect(s.winnerId).toBeNull();
+  });
+
   it("posição usa progresso e desempates",()=>{
     let s=oneHuman();
     s={...s,racers:s.racers.map((r,i)=>({...r,progress:(5-i)*10}))};
