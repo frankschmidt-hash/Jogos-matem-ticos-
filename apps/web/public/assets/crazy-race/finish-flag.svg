@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 180" role="img" aria-labelledby="t">
+<title id="t">Bandeira de chegada</title>
+<path d="M46 25v135" stroke="#24345b" stroke-width="9" stroke-linecap="round"/>
+<path d="M51 31h102v70H51z" fill="#fff" stroke="#24345b" stroke-width="6"/>
+<path d="M51 31h25v18H51zm50 0h26v18h-26zm26 18h26v18h-26zm-51 0h25v18H76zm-25 18h25v17H51zm50 0h26v17h-26zm26 17h26v17h-26zM76 84h25v17H76z" fill="#24345b"/>
+<path d="M31 160h40" stroke="#e2a23a" stroke-width="10" stroke-linecap="round"/>
+</svg>
