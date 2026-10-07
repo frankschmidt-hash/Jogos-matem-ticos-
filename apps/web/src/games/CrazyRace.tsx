@@ -8,6 +8,7 @@ import {
 import { generateQuestion, validateAnswer, type MathQuestion } from "@jogos/math-engine";
 import { HelpRules, ResultFeedback } from "@jogos/ui";
 import { apiBase, type ClientSession } from "../session";
+import "./crazy-race.css";
 
 type RoomRace = Omit<RaceState,"submissions"|"bombChallenges"> & {
   answeredIds:string[];
@@ -154,7 +155,7 @@ function SoloRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
     return race;
   };
   const [race,setRace]=useState<RaceState>(begin);
-  const [question,setQuestion]=useState<MathQuestion>(()=>generateQuestion(session.gradeLevel,{difficulty:1,seed:"crazy-solo-1-"+session.sessionId}));
+  const [question,setQuestion]=useState<MathQuestion|null>(()=>generateQuestion(session.gradeLevel,{difficulty:1,seed:"crazy-solo-1-"+session.sessionId}));
   const [answer,setAnswer]=useState("");
   const [feedback,setFeedback]=useState<"correct"|"incorrect"|null>(null);
   const [submitted,setSubmitted]=useState(false);
@@ -166,7 +167,7 @@ function SoloRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
     if(race.phase!=="round-open"||!race.roundDeadlineAt||now<race.roundDeadlineAt||resolvedRound.current===race.round) return;
     resolvedRound.current=race.round;
     setRace(current=>resolveRound(current,Date.now()));
-    setQuestion(null as unknown as MathQuestion);
+    setQuestion(null);
   },[now,race.phase,race.round,race.roundDeadlineAt]);
 
   useEffect(()=>{
