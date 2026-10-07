@@ -250,12 +250,10 @@ export function PropertyGame({session}:{session:ClientSession}) {
   const manage=(kind:"upgrade"|"sell",index:number)=>{
     setActionError("");
     try{
-      setGame(current=>{
-        if(!current) return current;
-        return kind==="upgrade"
-          ? upgradeProperty(current,human.id,index)
-          : sellProperty(current,human.id,index);
-      });
+      const next=kind==="upgrade"
+        ? upgradeProperty(game,human.id,index)
+        : sellProperty(game,human.id,index);
+      setGame(next);
     }catch(error){
       setActionError(error instanceof Error?error.message:"Ação indisponível.");
     }
