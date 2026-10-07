@@ -30,6 +30,6 @@ jobs:
           npm run test -w @jogos/number-race
           npm run test -w @jogos/math-football
       - name: Rooms performance and classroom contracts
-        run: npm run test -w @jogos/server -- timer-registry.test.ts pre-release-contract.test.ts room-infrastructure.test.ts multiplayer-consolidation.test.ts
+        run: npm run test -w @jogos/server -- timer-registry.test.ts pre-release-contract.test.ts room-infrastructure.test.ts multiplayer-consolidation.test.ts crazy-race-room-manager.test.ts number-race-room-manager.test.ts football-room-manager.test.ts
       - name: Build
         run: npm run build
