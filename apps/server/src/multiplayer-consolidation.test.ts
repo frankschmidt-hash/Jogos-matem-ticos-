@@ -17,16 +17,16 @@ const footballGuest={sessionId:"football-guest-01",nickname:"Guest",connected:tr
 describe("Prompt 06 multiplayer consolidado",()=>{
   it("duas abas da mesma sessão não duplicam jogador",()=>{
     const manager=new NumberRaceRoomManager(new RoomInfrastructure());
-    const room=manager.createRoom(numberHost,"1234",6,0);
-    manager.joinRoom(room.code,"1234",numberGuest,1);
-    manager.joinRoom(room.code,"1234",numberGuest,2);
+    const room=manager.createRoom(numberHost,"123",6,0);
+    manager.joinRoom(room.code,"123",numberGuest,1);
+    manager.joinRoom(room.code,"123",numberGuest,2);
     expect(room.members.filter(m=>m.sessionId===numberGuest.sessionId)).toHaveLength(1);
   });
 
   it("dois navegadores simulados entram na sala correta",()=>{
     const manager=new FootballRoomManager(new RoomInfrastructure());
-    const room=manager.createRoom(footballHost,"1234",7,0);
-    const joined=manager.joinRoom(room.code,"1234",footballGuest,1);
+    const room=manager.createRoom(footballHost,"123",7,0);
+    const joined=manager.joinRoom(room.code,"123",footballGuest,1);
     expect(joined.code).toBe(room.code);
     expect(joined.members.map(m=>m.sessionId)).toEqual([footballHost.sessionId,footballGuest.sessionId]);
     expect(joined.lifecycleState).toBe("ready");
@@ -40,14 +40,14 @@ describe("Prompt 06 multiplayer consolidado",()=>{
 
   it("senha errada não revela detalhes",()=>{
     const manager=new CrazyRaceRoomManager(new RoomInfrastructure());
-    const room=manager.createRoom(crazyHost,"1234",0);
-    expect(()=>manager.joinRoom(room.code,"xxxx",crazyGuest,1)).toThrow(/^Código ou senha inválidos\.$/);
+    const room=manager.createRoom(crazyHost,"123",0);
+    expect(()=>manager.joinRoom(room.code,"999",crazyGuest,1)).toThrow(/^Código ou senha inválidos\.$/);
   });
 
   it("host desconectado antes da partida transfere liderança após a janela",()=>{
     const manager=new CrazyRaceRoomManager(new RoomInfrastructure());
-    const room=manager.createRoom(crazyHost,"1234",0);
-    manager.joinRoom(room.code,"1234",crazyGuest,1);
+    const room=manager.createRoom(crazyHost,"123",0);
+    manager.joinRoom(room.code,"123",crazyGuest,1);
     manager.disconnect(room.code,crazyHost.sessionId,100);
     manager.cleanup(100+RECONNECT_GRACE_MS);
     expect(manager.getRoom(room.code)?.hostSessionId).toBe(crazyGuest.sessionId);
@@ -56,8 +56,8 @@ describe("Prompt 06 multiplayer consolidado",()=>{
 
   it("reconexão dentro da janela recupera sala sem duplicar estado",()=>{
     const manager=new NumberRaceRoomManager(new RoomInfrastructure());
-    const room=manager.createRoom(numberHost,"1234",5,0);
-    manager.joinRoom(room.code,"1234",numberGuest,1);
+    const room=manager.createRoom(numberHost,"123",5,0);
+    manager.joinRoom(room.code,"123",numberGuest,1);
     manager.startRoom(room.code,numberHost.sessionId,1000);
     manager.disconnect(room.code,numberGuest.sessionId,2000);
     const before=room.race?.racers.length;
@@ -68,7 +68,7 @@ describe("Prompt 06 multiplayer consolidado",()=>{
 
   it("aceita pequena tolerância de rede, mas rejeita resposta realmente atrasada",()=>{
     const manager=new NumberRaceRoomManager(new RoomInfrastructure());
-    const room=manager.createRoom(numberHost,"1234",6,0);
+    const room=manager.createRoom(numberHost,"123",6,0);
     manager.startRoom(room.code,numberHost.sessionId,1000);
     const q=manager.publicSnapshot(room.code).question!;
     expect(()=>manager.submitAnswer(
@@ -76,7 +76,7 @@ describe("Prompt 06 multiplayer consolidado",()=>{
     )).not.toThrow();
 
     const other=new NumberRaceRoomManager(new RoomInfrastructure());
-    const room2=other.createRoom({...numberHost,sessionId:"number-host-02"},"1234",6,0);
+    const room2=other.createRoom({...numberHost,sessionId:"number-host-02"},"123",6,0);
     other.startRoom(room2.code,"number-host-02",1000);
     const q2=other.publicSnapshot(room2.code).question!;
     expect(()=>other.submitAnswer(
@@ -86,7 +86,7 @@ describe("Prompt 06 multiplayer consolidado",()=>{
 
   it("mensagem de resposta duplicada é idempotente",()=>{
     const manager=new NumberRaceRoomManager(new RoomInfrastructure());
-    const room=manager.createRoom(numberHost,"1234",6,0);
+    const room=manager.createRoom(numberHost,"123",6,0);
     manager.startRoom(room.code,numberHost.sessionId,1000);
     const q=manager.publicSnapshot(room.code).question!;
     manager.submitAnswer(room.code,numberHost.sessionId,q.id,"0","duplicate-submit-01",2000);
@@ -105,8 +105,8 @@ describe("Prompt 06 multiplayer consolidado",()=>{
 
   it("corrida com múltiplos humanos mantém seis competidores e NPC fill estável",()=>{
     const manager=new NumberRaceRoomManager(new RoomInfrastructure());
-    const room=manager.createRoom(numberHost,"1234","mixed",0);
-    manager.joinRoom(room.code,"1234",numberGuest,1);
+    const room=manager.createRoom(numberHost,"123","mixed",0);
+    manager.joinRoom(room.code,"123",numberGuest,1);
     manager.startRoom(room.code,numberHost.sessionId,1000);
     expect(room.race?.racers).toHaveLength(6);
     expect(room.race?.racers.filter(r=>r.kind==="human")).toHaveLength(2);
@@ -118,8 +118,8 @@ describe("Prompt 06 multiplayer consolidado",()=>{
 
   it("futebol PvP mantém placar e vez sob autoridade do servidor",()=>{
     const manager=new FootballRoomManager(new RoomInfrastructure());
-    const room=manager.createRoom(footballHost,"1234",6,0);
-    manager.joinRoom(room.code,"1234",footballGuest,1);
+    const room=manager.createRoom(footballHost,"123",6,0);
+    manager.joinRoom(room.code,"123",footballGuest,1);
     manager.startRoom(room.code,footballHost.sessionId,1000);
     const q=manager.publicSnapshot(room.code).question!;
     manager.submitAnswer(room.code,footballHost.sessionId,q.id,"0","football-submit-01",2000);
@@ -130,8 +130,8 @@ describe("Prompt 06 multiplayer consolidado",()=>{
 
   it("bomba multiplayer é idempotente e servidor escolhe o alvo válido",()=>{
     const manager=new CrazyRaceRoomManager(new RoomInfrastructure());
-    const room=manager.createRoom(crazyHost,"1234",0);
-    manager.joinRoom(room.code,"1234",crazyGuest,1);
+    const room=manager.createRoom(crazyHost,"123",0);
+    manager.joinRoom(room.code,"123",crazyGuest,1);
     manager.startRoom(room.code,crazyHost.sessionId,1000);
     room.race!.racers=room.race!.racers.map(r=>r.id===crazyHost.sessionId?{...r,bombCharges:1}:r);
     const direction=bombTarget(room.race!,crazyHost.sessionId,"ahead")?"ahead":"behind";
@@ -144,7 +144,7 @@ describe("Prompt 06 multiplayer consolidado",()=>{
   it("sala expira e libera seu código no cleanup",()=>{
     const infra=new RoomInfrastructure();
     const manager=new NumberRaceRoomManager(infra);
-    const room=manager.createRoom(numberHost,"1234",5,0);
+    const room=manager.createRoom(numberHost,"123",5,0);
     manager.cleanup(ROOM_TTL_MS+1);
     expect(manager.getRoom(room.code)).toBeUndefined();
     expect(()=>infra.releaseCode(room.code)).not.toThrow();
