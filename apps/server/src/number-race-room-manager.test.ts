@@ -31,6 +31,18 @@ describe("NumberRaceRoomManager",()=>{
     expect(room.race?.racers.filter(r=>r.kind==="npc")).toHaveLength(2);
   });
 
+  it("sincroniza modelo e cor de cada jogador no multiplayer",()=>{
+    const manager=new NumberRaceRoomManager();
+    const hostCar={modelId:"rally",color:"#e84843"} as const;
+    const guestCar={modelId:"van",color:"#2389dc"} as const;
+    const room=manager.createRoom(host,"1234",5,0,hostCar);
+    manager.joinRoom(room.code,"1234",guest(1),1,guestCar);
+    expect(manager.publicSnapshot(room.code).carChoices[host.sessionId]).toEqual(hostCar);
+    expect(manager.publicSnapshot(room.code).carChoices[guest(1).sessionId]).toEqual(guestCar);
+    manager.startRoom(room.code,host.sessionId,1000);
+    expect(manager.publicSnapshot(room.code).carChoices[guest(1).sessionId]).toEqual(guestCar);
+  });
+
   it("não aceita mais que 6 humanos",()=>{
     const manager=new NumberRaceRoomManager();
     const room=manager.createRoom(host,"1234",6,0);
