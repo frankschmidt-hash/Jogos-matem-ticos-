@@ -21,7 +21,8 @@
     "@jogos/number-race": "0.1.0",
     "@fastify/helmet": "^13.0.2",
     "@fastify/static": "^10.1.5",
-    "tsx": "^4.20.5"
+    "tsx": "^4.20.5",
+    "@jogos/property-game": "0.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.18.6",
