@@ -78,3 +78,22 @@ export const footballAnswerSchema=footballRoomActionSchema.extend({
   answer:z.string().min(1).max(64),
   clientSubmissionId:clientSubmissionIdSchema
 });
+
+export const propertyCreateRoomSchema=heartbeatSchema.extend({
+  pin:z.string().regex(/^\d{3}$/),
+  mode:z.enum(["short","full"]),
+  shortRounds:z.number().int().min(4).max(16)
+});
+export const propertyJoinRoomSchema=heartbeatSchema.extend({
+  code:roomCodeSchema,
+  pin:z.string().regex(/^\d{3}$/)
+});
+export const propertyRoomActionSchema=heartbeatSchema.extend({code:roomCodeSchema});
+export const propertyGameActionSchema=propertyRoomActionSchema.extend({
+  action:z.enum(["roll","answer","buy","end","upgrade","sell"]),
+  questionId:z.string().max(160).optional(),
+  answer:z.string().max(64).optional(),
+  submissionId:clientSubmissionIdSchema.optional(),
+  buy:z.boolean().optional(),
+  spaceIndex:z.number().int().min(0).max(35).optional()
+});
