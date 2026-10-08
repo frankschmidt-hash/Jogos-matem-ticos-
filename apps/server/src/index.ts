@@ -368,7 +368,7 @@ io.on("connection", socket => {
       const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
       const room=crazyRooms.submitAnswer(
         parsed.data.code.toUpperCase(),session.sessionId,parsed.data.questionId,
-        parsed.data.answer,parsed.data.clientSubmissionId,Date.now(),parsed.data.target
+        parsed.data.answer,parsed.data.clientSubmissionId
       );
       emitCrazyState(room.code);
       ack?.({ok:true,room:crazyRooms.publicSnapshot(room.code)});
@@ -766,7 +766,7 @@ io.on("connection", socket => {
       const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
       const room=footballRooms.submitAnswer(
         parsed.data.code.toUpperCase(),session.sessionId,parsed.data.questionId,
-        parsed.data.answer,parsed.data.clientSubmissionId
+        parsed.data.answer,parsed.data.clientSubmissionId,Date.now(),parsed.data.target
       );
       emitFootballState(room.code);
       if(room.status==="playing") scheduleFootballAdvance(room.code);
