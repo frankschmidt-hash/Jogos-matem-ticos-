@@ -5,7 +5,7 @@ import {
 } from "./room-infrastructure";
 import {
   ONLINE_KICK_MS, abandonMatch, createPenaltyMatch, openNextKick, startKick,
-  submitKick, timeoutKick, validPenaltyTarget, type PenaltyMatchState, type PenaltyTarget
+  submitKick, timeoutKick, validPenaltyTarget, type PenaltyMatchState
 } from "@jogos/math-football";
 import { generateQuestion, validateAnswer, type GradeLevel, type MathQuestion } from "@jogos/math-engine";
 
@@ -149,7 +149,7 @@ export class FootballRoomManager{
 
   submitAnswer(
     code:string,sessionId:string,questionId:string,answer:string,
-    clientSubmissionId:string,now=Date.now(),target:PenaltyTarget=4
+    clientSubmissionId:string,now=Date.now(),target:number=4
   ):FootballRoom{
     if(!validPenaltyTarget(target)) throw new Error("Canto do chute inválido.");
     const room=this.mustRoom(code);
