@@ -5,7 +5,7 @@ import {
 } from "./room-infrastructure";
 import {
   ONLINE_KICK_MS, abandonMatch, createPenaltyMatch, openNextKick, startKick,
-  submitKick, timeoutKick, type PenaltyMatchState
+  submitKick, timeoutKick, validPenaltyTarget, type PenaltyMatchState, type PenaltyTarget
 } from "@jogos/math-football";
 import { generateQuestion, validateAnswer, type GradeLevel, type MathQuestion } from "@jogos/math-engine";
 
@@ -58,10 +58,13 @@ export class FootballRoomManager{
   constructor(private infra:RoomInfrastructure=roomInfrastructure){}
 
   createRoom(host:FootballRoomMemberInput,password:string,gradeLevel:GradeLevel,now=Date.now()):FootballRoom{
+    if(!/^\d{3}$/.test(password)) throw new Error("A senha deve ter exatamente 3 dígitos.");
+    this.infra.assertActionRate("football-create",host.sessionId,now,3,60_000);
+    if([...this.rooms.values()].some(r=>r.hostSessionId===host.sessionId&&r.status==="waiting")) throw new Error("Você já possui uma sala em espera.");
     const code=this.infra.allocateCode("math-football");
     const member=this.infra.createMember(host,now);
     const room:FootballRoom={
-      code,password:this.infra.createPassword(password),hostSessionId:member.sessionId,gradeLevel,
+      code,password:this.infra.createPassword("P"+password),hostSessionId:member.sessionId,gradeLevel,
       members:[member],status:"waiting",match:null,question:null,lastCorrectAnswer:null,
       lifecycleState:"waiting",lifecycleHistory:["waiting"],createdAt:now,updatedAt:now
     };
@@ -69,10 +72,17 @@ export class FootballRoomManager{
     return room;
   }
 
+  listWaiting(){
+    return [...this.rooms.values()].filter(room=>room.status==="waiting"&&room.members.length<2)
+      .map(room=>({code:room.code,hostName:room.members.find(m=>m.sessionId===room.hostSessionId)?.nickname??"Jogador",players:room.members.length,capacity:2}));
+  }
+
   joinRoom(code:string,password:string,input:FootballRoomMemberInput,now=Date.now()):FootballRoom{
+    if(!/^\d{3}$/.test(password)) throw new Error("A senha deve ter exatamente 3 dígitos.");
     const room=this.mustRoom(code);
     if(room.status!=="waiting") throw new Error("A partida já foi iniciada.");
-    this.infra.verifyPassword("math-football",room.code,input.sessionId,password,room.password,now);
+    this.infra.assertActionRate("football-pin:"+room.code,"shared",now,10,60_000);
+    this.infra.verifyPassword("math-football",room.code,input.sessionId,"P"+password,room.password,now);
     const existing=room.members.find(m=>m.sessionId===input.sessionId);
     if(existing){
       this.infra.reconnectMember(existing,now);
@@ -139,8 +149,9 @@ export class FootballRoomManager{
 
   submitAnswer(
     code:string,sessionId:string,questionId:string,answer:string,
-    clientSubmissionId:string,now=Date.now()
+    clientSubmissionId:string,now=Date.now(),target:PenaltyTarget=4
   ):FootballRoom{
+    if(!validPenaltyTarget(target)) throw new Error("Canto do chute inválido.");
     const room=this.mustRoom(code);
     this.infra.assertActionRate("football-answer:"+room.code,sessionId,now);
     if(this.infra.isReplay("football-answer:"+room.code+":"+questionId,sessionId,clientSubmissionId,now)) return room;
@@ -157,7 +168,7 @@ export class FootballRoomManager{
     const acceptedAt=deadline===null?now:Math.min(now,deadline);
     const correct=validateAnswer(room.question,answer);
     room.lastCorrectAnswer=room.question.correctAnswer;
-    room.match=submitKick(room.match,sessionId,correct,acceptedAt,"answer");
+    room.match=submitKick(room.match,sessionId,correct,acceptedAt,"answer",target);
     room.question=null;
     room.updatedAt=now;
     if(room.match.phase==="finished"){
