@@ -1,4 +1,5 @@
 import { type CSSProperties, type ReactNode } from "react";
+import { FootballAthlete as Athlete } from "./FootballAthlete";
 import { PENALTY_TARGETS, type PenaltyKick, type PenaltyMatchState, type PenaltyTarget } from "@jogos/math-football";
 
 const targetNames=[
@@ -6,61 +7,6 @@ const targetNames=[
   "meio esquerdo","centro","meio direito",
   "canto inferior esquerdo","centro inferior","canto inferior direito"
 ];
-
-function Athlete({keeper=false,celebrating=false,disappointed=false}:{
-  keeper?:boolean;celebrating?:boolean;disappointed?:boolean
-}){
-  return <svg className={"football-athlete "+(keeper?"keeper-athlete":"striker-athlete")+(celebrating?" celebrating":"")+(disappointed?" disappointed":"")}
-    viewBox="0 0 165 260" role="img" aria-label={keeper?"Goleiro preparado para defender":"Jogador de futebol preparado para chutar"}>
-    <defs>
-      <linearGradient id={keeper?"keeper-kit":"player-kit"} x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stopColor={keeper?"#5f7592":"#fff04e"}/>
-        <stop offset=".55" stopColor={keeper?"#182942":"#ffd31c"}/>
-        <stop offset="1" stopColor={keeper?"#111827":"#c78b00"}/>
-      </linearGradient>
-      <linearGradient id="football-skin" x1="0" y1="0" x2=".95" y2="1">
-        <stop stopColor="#f8cc9d"/><stop offset=".65" stopColor="#d38e58"/><stop offset="1" stopColor="#94533c"/>
-      </linearGradient>
-    </defs>
-    <ellipse cx="82" cy="250" rx="53" ry="6" fill="#061b18" opacity=".3"/>
-    <g stroke="#152538" strokeWidth="4" strokeLinejoin="round" strokeLinecap="round">
-      <path d="M55 150 L47 195 L38 239 L60 243 L77 199 L84 167 Z" fill={keeper?"#202f49":"#244eaa"}/>
-      <path d="M84 155 L98 194 L107 238 L126 238 L124 190 L109 147 Z" fill={keeper?"#202f49":"#244eaa"}/>
-      <path d="M41 214 L36 235 L31 245 L63 248 L62 225 Z" fill="#f9fafb"/>
-      <path d="M103 215 L106 241 L130 241 L122 216 Z" fill="#f9fafb"/>
-      <path d="M35 236 Q21 238 19 251 Q36 257 65 251 L62 241Z" fill={keeper?"#dbeafe":"#205de7"}/>
-      <path d="M107 237 Q130 235 145 249 L143 254 L107 252Z" fill={keeper?"#dbeafe":"#205de7"}/>
-      <path d="M56 76 Q80 65 111 78 L120 151 Q82 171 46 148 Z" fill={"url(#"+(keeper?"keeper-kit":"player-kit")+")"}/>
-      <path d="M54 77 Q45 84 42 94 L31 146 Q27 159 17 157 L10 145 L24 86 Q38 73 54 77Z" fill={keeper?"#334960":"#f0c315"}/>
-      <path d="M109 79 Q123 75 132 88 L155 142 L144 155 Q131 145 120 132 L109 108Z" fill={keeper?"#334960":"#f0c315"}/>
-      <path d="M21 138 L8 136 L5 156 Q14 169 28 151Z" fill={keeper?"#edf6ff":"url(#football-skin)"}/>
-      <path d="M144 143 L157 139 L163 157 Q150 170 140 155Z" fill={keeper?"#edf6ff":"url(#football-skin)"}/>
-      <path d="M45 145 Q81 160 119 148 L115 177 L52 178Z" fill={keeper?"#172437":"#1946a8"}/>
-      <path d="M72 67 L70 83 Q83 96 97 82 L95 64Z" fill="url(#football-skin)"/>
-      <ellipse cx="83" cy="45" rx="33" ry="39" fill="url(#football-skin)"/>
-      <path d="M49 44 Q46 6 78 5 Q113 0 118 34 L113 44 Q107 29 98 28 Q78 36 62 28Z" fill="#281c1d"/>
-      <path d="M49 39 Q40 15 60 12 L63 32 M73 12 Q85 -1 100 18" stroke="#1c1316" strokeWidth="9" fill="none"/>
-    </g>
-    <g aria-hidden="true" fill="none" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M56 81 Q77 92 111 80 M48 144 Q82 154 117 145 M53 174 Q84 180 113 170" stroke={keeper?"#b4c8d5":"#fff6a0"} strokeWidth="2" opacity=".48"/>
-      <path d="M53 85 Q64 106 61 137 M110 84 Q105 107 111 142 M61 157 Q73 166 82 162 M93 163 L108 160" stroke="#071e32" strokeWidth="2" opacity=".35"/>
-      <path d="M56 181 Q61 196 54 212 M111 179 Q111 200 115 218" stroke="#eff8ff" strokeWidth="2" opacity=".38"/>
-      <path d="M43 225 L58 227 M107 224 L122 224" stroke={keeper?"#88c9ff":"#147943"} strokeWidth="4" opacity=".85"/>
-      <path d="M24 245 L57 245 M112 246 L138 247" stroke="#ffffff" strokeWidth="1.7" opacity=".85"/>
-      <path d="M72 43 L78 42 M93 42 L99 43" stroke="#251b1c" strokeWidth="3"/>
-      <path d="M74 59 Q83 64 93 58" stroke="#9d5947" strokeWidth="2" opacity=".75"/>
-    </g>
-    <g aria-hidden="true">
-      <path d="M55 79 L64 77 L59 97 L51 104Z M112 78 L119 88 L125 100 L113 99Z" fill={keeper?"#71889a":"#167643"} opacity=".95"/>
-      <path d="M65 154 Q83 159 106 154" fill="none" stroke={keeper?"#14283f":"#11458b"} strokeWidth="3" opacity=".65"/>
-      <path d="M66 86 Q81 93 98 88" fill="none" stroke="#ffffff" strokeWidth="1.6" opacity=".48"/>
-    </g>
-    {disappointed&&!keeper&&<g stroke="#152538" strokeLinecap="round" strokeWidth="10" fill="none"><path d="M17 143 Q16 95 56 31" stroke="#d59a62"/><circle cx="56" cy="31" r="7" fill="#d59a62" stroke="none"/></g>}
-    {celebrating&&!keeper&&<g stroke="#e8ad70" strokeWidth="12" fill="none" strokeLinecap="round"><path d="M148 146 L139 73 L148 20"/></g>}
-    {keeper?<g fill="#f5faff"><circle cx="72" cy="47" r="3"/><circle cx="97" cy="47" r="3"/><path d="M75 62 Q83 66 92 62" stroke="#713d38" strokeWidth="2" fill="none"/><text x="80" y="128" textAnchor="middle" fontSize="29" fontWeight="900" fill="white">1</text></g>
-    :<g><path d="M50 90 L46 149" stroke="#159854" strokeWidth="6"/><path d="M116 89 L120 148" stroke="#159854" strokeWidth="6"/><text x="83" y="134" textAnchor="middle" fontWeight="900" fontSize="40" fill="#159854">10</text></g>}
-  </svg>;
-}
 
 function Spectators(){
   const fans=Array.from({length:156},(_,i)=>i);
