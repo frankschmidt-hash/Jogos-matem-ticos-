@@ -176,7 +176,12 @@ export function PropertyOnline({session,onExit}:{session:ClientSession;onExit:()
       <img className="property-logo" src="/assets/property-game/cidade-prisma.svg" alt=""/>
       <p className="eyebrow">Sala de Banco Imobiliário · Espera</p>
       <h1>Sala de {room.members.find(m=>m.sessionId===room.hostSessionId)?.nickname??"jogador"}</h1>
-      <p>Compartilhe a senha de 3 dígitos que você escolheu diretamente com seus colegas. Ela não é exibida para visitantes.</p>
+      <p>Compartilhe a senha de 3 dígitos escolhida com seus colegas. Ela não aparece na lista pública de salas.</p>
+      {host&&pin&&<div className="property-host-pin">
+        <span>Senha da sua sala</span><strong>{pin}</strong>
+        <button className="button-secondary" onClick={()=>void navigator.clipboard?.writeText(pin)}>Copiar senha</button>
+        <small>Guarde a senha: ela não pode ser recuperada após fechar esta página.</small>
+      </div>}
       <p><strong>{room.members.length}/4 jogadores</strong> · {room.mode==="short"?"Partida curta":"Partida completa"}</p>
       <div className="property-room-members">
         {room.members.map(member=><div key={member.sessionId}>
