@@ -104,4 +104,14 @@ describe("Futebol Matemático",()=>{
     expect(s.winnerId).toBe("b");
     expect(s.finishReason).toBe("abandonment");
   });
+  it("salva canto escolhido e defesa segue a bola apenas quando há erro",()=>{
+    let match=startKick(createPenaltyMatch(players),0,null);
+    match=submitKick(match,"a",true,1000,"answer",8);
+    expect(match.lastKick?.target).toBe(8);
+    expect(match.lastKick?.keeperTarget).not.toBe(8);
+    match=openNextKick(match,2000,null);
+    match=submitKick(match,"b",false,3000,"answer",0);
+    expect(match.lastKick?.target).toBe(0);
+    expect(match.lastKick?.keeperTarget).toBe(0);
+  });
 });
