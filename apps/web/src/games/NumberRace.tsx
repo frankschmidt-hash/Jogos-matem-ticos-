@@ -415,7 +415,7 @@ function OnlineNumberRace({session,onExit,carChoice}:{session:ClientSession;onEx
           <button type="submit" disabled={submitting||!answer.trim()||secondsLeft(room.race?.matchDeadlineAt,now)===0}>{submitting?"Enviando...":"Responder"}</button>
         </form>}
         {feedback&&<p className={"number-answer-result "+feedback} role="status">{feedback==="correct"?"Acertou! Você avançou.":"Errou. Continue na próxima conta."}</p>}
-        {error&&<p className="error" role="alert">{error}</p>
+        {error&&<p className="error" role="alert">{error}</p>}
       </section>
 
       <section className="number-boost">
