@@ -3,13 +3,16 @@ import { io, type Socket } from "socket.io-client";
 import {
   DEFAULT_SOLO_KICK_MS, createPenaltyMatch, npcDecision, openNextKick, startKick,
   statsFor, submitKick, timeoutKick, type NpcSkill, type PenaltyMatchState,
-  type PenaltyPlayer
+  type PenaltyPlayer, type PenaltyTarget
 } from "@jogos/math-football";
 import { generateQuestion, validateAnswer } from "@jogos/math-engine";
 import { HelpRules, ResultFeedback } from "@jogos/ui";
 import { apiBase, type ClientSession } from "../session";
 import { playSound } from "../experience";
+import { FootballStadium } from "./FootballStadium";
+import { playFootballCrowd } from "./football-audio";
 import "./math-football.css";
+import "./math-football-v2.css";
 
 type RoomQuestion={
   id:string;
@@ -87,24 +90,6 @@ function Scoreboard({match}:{match:PenaltyMatchState}){
   </section>;
 }
 
-function Stadium({match}:{match:PenaltyMatchState}){
-  const last=match.lastKick;
-  const animation=last?(last.goal?"is-goal":"is-save"):"";
-  return <section className={"football-stadium "+animation} key={"stadium-"+match.history.length}>
-    <div className="football-lights left"/>
-    <div className="football-lights right"/>
-    <div className="football-crowd" aria-hidden="true"/>
-    <div className="football-goal">
-      <div className="football-net"/>
-      <div className="football-keeper"><span/></div>
-    </div>
-    <div className="football-spot"/>
-    <div className="football-player"><span/></div>
-    <div className="football-ball"/>
-    {last&&<div className="football-result-badge">{last.goal?"GOL!":"DEFENDEU!"}</div>}
-  </section>;
-}
-
 function FinalPanel({
   match,humanId,onAgain,onLobby
 }:{match:PenaltyMatchState;humanId:string;onAgain:()=>void;onLobby:()=>void}){
@@ -147,12 +132,27 @@ function SoloFootball({
 }:{session:ClientSession;skill:NpcSkill;timeMs:number;onExit:()=>void}){
   const [match,setMatch]=useState<PenaltyMatchState>(()=>makeSoloMatch(session,skill,timeMs));
   const [answer,setAnswer]=useState("");
+  const [target,setTarget]=useState<PenaltyTarget>(4);
+  const [finalReady,setFinalReady]=useState(false);
+  const heardKick=useRef(0);
   const [feedback,setFeedback]=useState<"correct"|"incorrect"|null>(null);
   const [correctAnswer,setCorrectAnswer]=useState<string|null>(null);
   const npcPending=useRef(false);
   const timedOutKick=useRef(0);
   const now=useNow(match.phase==="kick-open"&&match.currentShooterId===session.sessionId&&match.kickDeadlineAt!==null);
   const current=match.players.find(p=>p.id===match.currentShooterId)!;
+  useEffect(()=>{
+    const kick=match.lastKick;
+    if(!kick||heardKick.current===kick.number) return;
+    heardKick.current=kick.number;
+    playSound(kick.goal?"goal":"save");
+    playFootballCrowd(kick.goal);
+  },[match.lastKick?.number]);
+  useEffect(()=>{
+    if(match.phase!=="finished"){setFinalReady(false);return;}
+    const timer=window.setTimeout(()=>setFinalReady(true),2400);
+    return ()=>window.clearTimeout(timer);
+  },[match.phase]);
   const humanTurn=current.id===session.sessionId;
   const question=useMemo(()=>{
     if(match.phase!=="kick-open"||!humanTurn) return null;
@@ -167,7 +167,7 @@ function SoloFootball({
     npcPending.current=true;
     const decision=npcDecision(current.npcSkill??skill);
     const timer=window.setTimeout(()=>{
-      setMatch(state=>submitKick(state,current.id,decision.correct,Date.now(),"npc"));
+      setMatch(state=>submitKick(state,current.id,decision.correct,Date.now(),"npc",Math.floor(Math.random()*9) as PenaltyTarget));
       npcPending.current=false;
     },decision.thinkingMs);
     return ()=>window.clearTimeout(timer);
@@ -197,22 +197,22 @@ function SoloFootball({
     event.preventDefault();
     if(!question||match.phase!=="kick-open"||!humanTurn) return;
     const correct=validateAnswer(question,answer);
-    playSound(correct?"goal":"save");
     setFeedback(correct?"correct":"incorrect");
     setCorrectAnswer(correct?null:question.correctAnswer);
-    setMatch(state=>submitKick(state,session.sessionId,correct,Date.now(),"answer"));
+    setMatch(state=>submitKick(state,session.sessionId,correct,Date.now(),"answer",target));
   };
 
   const restart=()=>{
     setMatch(makeSoloMatch(session,skill,timeMs));
     setAnswer("");
+    setTarget(4);
     setFeedback(null);
     setCorrectAnswer(null);
     npcPending.current=false;
     timedOutKick.current=0;
   };
 
-  if(match.phase==="finished"){
+  if(match.phase==="finished"&&finalReady){
     return <main id="main-content" className="football-shell"><FinalPanel match={match} humanId={session.sessionId} onAgain={restart} onLobby={onExit}/></main>;
   }
 
@@ -222,10 +222,10 @@ function SoloFootball({
       <button className="button-ghost" onClick={()=>window.confirm("Sair da disputa atual?")&&onExit()}>Sair</button>
     </header>
     <Scoreboard match={match}/>
-    <Stadium match={match}/>
+    <FootballStadium match={match} selectedTarget={target} onSelectTarget={setTarget} canAim={humanTurn&&match.phase==="kick-open"}>
     <section className="football-question">
       <p className="eyebrow">{humanTurn?"Sua cobrança":current.name+" está cobrando"}</p>
-      {humanTurn&&question?<><h2>{question.expression}</h2>
+      {match.phase!=="kick-open"&&match.lastKick?<><h2>{match.lastKick.goal?"Gol!":"Defesa do goleiro!"}</h2><ResultFeedback status={match.lastKick.correct?"correct":"incorrect"}/></>:humanTurn&&question?<><h2>{question.expression}</h2>
         <form onSubmit={submit}>
           <input inputMode="decimal" value={answer} onChange={e=>setAnswer(e.target.value)} placeholder="Digite sua resposta"/>
           <button>Chutar</button>
@@ -235,6 +235,7 @@ function SoloFootball({
       {feedback&&<ResultFeedback status={feedback}/>}
       {feedback==="incorrect"&&correctAnswer&&<p className="football-correction">Resposta correta: <strong>{correctAnswer}</strong></p>}
     </section>
+    </FootballStadium>
   </main>;
 }
 
@@ -246,9 +247,13 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
   const [code,setCode]=useState("");
   const [grade,setGrade]=useState<5|6|7|"mixed">(session.gradeLevel);
   const [answer,setAnswer]=useState("");
+  const [target,setTarget]=useState<PenaltyTarget>(4);
+  const [finalReady,setFinalReady]=useState(false);
+  const [rooms,setRooms]=useState<Array<{code:string;hostName:string;players:number;capacity:number}>>([]);
   const [error,setError]=useState("");
   const now=useNow(Boolean(room?.match?.phase==="kick-open"),room?.serverNow);
   const authData=()=>auth(session);
+  const fetchRooms=()=>socket.emit("football:list-rooms",auth(session),(response:{ok:boolean;rooms?:typeof rooms})=>{if(response.ok)setRooms(response.rooms??[]);});
   const heardKick=useRef(0);
 
   useEffect(()=>{
@@ -256,9 +261,15 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
     if(!kick||kick.number===heardKick.current) return;
     heardKick.current=kick.number;
     playSound(kick.goal?"goal":"save");
+    playFootballCrowd(kick.goal);
   },[room?.match?.lastKick?.number]);
 
   useEffect(()=>{if(room?.status==="finished") playSound("victory");},[room?.status]);
+  useEffect(()=>{
+    if(room?.status!=="finished"){setFinalReady(false);return;}
+    const timer=window.setTimeout(()=>setFinalReady(true),2400);
+    return ()=>window.clearTimeout(timer);
+  },[room?.status]);
 
   const apply=(response:AckResponse)=>{
     if(!response.ok){
@@ -279,6 +290,7 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
       if(next.match?.phase==="kick-open") setAnswer("");
     };
     const reconnect=()=>{
+      fetchRooms();
       const saved=sessionStorage.getItem(ROOM_KEY);
       if(!saved) return;
       socket.emit("football:reconnect-room",{...auth(session),code:saved},(response:AckResponse)=>{
@@ -287,10 +299,12 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
       });
     };
     socket.on("football:room-state",stateHandler);
+    socket.on("football:rooms-changed",fetchRooms);
     socket.on("connect",reconnect);
     if(socket.connected) reconnect();
     return ()=>{
       socket.off("football:room-state",stateHandler);
+      socket.off("football:rooms-changed",fetchRooms);
       socket.off("connect",reconnect);
       socket.disconnect();
     };
@@ -304,7 +318,7 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
     event.preventDefault();
     if(!room?.question) return;
     socket.emit("football:answer",{
-      ...authData(),code:room.code,questionId:room.question.id,answer,
+      ...authData(),code:room.code,questionId:room.question.id,answer,target,
       clientSubmissionId:crypto.randomUUID()
     },(response:AckResponse)=>{
       if(apply(response)) setAnswer("");
@@ -367,7 +381,7 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
 
   if(!room.match) return <main id="main-content" className="football-shell"><p>Sincronizando partida...</p></main>;
 
-  if(room.status==="finished"||room.match.phase==="finished"){
+  if((room.status==="finished"||room.match.phase==="finished")&&finalReady){
     return <main id="main-content" className="football-shell">
       <FinalPanel match={room.match} humanId={session.sessionId} onAgain={rematch} onLobby={leave}/>
       {error&&<p className="error">{error}</p>}
@@ -376,7 +390,7 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
 
   const shooter=room.match.players.find(p=>p.id===room.match!.currentShooterId)!;
   const myTurn=shooter.id===session.sessionId;
-  const resolving=room.match.phase==="kick-resolution";
+  const resolving=room.match.phase==="kick-resolution"||room.match.phase==="finished";
 
   return <main id="main-content" className="football-page">
     <header className="football-header">
@@ -384,7 +398,7 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
       <button className="button-ghost" onClick={()=>window.confirm("Abandonar a partida?")&&leave()}>Sair</button>
     </header>
     <Scoreboard match={room.match}/>
-    <Stadium match={room.match}/>
+    <FootballStadium match={room.match} selectedTarget={target} onSelectTarget={setTarget} canAim={myTurn&&!resolving}>
     <section className="football-question">
       {resolving&&room.match.lastKick?<><p className="eyebrow">{room.match.lastKick.shooterName}</p>
         <h2>{room.match.lastKick.goal?"Gol confirmado pelo servidor":"Defesa confirmada pelo servidor"}</h2>
@@ -401,6 +415,7 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
       </>}
       {error&&<p className="error">{error}</p>}
     </section>
+    </FootballStadium>
   </main>;
 }
 
