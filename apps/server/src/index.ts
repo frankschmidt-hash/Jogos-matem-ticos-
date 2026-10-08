@@ -19,7 +19,10 @@ import { roomInfrastructure } from "./room-infrastructure";
 import { pruneMissingTimers } from "./timer-registry";
 
 const app = Fastify({ logger: true, bodyLimit: 16_384, trustProxy:true });
-const allowedOrigins=(process.env.WEB_ORIGIN ?? "http://localhost:5173").split(",").map(x=>x.trim()).filter(Boolean);
+const configuredOrigins=(process.env.WEB_ORIGIN ?? "http://localhost:5173").split(",").map(x=>x.trim()).filter(Boolean);
+// Railway serves frontend and API from the same public host. Honor it even if WEB_ORIGIN is stale.
+const railwayOrigin=process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null;
+const allowedOrigins=[...new Set([...configuredOrigins,...(railwayOrigin?[railwayOrigin]:[])])];
 await app.register(cors, { origin: allowedOrigins, methods:["GET","POST"] });
 await app.register(helmet,{
   contentSecurityPolicy:{
@@ -34,6 +37,14 @@ await app.register(helmet,{
       connectSrc:["'self'","ws:","wss:"]
     }
   }
+});
+
+// HTML must be revalidated after each release; hashed static assets remain cacheable.
+app.addHook("onSend", async (request, reply, payload) => {
+  if (request.method==="GET" && reply.getHeader("content-type")?.toString().includes("text/html")) {
+    reply.header("Cache-Control","no-store, max-age=0");
+  }
+  return payload;
 });
 
 const serveWeb=process.env.SERVE_WEB==="true";
