@@ -13,6 +13,7 @@ import { FootballStadium } from "./FootballStadium";
 import { playFootballCrowd } from "./football-audio";
 import "./math-football.css";
 import "./math-football-v2.css";
+import "./math-football-v3.css";
 
 type RoomQuestion={
   id:string;
