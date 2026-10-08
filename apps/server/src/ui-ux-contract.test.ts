@@ -62,10 +62,22 @@ describe("Prompt 07 UI/UX accessibility contracts",()=>{
     expect(styles).toContain("overflow:auto");
   });
 
-  it("tabuleiro é navegável por pan/scroll sem cortar conteúdo",()=>{
-    expect(styles).toContain(".property-board-wrap{overflow:auto");
-    expect(styles).toContain("touch-action:pan-x pan-y");
-    expect(styles).toContain(".property-board{min-width:760px");
+  it("tabuleiro Cidade Prisma cabe na altura da janela sem rolagem interna",()=>{
+    expect(styles).toContain(".property-board-wrap{width:min(100%,calc(100dvh - 88px),980px)");
+    expect(styles).toContain("max-height:none");
+    expect(styles).toContain("overflow:hidden");
+    expect(styles).toContain(".property-board{position:relative");
+  });
+
+  it("nomes dos peões usam linhas coloridas e acompanham posições",()=>{
+    const board=read("src/games/PropertyGame.tsx");
+    expect(board).toContain("const callouts=game.players.flatMap");
+    expect(board).toContain("boardCoordinate(player.position)");
+    expect(board).toContain('className="pawn-identity-layer"');
+    expect(board).toContain("stroke={item.ink}");
+    expect(board).toContain("{item.name}");
+    expect(styles).toContain(".pawn-identity-name{");
+    expect(board).not.toContain('className="pawn-name"');
   });
 
   it("HUDs de corrida preservam legibilidade em telas pequenas",()=>{

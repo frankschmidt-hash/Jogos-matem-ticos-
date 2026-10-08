@@ -11,6 +11,7 @@ import { playSound } from "../experience";
 import { PropertyOnline } from "./PropertyOnline";
 
 const playerTone=["human","npc-a","npc-b","npc-c"] as const;
+const playerColors=["#2f55bf","#d76b32","#329669","#9456ba"] as const;
 
 const randomDie=():number=>{
   const buffer=new Uint32Array(1);
@@ -123,6 +124,32 @@ export function Board({game,lastDie=null,rolling=false}:{game:GameState;lastDie?
   },[positions]);
   useEffect(()=>()=>{if(timeout.current!==null)window.clearTimeout(timeout.current);},[]);
   const landed=focus!==null?getSpace(focus):null;
+  // Os nomes ficam sobre o tabuleiro (e não presos às casas, que cortam
+  // conteúdos excedentes). As linhas apontam para a posição real dos peões.
+  const callouts=game.players.flatMap((player,index)=>{
+    if(player.bankrupt) return [];
+    const {row,col}=boardCoordinate(player.position);
+    const fromX=(col-0.17)*100;
+    const fromY=(row-0.19)*100;
+    const stagger=index%2===0?-1:1;
+    const clamp=(n:number,min:number,max:number)=>Math.max(min,Math.min(max,n));
+    let toX:number;
+    let toY:number;
+    if(row===10){
+      toX=clamp(fromX+(col<=5?190:-190)+stagger*52,230,770);
+      toY=772+(index%2)*62;
+    }else if(row===1){
+      toX=clamp(fromX+(col<=5?190:-190)+stagger*52,230,770);
+      toY=224+(index%2)*62;
+    }else if(col===1){
+      toX=235+(index%2)*66;
+      toY=clamp(fromY+stagger*55,200,800);
+    }else{
+      toX=765-(index%2)*66;
+      toY=clamp(fromY+stagger*55,200,800);
+    }
+    return [{id:player.id,name:player.name,ink:playerColors[index]!,fromX,fromY,toX,toY}];
+  });
   return <div className="property-board-wrap"><div className="property-board" aria-label="Tabuleiro Cidade Prisma">
     {BOARD.map(space=>{
       const {row,col}=boardCoordinate(space.index);
@@ -143,7 +170,7 @@ export function Board({game,lastDie=null,rolling=false}:{game:GameState;lastDie?
         <div className="token-stack">
           {game.players.map((player,index)=>player.position===space.index&&!player.bankrupt?
             <div className="pawn-position" key={player.id}>
-              <Pawn tone={playerTone[index]!} name={player.name}/><span className="pawn-name">{player.name}</span>
+              <Pawn tone={playerTone[index]!} name={player.name}/>
             </div>:null)}
         </div>
       </div>;
@@ -178,6 +205,19 @@ export function Board({game,lastDie=null,rolling=false}:{game:GameState;lastDie?
         <p>Resolva a operação para definir seu movimento.</p>
       </>}
     </section>
+    {focus===null&&<div className="pawn-identity-layer" aria-hidden="true">
+      <svg viewBox="0 0 1000 1000" preserveAspectRatio="none">
+        {callouts.map(item=><g key={item.id}>
+          <line x1={item.fromX} y1={item.fromY} x2={item.toX} y2={item.toY}
+            stroke={item.ink} strokeWidth="4" strokeLinecap="round"/>
+          <circle cx={item.fromX} cy={item.fromY} r="7" fill={item.ink}/>
+        </g>)}
+      </svg>
+      {callouts.map(item=><span key={item.id} className="pawn-identity-name"
+        style={{left:(item.toX/10)+"%",top:(item.toY/10)+"%",color:item.ink,borderColor:item.ink}}>
+        {item.name}
+      </span>)}
+    </div>}
   </div></div>;
 }
 
