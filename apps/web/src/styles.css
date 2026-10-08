@@ -309,3 +309,8 @@ html.reduce-motion .dice.rolling{animation:none}
   .property-room-form{grid-template-columns:1fr}
 }
 @media(prefers-reduced-motion:reduce){.board-dice.rolling{animation:none}}
+
+.property-host-pin{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:14px 0;padding:14px;border-radius:14px;background:#eaf0ff;border:1px solid #a9bce6}
+.property-host-pin>span{font-weight:800}
+.property-host-pin strong{font-size:2rem;letter-spacing:.19em;color:#263c80;font-variant-numeric:tabular-nums}
+.property-host-pin small{flex-basis:100%;font-size:.75rem;color:#5a6786}
