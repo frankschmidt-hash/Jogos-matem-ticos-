@@ -41,6 +41,8 @@ function Athlete({keeper=false,celebrating=false,disappointed=false}:{
       <path d="M49 44 Q46 6 78 5 Q113 0 118 34 L113 44 Q107 29 98 28 Q78 36 62 28Z" fill="#281c1d"/>
       <path d="M49 39 Q40 15 60 12 L63 32 M73 12 Q85 -1 100 18" stroke="#1c1316" strokeWidth="9" fill="none"/>
     </g>
+    {disappointed&&!keeper&&<g stroke="#152538" strokeLinecap="round" strokeWidth="10" fill="none"><path d="M17 143 Q16 95 56 31" stroke="#d59a62"/><circle cx="56" cy="31" r="7" fill="#d59a62" stroke="none"/></g>}
+    {celebrating&&!keeper&&<g stroke="#e8ad70" strokeWidth="12" fill="none" strokeLinecap="round"><path d="M148 146 L139 73 L148 20"/></g>}
     {keeper?<g fill="#f5faff"><circle cx="72" cy="47" r="3"/><circle cx="97" cy="47" r="3"/><path d="M75 62 Q83 66 92 62" stroke="#713d38" strokeWidth="2" fill="none"/><text x="80" y="128" textAnchor="middle" fontSize="29" fontWeight="900" fill="white">1</text></g>
     :<g><path d="M50 90 L46 149" stroke="#159854" strokeWidth="6"/><path d="M116 89 L120 148" stroke="#159854" strokeWidth="6"/><text x="83" y="134" textAnchor="middle" fontWeight="900" fontSize="40" fill="#159854">10</text></g>}
   </svg>;
@@ -66,9 +68,11 @@ function targetVariables(target:PenaltyTarget,keeperTarget:PenaltyTarget):CSSPro
   const keeperCol=keeperTarget%3,keeperRow=Math.floor(keeperTarget/3);
   return {
     "--shot-x":(22+(col+.5)*(53/3))+"%",
-    "--shot-y":(37+(row+.5)*(29/3))+"%",
+    "--shot-y-desktop":(37+(row+.5)*(29/3))+"%",
+    "--shot-y-mobile":(28+(row+.5)*(21/3))+"%",
     "--keeper-x":(22+(keeperCol+.5)*(53/3))+"%",
-    "--keeper-y":(37+(keeperRow+.5)*(29/3))+"%",
+    "--keeper-y-desktop":(37+(keeperRow+.5)*(29/3))+"%",
+    "--keeper-y-mobile":(28+(keeperRow+.5)*(21/3))+"%",
     "--keeper-turn":keeperCol===0?"-65deg":keeperCol===2?"65deg":"0deg"
   } as CSSProperties;
 }
