@@ -6,7 +6,7 @@ import {
   startRound, submitNpcAnswers, submitRoundAnswer, useBomb,
   type BombDirection, type CarModel, type CarSelection, type Racer, type RaceState
 } from "@jogos/crazy-race";
-import { generateQuestion, validateAnswer, type MathQuestion } from "@jogos/math-engine";
+import { generateRaceQuestion, validateAnswer, type MathQuestion } from "@jogos/math-engine";
 import { HelpRules, ResultFeedback } from "@jogos/ui";
 import { apiBase, type ClientSession } from "../session";
 import { playSound } from "../experience";
@@ -207,7 +207,7 @@ function SoloRace({session,onExit,car}:{session:ClientSession;onExit:()=>void;ca
     return race;
   };
   const [race,setRace]=useState<RaceState>(begin);
-  const [question,setQuestion]=useState<MathQuestion|null>(()=>generateQuestion(session.gradeLevel,{difficulty:1,seed:"crazy-solo-1-"+session.sessionId}));
+  const [question,setQuestion]=useState<MathQuestion|null>(()=>generateRaceQuestion(session.gradeLevel,{difficulty:1,seed:"crazy-solo-1-"+session.sessionId}));
   const [answer,setAnswer]=useState("");
   const [feedback,setFeedback]=useState<"correct"|"incorrect"|null>(null);
   const [correctAnswer,setCorrectAnswer]=useState<string|null>(null);
@@ -231,7 +231,7 @@ function SoloRace({session,onExit,car}:{session:ClientSession;onExit:()=>void;ca
       setRace(current=>{
         let next=startRound(current,Date.now());
         next=submitNpcAnswers(next);
-        setQuestion(generateQuestion(session.gradeLevel,{
+        setQuestion(generateRaceQuestion(session.gradeLevel,{
           difficulty:next.round<4?1:next.round<8?2:3,
           seed:"crazy-solo-"+next.round+"-"+session.sessionId
         }));
@@ -249,7 +249,7 @@ function SoloRace({session,onExit,car}:{session:ClientSession;onExit:()=>void;ca
   const pendingTrackBomb=race.racers.find(r=>r.id===session.sessionId)?.pendingTrackBomb??null;
   useEffect(()=>{
     if(pendingTrackBomb===null){setTrackQuestion(null);return;}
-    setTrackQuestion(current=>current??generateQuestion(session.gradeLevel,{
+    setTrackQuestion(current=>current??generateRaceQuestion(session.gradeLevel,{
       difficulty:pendingTrackBomb===TRACK_BOMBS[0]?1:pendingTrackBomb===TRACK_BOMBS[1]?2:3,
       seed:"crazy-solo-track-"+session.sessionId+"-"+pendingTrackBomb+"-"+race.round
     }));
@@ -258,7 +258,7 @@ function SoloRace({session,onExit,car}:{session:ClientSession;onExit:()=>void;ca
   const restart=()=>{
     const next=begin();
     setRace(next);
-    setQuestion(generateQuestion(session.gradeLevel,{difficulty:1,seed:"crazy-solo-1-"+session.sessionId+"-"+Date.now()}));
+    setQuestion(generateRaceQuestion(session.gradeLevel,{difficulty:1,seed:"crazy-solo-1-"+session.sessionId+"-"+Date.now()}));
     setAnswer("");
     setFeedback(null);
     setCorrectAnswer(null);
