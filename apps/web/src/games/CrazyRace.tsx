@@ -362,7 +362,7 @@ function SoloRace({session,onExit,car}:{session:ClientSession;onExit:()=>void;ca
         </form>
       </section>
     </div>}
-    <section className="crazy-log"><h2>Últimos acontecimentos</h2><ol>{race.log.map(item=><li key={item.id}>{item.message}</li>)}</ol></section>
+    <details className="crazy-log"><summary>Últimos acontecimentos</summary><ol>{race.log.map(item=><li key={item.id}>{item.message}</li>)}</ol></details>
   </main>;
 }
 
@@ -654,7 +654,7 @@ function OnlineRace({session,onExit,car}:{session:ClientSession;onExit:()=>void;
       </section>
     </div>}
 
-    <section className="crazy-log"><h2>Últimos acontecimentos</h2><ol>{room.race.log.map(item=><li key={item.id}>{item.message}</li>)}</ol></section>
+    <details className="crazy-log"><summary>Últimos acontecimentos</summary><ol>{room.race.log.map(item=><li key={item.id}>{item.message}</li>)}</ol></details>
     <button className="button-ghost" onClick={()=>window.confirm("Sair da sala e abandonar a corrida?")&&leave()}>Sair da corrida</button>
   </main>;
 }
