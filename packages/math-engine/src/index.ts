@@ -196,7 +196,7 @@ export const generateRaceQuestion = (
     return q(level,category,`${a} + ${b}`,String(a+b),difficulty,seed);
   }
   if(category==="subtraction"){
-    const a=int(r,2,limit),b=int(r,0,a);
+    const a=int(r,2,limit),b=int(r,1,a);
     return q(level,category,`${a} - ${b}`,String(a-b),difficulty,seed);
   }
   if(category==="multiplication"){
