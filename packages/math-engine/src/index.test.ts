@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateQuestion, validateAnswer, type GradeLevel } from "./index";
+import { generateQuestion, generateRaceQuestion, validateAnswer, type GradeLevel } from "./index";
 
 describe("math engine", () => {
   it("gera questões determinísticas com seed", () => {
@@ -89,6 +89,34 @@ describe("math engine", () => {
       expect(question.expression).toMatch(/Por qual fator/);
       expect(question.expression).not.toContain("×?");
       expect(validateAnswer(question,question.correctAnswer)).toBe(true);
+    }
+  });
+});
+
+
+describe("Corrida Maluca: contas curtas e diretas",()=>{
+  it("usa somente as quatro operações sem enunciados em todos os níveis",()=>{
+    for(const grade of [5,6,7,"mixed"] as const){
+      for(const difficulty of [1,2,3] as const){
+        const operations=new Set<string>();
+        for(let i=0;i<120;i++){
+          const seed="race-"+grade+"-"+difficulty+"-"+i;
+          const question=generateRaceQuestion(grade,{difficulty,seed});
+          expect(question.expression).toMatch(/^\d+ [+\-×÷] \d+$/);
+          const [left,operator,right]=question.expression.split(" ");
+          const a=Number(left),b=Number(right);
+          operations.add(operator);
+          const result=operator==="+"?a+b:operator==="-"?a-b:operator==="×"?a*b:a/b;
+          expect(Number.isInteger(result)).toBe(true);
+          expect(b).toBeGreaterThan(0);
+          expect(question.correctAnswer).toBe(String(result));
+          expect(validateAnswer(question,question.correctAnswer)).toBe(true);
+          expect(question.difficulty).toBe(difficulty);
+          if(grade!=="mixed") expect(question.gradeLevel).toBe(grade);
+          expect(generateRaceQuestion(grade,{difficulty,seed}).expression).toBe(question.expression);
+        }
+        expect(operations).toEqual(new Set(["+","-","×","÷"]));
+      }
     }
   });
 });
