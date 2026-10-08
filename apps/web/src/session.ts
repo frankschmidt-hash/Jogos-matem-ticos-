@@ -40,6 +40,28 @@ async function postSession(path:string, body:object) {
   return data.session as ClientSession;
 }
 
+export type LeaderboardGame="property-math"|"crazy-race"|"number-race"|"math-football";
+export type LeaderboardEntry={nickname:string;score:number;secondary:number;achievedAt:number};
+export type Leaderboards=Record<LeaderboardGame,LeaderboardEntry[]>;
+
+export async function fetchLeaderboards():Promise<Leaderboards>{
+  const response=await fetch(apiBase+"/api/leaderboards",{cache:"no-store"});
+  if(!response.ok) throw new Error("Ranking indisponível.");
+  const data=await response.json() as {ok:boolean;rankings:Leaderboards};
+  if(!data.ok) throw new Error("Ranking indisponível.");
+  return data.rankings;
+}
+
+export async function recordSoloResult(session:ClientSession,gameId:LeaderboardGame,
+  score:number,runId:string,secondary=0):Promise<void>{
+  const response=await fetch(apiBase+"/api/leaderboards/solo",{
+    method:"POST",
+    headers:{"content-type":"application/json"},
+    body:JSON.stringify({sessionId:session.sessionId,reconnectToken:session.reconnectToken,gameId,score,secondary,runId})
+  });
+  if(!response.ok) throw new Error("Não foi possível registrar a pontuação.");
+}
+
 export async function claimSession(nickname:string,gradeLevel:5|6|7|"mixed") {
   return postSession("/api/session/claim",{nickname,gradeLevel});
 }
