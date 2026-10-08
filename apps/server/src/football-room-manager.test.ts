@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { ONLINE_KICK_MS } from "@jogos/math-football";
 import { FootballRoomManager } from "./football-room-manager";
+import { RoomInfrastructure } from "./room-infrastructure";
 
 const host={sessionId:"football-host",nickname:"Host",connected:true};
 const guest={sessionId:"football-guest",nickname:"Guest",connected:true};
 
 function started(now=1000){
-  const manager=new FootballRoomManager();
+  const manager=new FootballRoomManager(new RoomInfrastructure());
   const room=manager.createRoom(host,"123",6,0);
   manager.joinRoom(room.code,"123",guest,10);
   manager.startRoom(room.code,host.sessionId,now);
@@ -15,7 +16,7 @@ function started(now=1000){
 
 describe("FootballRoomManager",()=>{
   it("cria sala e exige senha correta",()=>{
-    const manager=new FootballRoomManager();
+    const manager=new FootballRoomManager(new RoomInfrastructure());
     const room=manager.createRoom(host,"123",5,0);
     expect(()=>manager.joinRoom(room.code,"000",guest,1)).toThrow(/inválidos/i);
     manager.joinRoom(room.code,"123",guest,2);
@@ -23,7 +24,7 @@ describe("FootballRoomManager",()=>{
   });
 
   it("exibe salas disponíveis sem revelar senha e exige PIN de 3 dígitos",()=>{
-    const manager=new FootballRoomManager();
+    const manager=new FootballRoomManager(new RoomInfrastructure());
     expect(()=>manager.createRoom(host,"1234",5,0)).toThrow(/3 dígitos/);
     const room=manager.createRoom(host,"012",5,0);
     expect(manager.listWaiting()).toEqual([{code:room.code,hostName:"Host",players:1,capacity:2}]);
@@ -40,14 +41,14 @@ describe("FootballRoomManager",()=>{
   });
 
   it("limita a sala a dois jogadores",()=>{
-    const manager=new FootballRoomManager();
+    const manager=new FootballRoomManager(new RoomInfrastructure());
     const room=manager.createRoom(host,"123",5,0);
     manager.joinRoom(room.code,"123",guest,1);
     expect(()=>manager.joinRoom(room.code,"123",{sessionId:"third-player",nickname:"Terceiro",connected:true},2)).toThrow(/cheia/i);
   });
 
   it("somente host inicia e precisa de dois jogadores",()=>{
-    const manager=new FootballRoomManager();
+    const manager=new FootballRoomManager(new RoomInfrastructure());
     const room=manager.createRoom(host,"123",5,0);
     expect(()=>manager.startRoom(room.code,host.sessionId,1)).toThrow(/segundo/i);
     manager.joinRoom(room.code,"123",guest,2);
