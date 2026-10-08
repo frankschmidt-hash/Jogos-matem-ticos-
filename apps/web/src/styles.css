@@ -235,7 +235,7 @@ html.reduce-motion .dice.rolling{animation:none}
 .pawn-position .prisma-pawn{transform:scale(.73);transform-origin:center bottom}
 .pawn-identity-layer{position:absolute;inset:0;z-index:7;pointer-events:none;overflow:visible}
 .pawn-identity-layer svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-.pawn-identity-name{position:absolute;transform:translate(-50%,-50%);padding:3px 7px;max-width:29%;overflow:hidden;text-overflow:ellipsis;background:rgba(255,255,255,.97);border:1.5px solid;border-radius:10px;box-shadow:0 2px 8px rgba(20,34,73,.17);font-size:clamp(10px,1vw,15px);font-weight:900;line-height:1.2;white-space:nowrap;text-align:center}
+.pawn-identity-name{position:absolute;transform:translate(-50%,-50%);padding:3px 7px;max-width:38%;overflow:hidden;text-overflow:ellipsis;background:rgba(255,255,255,.97);border:1.5px solid;border-radius:10px;box-shadow:0 2px 8px rgba(20,34,73,.17);font-size:clamp(10px,1vw,15px);font-weight:900;line-height:1.2;white-space:nowrap;text-align:center}
 .prisma-pawn{--pawn-color:#315bc2;position:relative;display:inline-block;width:21px;height:28px;flex:none;filter:drop-shadow(1px 2px 1px #25335975)}
 .prisma-pawn.human{--pawn-color:#2f55bf;background:transparent}
 .prisma-pawn.npc-a{--pawn-color:#d76b32;background:transparent}
