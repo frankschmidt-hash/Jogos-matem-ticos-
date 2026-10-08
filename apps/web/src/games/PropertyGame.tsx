@@ -6,7 +6,7 @@ import {
 } from "@jogos/property-game";
 import { generateQuestion, validateAnswer, type MathQuestion } from "@jogos/math-engine";
 import { HelpRules, MathQuestionModal, ResultFeedback } from "@jogos/ui";
-import type { ClientSession } from "../session";
+import { recordSoloResult, type ClientSession } from "../session";
 import { playSound } from "../experience";
 import { PropertyOnline } from "./PropertyOnline";
 
@@ -264,13 +264,17 @@ function SoloPropertyGame({session,onOnline}:{session:ClientSession;onOnline:()=
   const [lastDie,setLastDie]=useState<number|null>(null);
   const [actionError,setActionError]=useState("");
   const answerLock=useRef(false);
+  const leaderboardRun=useRef(crypto.randomUUID());
   const rollTimer=useRef<number|null>(null);
 
   const player=game?activePlayer(game):null;
   const winner=useMemo(()=>game?.winnerId?game.players.find(p=>p.id===game.winnerId)??null:null,[game]);
 
   useEffect(()=>{
-    if(game?.phase==="finished") playSound("victory");
+    if(game?.phase!=="finished") return;
+    playSound("victory");
+    const human=game.players.find(p=>p.kind==="human");
+    if(human) void recordSoloResult(session,"property-math",Math.max(0,netWorth(game,human.id)),leaderboardRun.current).catch(()=>{});
   },[game?.phase]);
 
   useEffect(()=>()=> {
@@ -380,7 +384,7 @@ function SoloPropertyGame({session,onOnline}:{session:ClientSession;onOnline:()=
             <div key={p.id}><strong>{index+1}º {p.name}</strong><span>{netWorth(game,p.id)} CP de patrimônio</span></div>
           )}
         </div>
-        <button onClick={()=>{setGame(null);setQuestion(null);setFeedback(null);setCorrectAnswer(null);}}>Nova partida</button>
+        <button onClick={()=>{leaderboardRun.current=crypto.randomUUID();setGame(null);setQuestion(null);setFeedback(null);setCorrectAnswer(null);}}>Nova partida</button>
         <a className="button button-ghost" href="/lobby">Voltar ao lobby</a>
       </section>
     </main>;
