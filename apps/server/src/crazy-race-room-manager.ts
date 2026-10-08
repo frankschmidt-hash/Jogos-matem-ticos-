@@ -227,11 +227,11 @@ export class CrazyRaceRoomManager{
   ):CrazyRoom{
     const room=this.mustPlaying(code);
     if(!room.race||room.race.matchDeadlineAt==null) throw new Error("Corrida indisponível.");
+    if(this.infra.isReplay("crazy-answer:"+room.code+":"+questionId,sessionId,clientSubmissionId,now)) return room;
     const question=room.questions[sessionId];
     if(!question||question.id!==questionId) throw new Error("Questão não pertence ao jogador ou já foi respondida.");
     if(now>=racerDeadline(room.race,sessionId)) throw new Error("O tempo da corrida terminou.");
     this.infra.assertActionRate("crazy-answer:"+room.code,sessionId,now,35,10_000);
-    if(this.infra.isReplay("crazy-answer:"+room.code+":"+questionId,sessionId,clientSubmissionId,now)) return room;
     const correct=validateAnswer(question,answer);
     room.race=answerTimedRace(room.race,sessionId,correct,now-(room.questionStartedAt[sessionId]??now),now);
     room.questions[sessionId]=this.makeQuestion(room,sessionId,now);
@@ -245,6 +245,11 @@ export class CrazyRaceRoomManager{
     if(!room.race||room.race.matchDeadlineAt==null) throw new Error("Corrida indisponível.");
     if(now>=room.race.matchDeadlineAt) return this.finalizeRound(code,now);
     room.race=triggerTimedTrackBombs(room.race,now);
+    for(const challenge of Object.values(room.race.bombChallenges)){
+      if(challenge.resolved||now<=challenge.deadlineAt) continue;
+      room.race=resolveBombAnswer(room.race,challenge.targetId,false,now);
+      delete room.bombQuestions[challenge.targetId];
+    }
     if(now-room.lastNpcTickAt>=6000){
       room.race=tickTimedNpcs(room.race,now);
       room.lastNpcTickAt=now;
