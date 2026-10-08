@@ -7,6 +7,7 @@ import {
   type BombDirection, type CarModel, type CarSelection, type Racer, type RaceState
 } from "@jogos/crazy-race";
 import { generateRaceQuestion, validateAnswer, type MathQuestion } from "@jogos/math-engine";
+import { recordSoloResult } from "../session";
 import { HelpRules, ResultFeedback } from "@jogos/ui";
 import { apiBase, type ClientSession } from "../session";
 import { playSound } from "../experience";
@@ -253,6 +254,13 @@ function SoloRace({session,onExit,car}:{session:ClientSession;onExit:()=>void;ca
       seed:"crazy-solo-track-"+session.sessionId+"-"+pendingTrackBomb
     }));
   },[pendingTrackBomb,session.gradeLevel,session.sessionId,own?.clearedTrackBombs.length]);
+
+  useEffect(()=>{
+    if(race.phase!=="finished") return;
+    const human=race.racers.find(player=>player.id===session.sessionId);
+    if(human) void recordSoloResult(session,"crazy-race",human.correctAnswers,
+      "crazy:"+session.sessionId+":"+race.matchStartedAt,-human.errors).catch(()=>{});
+  },[race.phase,race.matchStartedAt,session.sessionId]);
 
   const restart=()=>{
     const next=begin();

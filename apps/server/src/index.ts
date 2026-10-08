@@ -4,6 +4,9 @@ import helmet from "@fastify/helmet";
 import fastifyStatic from "@fastify/static";
 import { fileURLToPath } from "node:url";
 import { randomInt } from "node:crypto";
+import { z } from "zod";
+import { netWorth } from "@jogos/property-game";
+import { LeaderboardStore, LEADERBOARD_GAMES, SCORE_LIMITS } from "./leaderboard";
 import { Server } from "socket.io";
 import {
   claimNicknameSchema, crazyAnswerSchema, crazyBombAnswerSchema, crazyBombSchema,
@@ -64,6 +67,44 @@ const crazyRooms=new CrazyRaceRoomManager();
 const numberRooms=new NumberRaceRoomManager();
 const footballRooms=new FootballRoomManager();
 const propertyRooms=new PropertyRoomManager();
+const leaderboards=new LeaderboardStore();
+const recordedOnlineMatches=new WeakSet<object>();
+
+app.get("/api/leaderboards",async (_request,reply)=>
+  reply.header("Cache-Control","no-store").send({ok:true,rankings:leaderboards.snapshot()})
+);
+
+const soloRankSchema=z.object({
+  sessionId:z.string().uuid(),
+  reconnectToken:z.string().min(1),
+  gameId:z.enum(LEADERBOARD_GAMES),
+  score:z.number().int().min(0),
+  secondary:z.number().int().min(-10_000_000).max(10_000_000).default(0),
+  runId:z.string().min(8).max(120)
+}).strict();
+
+app.post("/api/leaderboards/solo",async (request,reply)=>{
+  const parsed=soloRankSchema.safeParse(request.body);
+  if(!parsed.success) return reply.code(400).send({ok:false,error:"Resultado inválido."});
+  try{
+    const data=parsed.data;
+    const session=manager.heartbeat(data.sessionId,data.reconnectToken);
+    roomInfrastructure.assertActionRate("rank-solo:"+session.sessionId,session.sessionId,Date.now(),12,60_000);
+    if(data.score>SCORE_LIMITS[data.gameId])
+      return reply.code(400).send({ok:false,error:"Pontuação fora do limite."});
+    leaderboards.record(data.gameId,session.nickname,data.score,data.secondary);
+    return {ok:true};
+  }catch{
+    return reply.code(401).send({ok:false,error:"Sessão inválida ou limite de envios atingido."});
+  }
+});
+
+const saveOnlineRank=(run:object,game:typeof LEADERBOARD_GAMES[number],
+  players:Array<{nickname:string;score:number;secondary?:number}>)=>{
+  if(recordedOnlineMatches.has(run)) return;
+  recordedOnlineMatches.add(run);
+  for(const player of players) leaderboards.record(game,player.nickname,player.score,player.secondary??0);
+};
 
 app.get("/health", async () => ({ ok:true, service:"jogos-matematicos-server" }));
 
@@ -115,6 +156,10 @@ const errorMessage=(error:unknown)=>error instanceof Error?error.message:"Opera�
 const emitCrazyState=(code:string)=>{
   const room=crazyRooms.getRoom(code);
   if(!room) return;
+  if(room.status==="finished"&&room.race?.phase==="finished")
+    saveOnlineRank(room.race,"crazy-race",room.race.racers
+      .filter(player=>player.kind==="human")
+      .map(player=>({nickname:player.name,score:player.correctAnswers,secondary:-player.errors})));
   for(const id of crazyRooms.memberIds(code)){
     const socketId=sessionSockets.get(id);
     if(socketId) io.to(socketId).emit("crazy:room-state",crazyRooms.publicSnapshot(code,id));
@@ -164,6 +209,10 @@ const scheduleRaceRound=(code:string)=>{
 const emitNumberState=(code:string)=>{
   const room=numberRooms.getRoom(code);
   if(!room) return;
+  if(room.status==="finished"&&room.race?.phase==="finished")
+    saveOnlineRank(room.race,"number-race",room.race.racers
+      .filter(player=>player.kind==="human")
+      .map(player=>({nickname:player.name,score:player.correctAnswers,secondary:-player.errors})));
   // Cada aluno recebe somente a própria conta; o placar permanece compartilhado.
   for(const member of room.members){
     const socketId=sessionSockets.get(member.sessionId);
@@ -203,6 +252,10 @@ const scheduleNumberRound=(code:string)=>{
 const emitPropertyRooms=()=>io.emit("property:rooms",propertyRooms.listWaiting());
 const emitPropertyState=(code:string)=>{
   const room=propertyRooms.getRoom(code);
+  if(room?.status==="finished"&&room.game?.phase==="finished")
+    saveOnlineRank(room.game,"property-math",room.game.players
+      .filter(player=>player.kind==="human")
+      .map(player=>({nickname:player.name,score:Math.max(0,netWorth(room.game!,player.id))})));
   if(room) io.to("property:"+code).emit("property:room-state",propertyRooms.publicSnapshot(code));
 };
 
@@ -210,6 +263,11 @@ const emitFootballRooms=()=>io.emit("football:rooms-changed");
 const emitFootballState=(code:string)=>{
   const room=footballRooms.getRoom(code);
   if(!room) return;
+  if(room.status==="finished"&&room.match?.phase==="finished"&&room.match.finishReason==="score")
+    saveOnlineRank(room.match,"math-football",room.match.players
+      .filter(player=>player.kind==="human")
+      .map(player=>({nickname:player.name,score:room.match!.goals[player.id]??0,
+        secondary:-(room.match!.errors[player.id]??0)})));
   io.to("football:"+code).emit("football:room-state",footballRooms.publicSnapshot(code));
 };
 

@@ -5,6 +5,7 @@ import {
   MATCH_DURATION_MS, TIMED_ADVANCE, type NumberRaceState, type Racer
 } from "@jogos/number-race";
 import { generateQuestion, validateAnswer, type MathQuestion } from "@jogos/math-engine";
+import { recordSoloResult } from "../session";
 import { HelpRules } from "@jogos/ui";
 import { apiBase, type ClientSession } from "../session";
 import { playSound } from "../experience";
@@ -179,6 +180,13 @@ function SoloNumberRace({session,onExit,carChoice}:{session:ClientSession;onExit
     },6000);
     return ()=>window.clearInterval(timer);
   },[race.phase]);
+
+  useEffect(()=>{
+    if(race.phase!=="finished") return;
+    const human=race.racers.find(player=>player.id===session.sessionId);
+    if(human) void recordSoloResult(session,"number-race",human.correctAnswers,
+      "number:"+session.sessionId+":"+race.matchStartedAt,-human.errors).catch(()=>{});
+  },[race.phase,race.matchStartedAt,session.sessionId]);
 
   const restart=()=>{
     const next=makeRace();

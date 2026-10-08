@@ -4,7 +4,7 @@ import { GAME_CATALOG, type GameId } from "@jogos/game-core";
 import { ConnectionStatus, GameCard, HelpRules } from "@jogos/ui";
 import {
   claimSession, heartbeatSession, loadSession, notifyDisconnect,
-  reconnectSession, type ClientSession
+  reconnectSession, fetchLeaderboards, type Leaderboards, type ClientSession
 } from "./session";
 import { ExperienceControls } from "./experience";
 import { PropertyGame } from "./games/PropertyGame";
@@ -18,6 +18,48 @@ const GAME_ART:Record<GameId,{src:string;theme:string;label:string}>={
   "number-race":{src:"/assets/number-race/number-emblem.svg",theme:"number",label:"Números"},
   "math-football":{src:"/assets/math-football/football-emblem.svg",theme:"football",label:"Futebol"}
 };
+
+const RANKING_INFO=[
+  {id:"property-math",title:"Banco Imobiliário",unit:"CP",hint:"Maior patrimônio"},
+  {id:"crazy-race",title:"Corrida Maluca",unit:"acertos",hint:"Mais contas corretas"},
+  {id:"number-race",title:"Corrida Numérica",unit:"acertos",hint:"Mais contas corretas"},
+  {id:"math-football",title:"Futebol Matemático",unit:"gols",hint:"Maior número de gols"}
+] as const;
+
+function HomeRankings(){
+  const [boards,setBoards]=useState<Leaderboards|null>(null);
+  const [problem,setProblem]=useState(false);
+  useEffect(()=>{
+    let active=true;
+    const refresh=()=>{void fetchLeaderboards().then(data=>{
+      if(active){setBoards(data);setProblem(false);}
+    }).catch(()=>{if(active)setProblem(true);});};
+    refresh();
+    const timer=window.setInterval(refresh,30_000);
+    return ()=>{active=false;window.clearInterval(timer);};
+  },[]);
+  return <section className="home-rankings" aria-labelledby="rankings-title">
+    <div className="rankings-heading">
+      <div><p className="eyebrow">Hall dos campeões</p><h2 id="rankings-title">Top 10 de cada jogo</h2>
+        <p className="muted">Melhor resultado por nickname. Os adversários do computador não participam.</p>
+      </div>
+      <span className="rankings-refresh">Atualização automática</span>
+    </div>
+    {problem&&<p className="rankings-warning" role="status">Não foi possível atualizar o ranking neste momento.</p>}
+    <div className="rankings-grid">
+      {RANKING_INFO.map(item=><article key={item.id} className="ranking-card">
+        <header><h3>{item.title}</h3><p>{item.hint}</p></header>
+        {boards===null?<p className="rankings-empty">Carregando classificação...</p>:
+          boards[item.id].length===0?<p className="rankings-empty">Sem resultados ainda. Seja o primeiro!</p>:
+          <ol className="ranking-list">{boards[item.id].slice(0,10).map((entry,index)=>
+            <li key={entry.nickname}><span className="ranking-place">{index+1}º</span>
+              <strong title={entry.nickname}>{entry.nickname}</strong>
+              <span className="ranking-points">{entry.score.toLocaleString("pt-BR")} <small>{item.unit}</small></span>
+            </li>)}</ol>}
+      </article>)}
+    </div>
+  </section>;
+}
 
 function Home({onSession}:{onSession:(s:ClientSession)=>void}) {
   const nav=useNavigate();
@@ -94,6 +136,7 @@ function Home({onSession}:{onSession:(s:ClientSession)=>void}) {
         </button>
       </form>
     </section>
+    <HomeRankings/>
   </main>;
 }
 
