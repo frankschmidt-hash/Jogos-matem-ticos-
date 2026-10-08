@@ -10,7 +10,8 @@ export type ClientSession = {
 
 const KEY="jogos-matematicos-session";
 const configuredApi=import.meta.env.VITE_API_URL;
-export const apiBase=configuredApi!==undefined ? configuredApi : (import.meta.env.PROD ? "" : "http://localhost:3001");
+// The production frontend and API share one host; never send player data to a build-time external URL.
+export const apiBase=import.meta.env.PROD ? "" : (configuredApi?.trim() || "http://localhost:3001");
 
 export const saveSession=(s:ClientSession)=>localStorage.setItem(KEY,JSON.stringify(s));
 export const loadSession=():ClientSession|null=>{
@@ -20,11 +21,16 @@ export const loadSession=():ClientSession|null=>{
 export const clearSession=()=>localStorage.removeItem(KEY);
 
 async function postSession(path:string, body:object) {
-  const response=await fetch(`${apiBase}${path}`,{
+  let response:Response;
+  try {
+    response=await fetch(`${apiBase}${path}`,{
     method:"POST",
     headers:{"content-type":"application/json"},
     body:JSON.stringify(body)
-  });
+    });
+  } catch {
+    throw new Error("Não foi possível conectar ao servidor. Atualize a página e verifique a conexão.");
+  }
   const data=await response.json();
   if(!response.ok) throw new Error(data.error??"Falha de sessão.");
   if(data.session) saveSession(data.session);
