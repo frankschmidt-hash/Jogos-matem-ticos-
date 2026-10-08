@@ -21,7 +21,7 @@ type OnlineRoom = {
   code:string;
   hostSessionId:string;
   gradeLevel:5|6|7|"mixed";
-  members:Array<{sessionId:string;nickname:string;gradeLevel:5|6|7|"mixed";connected:boolean;presence:"connected"|"reconnecting"|"disconnected"|"abandoned"}>;
+  members:Array<{sessionId:string;nickname:string;gradeLevel:5|6|7|"mixed";carModel:CarModel;carColor:string;connected:boolean;presence:"connected"|"reconnecting"|"disconnected"|"abandoned"}>;
   status:"waiting"|"playing"|"finished";
   lifecycleState:"waiting"|"ready"|"countdown"|"playing"|"round-resolution"|"finished"|"closed";
   capacity:{max:number;occupied:number;available:number};
@@ -127,7 +127,7 @@ function Track({racers,finishLine,humanId}:{racers:Racer[];finishLine:number;hum
       const pct=Math.max(0,Math.min(100,racer.progress/finishLine*100));
       return <div className="race-lane" key={racer.id}>
         <span className="lane-rank">{index+1}º</span>
-        <div className="car-position" style={{left:"calc((100% - 90px) * "+(pct/100)+")"}}>
+        <div className="car-position" style={{left:"calc("+pct+"% - "+(pct*0.9)+"px)"}}>
           <Vehicle model={racer.carModel??"esportivo"} color={racer.carColor??"#3378dc"}
             name={racer.name} isPlayer={racer.id===humanId}/>
         </div>
@@ -292,7 +292,7 @@ function SoloRace({session,onExit,car}:{session:ClientSession;onExit:()=>void;ca
   const submitTrack=(event:FormEvent)=>{
     event.preventDefault();
     if(pendingTrackBomb===null||!trackQuestion) return;
-    const input=new FormData(event.currentTarget).get("trackAnswer")?.toString()??"";
+    const input=new FormData(event.currentTarget as HTMLFormElement).get("trackAnswer")?.toString()??"";
     const correct=validateAnswer(trackQuestion,input);
     setRace(current=>resolveTrackBomb(current,session.sessionId,correct));
     setTrackMessage(correct
@@ -661,16 +661,18 @@ function OnlineRace({session,onExit,car}:{session:ClientSession;onExit:()=>void;
 
 export function CrazyRace({session}:{session:ClientSession}) {
   const [mode,setMode]=useState<"setup"|"solo"|"online">("setup");
+  const [car,setCar]=useState<CarSelection>({carModel:"esportivo",carColor:"#3378dc"});
 
-  if(mode==="solo") return <SoloRace session={session} onExit={()=>setMode("setup")}/>;
-  if(mode==="online") return <OnlineRace session={session} onExit={()=>setMode("setup")}/>;
+  if(mode==="solo") return <SoloRace session={session} car={car} onExit={()=>setMode("setup")}/>;
+  if(mode==="online") return <OnlineRace session={session} car={car} onExit={()=>setMode("setup")}/>;
 
   return <main id="main-content" className="crazy-shell">
     <section className="panel crazy-setup">
       <img src="/assets/crazy-race/race-emblem.svg" alt="" className="crazy-logo"/>
       <p className="eyebrow">Arcade matemático</p>
       <h1>Corrida Maluca</h1>
-      <p>Seis carros disputam a pista. Você tem 20 segundos por rodada: acertou, acelera; errou ou perdeu o tempo, não avança.</p>
+      <p>Escolha seu carro e dispute a pista contra NPCs ou amigos. Resolva contas para acelerar e desarme as 3 bombas do percurso!</p>
+      <CarPicker choice={car} onChange={setCar}/>
       <div className="crazy-mode-grid">
         <button onClick={()=>setMode("solo")}>
           <strong>Jogar agora</strong>
@@ -685,8 +687,10 @@ export function CrazyRace({session}:{session:ClientSession}) {
         <ul>
           <li>Uma rodada dura 20 segundos.</li>
           <li>Acerto gera avanço; erro ou timeout mantém o carro parado.</li>
-          <li>Bombas matemáticas podem atingir apenas o rival imediatamente à frente ou atrás.</li>
-          <li>Acertar a bomba neutraliza o ataque; errar impede seu avanço na rodada.</li>
+          <li>Há três bombas fixas no percurso. Cada uma exige uma continha surpresa para ser desarmada.</li>
+          <li>Acertar a bomba da pista permite continuar. Errar provoca explosão e retorno à largada.</li>
+          <li>Bombas de ataque também podem ser lançadas contra o carro à frente ou atrás.</li>
+          <li>No multiplayer, o criador recebe um PIN de 3 dígitos e controla o início da partida.</li>
           <li>Vence quem cruza a linha de chegada após a resolução oficial da rodada.</li>
         </ul>
       </HelpRules>
