@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Bola de futebol">
+<defs>
+ <radialGradient id="skin" cx=".29" cy=".2" r=".8"><stop stop-color="#fff"/><stop offset=".42" stop-color="#f9fbfc"/><stop offset=".76" stop-color="#d6dde1"/><stop offset="1" stop-color="#647780"/></radialGradient>
+ <linearGradient id="seam" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#253948"/><stop offset="1" stop-color="#070f18"/></linearGradient>
+ <clipPath id="round"><circle cx="100" cy="100" r="93"/></clipPath>
+</defs>
+<circle cx="100" cy="100" r="97" fill="#bcc5ca"/><circle cx="100" cy="100" r="93" fill="url(#skin)"/>
+<g clip-path="url(#round)" stroke="#677782" stroke-width="3" stroke-linejoin="round">
+ <path d="M91 42 L133 53 L148 101 L116 129 L73 115 L59 75Z" fill="url(#seam)"/>
+ <path d="M91 42 L71 3 L31 19 L22 65 L59 75 M133 53 L154 16 L196 46 L184 91 L148 101 M73 115 L31 120 L15 165 L60 198 L93 161 L116 129 M116 129 L160 160 L196 136 L184 91" fill="none"/>
+ <path d="M24 -8 L71 3 L47 42 L12 40 M146 -8 L154 16 L190 33 M10 167 L57 194 L92 169 L113 214 M162 158 L192 129 L218 160 L187 202" fill="url(#seam)"/>
+ <path d="M91 42 L133 53 M59 75 L73 115 L116 129 L148 101" fill="none" stroke="#eaf2f6" opacity=".22"/>
+</g>
+<ellipse cx="67" cy="50" rx="38" ry="17" transform="rotate(-34 67 50)" fill="#fff" opacity=".36"/>
+<path d="M41 151 A77 77 0 0 0 124 174" fill="none" stroke="#71828d" stroke-width="3" opacity=".3"/>
+</svg>
