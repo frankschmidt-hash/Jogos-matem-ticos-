@@ -25,8 +25,8 @@ describe("Prompt 06 multiplayer consolidado",()=>{
 
   it("dois navegadores simulados entram na sala correta",()=>{
     const manager=new FootballRoomManager(new RoomInfrastructure());
-    const room=manager.createRoom(footballHost,"1234",7,0);
-    const joined=manager.joinRoom(room.code,"1234",footballGuest,1);
+    const room=manager.createRoom(footballHost,"123",7,0);
+    const joined=manager.joinRoom(room.code,"123",footballGuest,1);
     expect(joined.code).toBe(room.code);
     expect(joined.members.map(m=>m.sessionId)).toEqual([footballHost.sessionId,footballGuest.sessionId]);
     expect(joined.lifecycleState).toBe("ready");
@@ -118,8 +118,8 @@ describe("Prompt 06 multiplayer consolidado",()=>{
 
   it("futebol PvP mantém placar e vez sob autoridade do servidor",()=>{
     const manager=new FootballRoomManager(new RoomInfrastructure());
-    const room=manager.createRoom(footballHost,"1234",6,0);
-    manager.joinRoom(room.code,"1234",footballGuest,1);
+    const room=manager.createRoom(footballHost,"123",6,0);
+    manager.joinRoom(room.code,"123",footballGuest,1);
     manager.startRoom(room.code,footballHost.sessionId,1000);
     const q=manager.publicSnapshot(room.code).question!;
     manager.submitAnswer(room.code,footballHost.sessionId,q.id,"0","football-submit-01",2000);
