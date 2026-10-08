@@ -31,6 +31,18 @@ describe("NumberRaceRoomManager",()=>{
     expect(room.race?.racers.filter(r=>r.kind==="npc")).toHaveLength(2);
   });
 
+  it("sincroniza modelo e cor de cada jogador no multiplayer",()=>{
+    const manager=new NumberRaceRoomManager();
+    const hostCar={modelId:"rally",color:"#e84843"} as const;
+    const guestCar={modelId:"van",color:"#2389dc"} as const;
+    const room=manager.createRoom(host,"1234",5,0,hostCar);
+    manager.joinRoom(room.code,"1234",guest(1),1,guestCar);
+    expect(manager.publicSnapshot(room.code).carChoices[host.sessionId]).toEqual(hostCar);
+    expect(manager.publicSnapshot(room.code).carChoices[guest(1).sessionId]).toEqual(guestCar);
+    manager.startRoom(room.code,host.sessionId,1000);
+    expect(manager.publicSnapshot(room.code).carChoices[guest(1).sessionId]).toEqual(guestCar);
+  });
+
   it("não aceita mais que 6 humanos",()=>{
     const manager=new NumberRaceRoomManager();
     const room=manager.createRoom(host,"1234",6,0);
@@ -50,7 +62,7 @@ describe("NumberRaceRoomManager",()=>{
     const room=manager.createRoom(host,"1234",6,0);
     manager.startRoom(room.code,host.sessionId,1000);
     const snap=manager.publicSnapshot(room.code);
-    expect(snap.question?.deadlineAt).toBe(21000);
+    expect(snap.question?.deadlineAt).toBe(11000);
     expect(snap.question?.expression.length).toBeGreaterThan(0);
   });
 
@@ -59,7 +71,7 @@ describe("NumberRaceRoomManager",()=>{
     const room=manager.createRoom(host,"1234",6,0);
     manager.startRoom(room.code,host.sessionId,1000);
     const q=manager.publicSnapshot(room.code).question!;
-    expect(()=>manager.submitAnswer(room.code,host.sessionId,q.id,"0","submit-0001",22000)).toThrow(/tempo/i);
+    expect(()=>manager.submitAnswer(room.code,host.sessionId,q.id,"0","submit-0001",12000)).toThrow(/tempo/i);
   });
 
   it("clientSubmissionId repetido é idempotente",()=>{
@@ -86,12 +98,12 @@ describe("NumberRaceRoomManager",()=>{
     const room=manager.createRoom(host,"1234",5,0);
     manager.startRoom(room.code,host.sessionId,1000);
     expect(manager.publicSnapshot(room.code).lastCorrectAnswer).toBeNull();
-    manager.finalizeRound(room.code,21000);
+    manager.finalizeRound(room.code,11000);
     expect(room.race?.phase).toBe("round-resolution");
     expect(manager.publicSnapshot(room.code).lastCorrectAnswer).toBeTruthy();
-    manager.openNextRound(room.code,22000);
+    manager.openNextRound(room.code,12000);
     expect(room.race?.round).toBe(2);
-    expect(room.race?.roundDeadlineAt).toBe(42000);
+    expect(room.race?.roundDeadlineAt).toBe(22000);
     expect(manager.publicSnapshot(room.code).lastCorrectAnswer).toBeNull();
   });
 });

@@ -8,14 +8,15 @@ import {
 const race=()=>createNumberRace([{id:"h1",name:"Aluno"}]);
 
 describe("Corrida Numérica",()=>{
-  it("usa cronômetro de 20 segundos",()=>{
+  it("usa cronômetro de 10 segundos",()=>{
+    expect(ROUND_DURATION_MS).toBe(10_000);
     const s=startRound(race(),1000);
     expect(s.roundDeadlineAt!-s.roundStartedAt!).toBe(ROUND_DURATION_MS);
   });
 
   it("acerto gera avanço base",()=>{
     let s=startRound(race(),0);
-    s=submitAnswer(s,"h1",true,15000,15000);
+    s=submitAnswer(s,"h1",true,8000,8000);
     s=resolveRound(s,ROUND_DURATION_MS);
     expect(s.racers[0]!.progress).toBe(BASE_ADVANCE);
   });
@@ -32,18 +33,18 @@ describe("Corrida Numérica",()=>{
 
   it("timeout não avança",()=>{
     let s=startRound(race(),0);
-    s=submitAnswer(s,"h1",true,21000,21000);
+    s=submitAnswer(s,"h1",true,11000,11000);
     s=resolveRound(s,ROUND_DURATION_MS+1000);
     expect(s.racers[0]!.progress).toBe(0);
   });
 
   it("3 acertos seguidos geram pequeno bônus",()=>{
-    expect(advanceForCorrect(3,15000)).toBeGreaterThan(BASE_ADVANCE);
+    expect(advanceForCorrect(3,8000)).toBeGreaterThan(BASE_ADVANCE);
   });
 
   it("5 acertos seguidos geram bônus maior, ainda limitado",()=>{
-    expect(advanceForCorrect(5,15000)).toBeGreaterThan(advanceForCorrect(3,15000));
-    expect(advanceForCorrect(5,15000)-BASE_ADVANCE).toBeLessThanOrEqual(MAX_BONUS);
+    expect(advanceForCorrect(5,8000)).toBeGreaterThan(advanceForCorrect(3,8000));
+    expect(advanceForCorrect(5,8000)-BASE_ADVANCE).toBeLessThanOrEqual(MAX_BONUS);
   });
 
   it("resposta rápida gera bônus leve",()=>{
@@ -69,7 +70,8 @@ describe("Corrida Numérica",()=>{
   it("NPCs têm chance e reação controladas",()=>{
     for(const skill of ["beginner","intermediate","advanced"] as const){
       const d=npcDecision(skill,()=>0.4);
-      expect(d.responseMs).toBeGreaterThanOrEqual(4000);
+      expect(d.responseMs).toBeGreaterThanOrEqual(1600);
+      expect(d.responseMs).toBeLessThan(ROUND_DURATION_MS);
     }
   });
 
@@ -82,7 +84,7 @@ describe("Corrida Numérica",()=>{
   it("define vencedor ao concluir percurso",()=>{
     let s=createNumberRace([{id:"h1",name:"Aluno"}],90);
     s=startRound(s,0);
-    s=submitAnswer(s,"h1",true,15000,15000);
+    s=submitAnswer(s,"h1",true,8000,8000);
     s=resolveRound(s,ROUND_DURATION_MS);
     expect(s.phase).toBe("finished");
     expect(s.winnerId).toBe("h1");
@@ -91,8 +93,8 @@ describe("Corrida Numérica",()=>{
   it("empate exato cria rodada extra",()=>{
     let s=createNumberRace([{id:"a",name:"A"},{id:"b",name:"B"}],90);
     s=startRound(s,0);
-    s=submitAnswer(s,"a",true,15000,15000);
-    s=submitAnswer(s,"b",true,15000,15000);
+    s=submitAnswer(s,"a",true,8000,8000);
+    s=submitAnswer(s,"b",true,8000,8000);
     s=resolveRound(s,ROUND_DURATION_MS);
     expect(s.phase).toBe("round-resolution");
     expect(s.tieBreaker).toBe(true);

@@ -28,7 +28,8 @@ describe("Prompt 08 pre-release contracts",()=>{
 
   it("mantém feedback de rodada legível antes de reiniciar",()=>{
     expect(web("src/games/CrazyRace.tsx")).toContain('},1600);');
-    expect(web("src/games/NumberRace.tsx")).toContain('},1600);');
+    // Corrida Numérica: 10s de conta + transição curta de 450ms, sem bloquear a próxima questão.
+    expect(web("src/games/NumberRace.tsx")).toContain('},450);');
     expect(web("src/games/MathFootball.tsx")).toContain('},1600);');
   });
 

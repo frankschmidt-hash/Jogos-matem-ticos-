@@ -62,6 +62,9 @@ jobs:
       - name: Published URL smoke
         env:
           BASE_URL: https://jogos-matematicos-production.up.railway.app
+          # Em PR, o endereço publicado ainda pode apontar para a versão anterior.
+          # O teste local acima exige estritamente 10s; aqui verifica disponibilidade.
+          DEPLOYED_VERSION_SMOKE: "true"
         run: node scripts/smoke-e2e.mjs
 
       - name: Server logs on failure

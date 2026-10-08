@@ -2,12 +2,13 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { io, type Socket } from "socket.io-client";
 import {
   createNumberRace, ranking, resolveRound, startRound, statsFor, submitAnswer,
-  submitNpcAnswers, type NumberRaceState, type Racer
+  submitNpcAnswers, ROUND_DURATION_MS, type NumberRaceState, type Racer
 } from "@jogos/number-race";
 import { generateQuestion, validateAnswer, type MathQuestion } from "@jogos/math-engine";
 import { HelpRules, ResultFeedback } from "@jogos/ui";
 import { apiBase, type ClientSession } from "../session";
 import { playSound } from "../experience";
+import { CarPicker, NumberVehicle, opponentCar, useCarChoice, type CarChoice } from "./NumberRaceCars";
 import "./number-race.css";
 
 type RoomRace=Omit<NumberRaceState,"submissions"> & {answeredIds:string[]};
@@ -21,6 +22,7 @@ type NumberRoom={
   capacity:{max:number;occupied:number;available:number};
   serverNow:number;
   race:RoomRace|null;
+  carChoices:Record<string,CarChoice>;
   question:null|{id:string;expression:string;gradeLevel:number;difficulty:number;deadlineAt:number|null};
   lastCorrectAnswer:string|null;
   updatedAt:number;
@@ -60,34 +62,44 @@ function statsFromRacer(racer:Racer,position:number){
   };
 }
 
-function NumericTrack({racers,finishLine,humanId}:{racers:Racer[];finishLine:number;humanId:string}){
+function NumericTrack({racers,finishLine,humanId,carChoice,carChoices}:{racers:Racer[];finishLine:number;humanId:string;carChoice:CarChoice;carChoices?:Record<string,CarChoice>}){
   const ordered=[...racers].sort((a,b)=>
     b.progress-a.progress ||
     b.correctAnswers-a.correctAnswers ||
     a.totalCorrectResponseMs-b.totalCorrectResponseMs
   );
   return <section className="number-track" aria-label="Pista da Corrida Numérica">
+    <div className="number-roadside number-roadside-left" aria-hidden="true">
+      <img src="/assets/crazy-race/roadside-tree.svg" alt=""/>
+      <img src="/assets/crazy-race/roadside-cone.svg" alt=""/>
+      <img src="/assets/crazy-race/roadside-tree.svg" alt=""/>
+      <img src="/assets/crazy-race/roadside-cone.svg" alt=""/>
+    </div>
+    <div className="number-roadside number-roadside-right" aria-hidden="true">
+      <img src="/assets/crazy-race/roadside-cone.svg" alt=""/>
+      <img src="/assets/crazy-race/roadside-tree.svg" alt=""/>
+      <img src="/assets/crazy-race/roadside-cone.svg" alt=""/>
+      <img src="/assets/crazy-race/roadside-tree.svg" alt=""/>
+    </div>
     {[25,50,75].map((pct,index)=><div key={pct} className={"number-portal portal-"+(index+1)} style={{left:pct+"%"}}>
       <span>{index===0?"+":index===1?"×":"="}</span>
     </div>)}
     <div className="number-finish-line"><span>100%</span></div>
     {ordered.map((racer,index)=>{
       const pct=Math.min(100,racer.progress/finishLine*100);
+      const car=racer.id===humanId?carChoice:carChoices?.[racer.id]??opponentCar(racer.id);
       return <div className="number-lane" key={racer.id}>
         <span className="number-rank">{index+1}º</span>
-        <div
-          className={["number-car",racer.id===humanId?"number-player":"",racer.kind==="npc"?"number-npc":""].filter(Boolean).join(" ")}
-          style={{left:"calc("+pct+"% - 31px)"}}
-        >
-          <span className="number-car-screen">{racer.streak}</span>
-          <strong>{racer.name.slice(0,2).toUpperCase()}</strong>
+        <div className={["number-car",racer.id===humanId?"number-player":"",racer.kind==="npc"?"number-npc":""].filter(Boolean).join(" ")}
+          style={{left:"clamp(0px, calc("+pct+"% - 54px), calc(100% - 94px))"}}>
+          <NumberVehicle modelId={car.modelId} color={car.color}/>
+          {racer.streak>0&&<span className="number-car-screen" title="Sequência de acertos">{racer.streak}×</span>}
         </div>
         <span className="number-lane-name">{racer.name}</span>
       </div>;
     })}
   </section>;
 }
-
 function NumberHud({
   race,humanId,deadline,now
 }:{race:NumberRaceState|RoomRace;humanId:string;deadline:number|null;now:number}){
@@ -131,7 +143,7 @@ function FinalStats({
   </section>;
 }
 
-function SoloNumberRace({session,onExit}:{session:ClientSession;onExit:()=>void}){
+function SoloNumberRace({session,onExit,carChoice}:{session:ClientSession;onExit:()=>void;carChoice:CarChoice}){
   const makeRace=()=>{
     let next=createNumberRace([{id:session.sessionId,name:session.nickname}]);
     next=startRound(next,Date.now());
@@ -171,7 +183,7 @@ function SoloNumberRace({session,onExit}:{session:ClientSession;onExit:()=>void}
         setError("");
         return next;
       });
-    },1600);
+    },450);
     return ()=>window.clearTimeout(timer);
   },[race.phase,session.gradeLevel,session.sessionId]);
 
@@ -215,11 +227,11 @@ function SoloNumberRace({session,onExit}:{session:ClientSession;onExit:()=>void}
     </header>
 
     <NumberHud race={race} humanId={session.sessionId} deadline={race.roundDeadlineAt} now={now}/>
-    <NumericTrack racers={race.racers} finishLine={race.finishLine} humanId={session.sessionId}/>
+    <NumericTrack racers={race.racers} finishLine={race.finishLine} humanId={session.sessionId} carChoice={carChoice}/>
 
     <div className="number-lower">
       <section className="number-question">
-        <span className="eyebrow">Rodada {race.round} · 20 segundos</span>
+        <span className="eyebrow">Rodada {race.round} · {ROUND_DURATION_MS/1000} segundos</span>
         <h2>{question?.expression??"Calculando posições..."}</h2>
         {question&&race.phase==="round-open"&&<form onSubmit={submit}>
           <input inputMode="decimal" value={answer} onChange={e=>setAnswer(e.target.value)} disabled={submitted} placeholder="Digite sua resposta"/>
@@ -227,7 +239,7 @@ function SoloNumberRace({session,onExit}:{session:ClientSession;onExit:()=>void}
         </form>}
         {feedback&&<ResultFeedback status={feedback}/>}
         {feedback==="incorrect"&&correctAnswer&&<p className="math-correction">Resposta correta: <strong>{correctAnswer}</strong></p>}
-        {submitted&&<p className="number-wait">Movimento aplicado ao final dos 20 segundos.</p>}
+        {submitted&&<p className="number-wait">Movimento aplicado ao final dos {ROUND_DURATION_MS/1000} segundos.</p>}
         {error&&<p className="error" role="alert">{error}</p>}
       </section>
 
@@ -241,11 +253,11 @@ function SoloNumberRace({session,onExit}:{session:ClientSession;onExit:()=>void}
       </section>
     </div>
 
-    <section className="number-log"><h2>Progresso da corrida</h2><ol>{race.log.map(item=><li key={item.id}>{item.message}</li>)}</ol></section>
+    <details className="number-log"><summary>Progresso da corrida</summary><ol>{race.log.map(item=><li key={item.id}>{item.message}</li>)}</ol></details>
   </main>;
 }
 
-function OnlineNumberRace({session,onExit}:{session:ClientSession;onExit:()=>void}){
+function OnlineNumberRace({session,onExit,carChoice}:{session:ClientSession;onExit:()=>void;carChoice:CarChoice}){
   const socket=useMemo<Socket>(()=>io(apiBase,{transports:["websocket"],autoConnect:true}),[]);
   const [room,setRoom]=useState<NumberRoom|null>(null);
   const [mode,setMode]=useState<"menu"|"create"|"join">("menu");
@@ -276,7 +288,7 @@ function OnlineNumberRace({session,onExit}:{session:ClientSession;onExit:()=>voi
     const reconnect=()=>{
       const saved=sessionStorage.getItem(ROOM_KEY);
       if(!saved) return;
-      socket.emit("number:reconnect-room",{...auth(session),code:saved},(response:AckResponse)=>{
+      socket.emit("number:reconnect-room",{...auth(session),code:saved,carChoice},(response:AckResponse)=>{
         if(response.ok&&response.room) setRoom(response.room);
         else sessionStorage.removeItem(ROOM_KEY);
       });
@@ -291,8 +303,8 @@ function OnlineNumberRace({session,onExit}:{session:ClientSession;onExit:()=>voi
     };
   },[socket,session.sessionId,session.reconnectToken]);
 
-  const create=()=>socket.emit("number:create-room",{...auth(session),password,gradeLevel:grade},(response:AckResponse)=>apply(response));
-  const join=()=>socket.emit("number:join-room",{...auth(session),code:code.trim().toUpperCase(),password},(response:AckResponse)=>apply(response));
+  const create=()=>socket.emit("number:create-room",{...auth(session),password,gradeLevel:grade,carChoice},(response:AckResponse)=>apply(response));
+  const join=()=>socket.emit("number:join-room",{...auth(session),code:code.trim().toUpperCase(),password,carChoice},(response:AckResponse)=>apply(response));
   const start=()=>{
     if(room) socket.emit("number:start",{...auth(session),code:room.code},(response:AckResponse)=>apply(response));
   };
@@ -381,11 +393,11 @@ function OnlineNumberRace({session,onExit}:{session:ClientSession;onExit:()=>voi
         <p className="eyebrow">Sala {room.code} · {room.gradeLevel==="mixed"?"Misto":room.gradeLevel+"º ano"}</p>
         <h1>Corrida Numérica</h1>
       </div>
-      <div className="number-connection">{socket.connected?"Conectado":"Reconectando"}</div>
+      <div className="number-header-actions"><div className="number-connection">{socket.connected?"Conectado":"Reconectando"}</div><button className="button-ghost" onClick={()=>window.confirm("Sair da sala e abandonar a corrida?")&&leave()}>Sair</button></div>
     </header>
 
     <NumberHud race={room.race} humanId={session.sessionId} deadline={room.question?.deadlineAt??null} now={now}/>
-    <NumericTrack racers={room.race.racers} finishLine={room.race.finishLine} humanId={session.sessionId}/>
+    <NumericTrack racers={room.race.racers} finishLine={room.race.finishLine} humanId={session.sessionId} carChoice={carChoice} carChoices={room.carChoices}/>
 
     <div className="number-lower">
       <section className="number-question">
@@ -406,16 +418,16 @@ function OnlineNumberRace({session,onExit}:{session:ClientSession;onExit:()=>voi
       </section>
     </div>
 
-    <section className="number-log"><h2>Progresso da corrida</h2><ol>{room.race.log.map(item=><li key={item.id}>{item.message}</li>)}</ol></section>
-    <button className="button-ghost" onClick={()=>window.confirm("Sair da sala e abandonar a corrida?")&&leave()}>Sair da corrida</button>
+    <details className="number-log"><summary>Progresso da corrida</summary><ol>{room.race.log.map(item=><li key={item.id}>{item.message}</li>)}</ol></details>
   </main>;
 }
 
 export function NumberRace({session}:{session:ClientSession}){
   const [mode,setMode]=useState<"setup"|"solo"|"online">("setup");
+  const [carChoice,setCarChoice]=useCarChoice();
 
-  if(mode==="solo") return <SoloNumberRace session={session} onExit={()=>setMode("setup")}/>;
-  if(mode==="online") return <OnlineNumberRace session={session} onExit={()=>setMode("setup")}/>;
+  if(mode==="solo") return <SoloNumberRace session={session} carChoice={carChoice} onExit={()=>setMode("setup")}/>;
+  if(mode==="online") return <OnlineNumberRace session={session} carChoice={carChoice} onExit={()=>setMode("setup")}/>;
 
   return <main id="main-content" className="number-shell">
     <section className="panel number-setup">
@@ -423,13 +435,14 @@ export function NumberRace({session}:{session:ClientSession}){
       <p className="eyebrow">Precisão · sequência · impulso</p>
       <h1>Corrida Numérica</h1>
       <p>Seis competidores avançam resolvendo contas. Não há bombas ou ataques: a precisão decide a corrida e rapidez/combos dão apenas bônus pequenos.</p>
-      <div className="number-mode-grid">
+      <CarPicker choice={carChoice} onChange={setCarChoice}/>
+       <div className="number-mode-grid">
         <button onClick={()=>setMode("solo")}><strong>Jogar agora</strong><span>Você contra 5 NPCs</span></button>
         <button onClick={()=>setMode("online")}><strong>Multiplayer</strong><span>Criar ou entrar em sala</span></button>
       </div>
       <HelpRules>
         <ul>
-          <li>Cada rodada dura 20 segundos.</li>
+          <li>Cada rodada dura {ROUND_DURATION_MS/1000} segundos.</li>
           <li>Acerto concede o avanço principal.</li>
           <li>3 e 5 acertos seguidos geram pequenos bônus de impulso.</li>
           <li>Resposta rápida dá bônus leve e limitado; não supera a importância do acerto.</li>

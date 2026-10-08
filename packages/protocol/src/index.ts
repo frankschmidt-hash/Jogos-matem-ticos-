@@ -47,16 +47,24 @@ export const crazyTrackAnswerSchema=crazyBombAnswerSchema;
 
 export type ClaimNicknameInput = z.infer<typeof claimNicknameSchema>;
 
+export const numberCarChoiceSchema=z.object({
+  modelId:z.enum(["compacto","esportivo","picape","suv","conversivel","formula","classico","rally","van","supercarro"]),
+  color:carColorSchema
+});
+export type NumberCarChoice=z.infer<typeof numberCarChoiceSchema>;
 export const numberCreateRoomSchema=heartbeatSchema.extend({
   password:roomPasswordSchema,
-  gradeLevel:gradeLevelSchema
+  gradeLevel:gradeLevelSchema,
+  carChoice:numberCarChoiceSchema.optional()
 });
 export const numberJoinRoomSchema=heartbeatSchema.extend({
   code:roomCodeSchema,
-  password:roomPasswordSchema
+  password:roomPasswordSchema,
+  carChoice:numberCarChoiceSchema.optional()
 });
 export const numberRoomActionSchema=heartbeatSchema.extend({
-  code:roomCodeSchema
+  code:roomCodeSchema,
+  carChoice:numberCarChoiceSchema.optional()
 });
 export const numberAnswerSchema=numberRoomActionSchema.extend({
   questionId:z.string().min(3).max(160),

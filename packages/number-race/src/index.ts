@@ -52,7 +52,7 @@ export type RacerStats={
 };
 
 export const TOTAL_RACERS=6;
-export const ROUND_DURATION_MS=20_000;
+export const ROUND_DURATION_MS=10_000;
 export const BASE_ADVANCE=100;
 export const MAX_BONUS=20;
 export const FINISH_LINE=900;
@@ -122,8 +122,8 @@ export function submitAnswer(
 
 export function npcDecision(skill:NpcSkill,rng:()=>number=Math.random):{correct:boolean;responseMs:number}{
   const chance=skill==="advanced"?0.87:skill==="intermediate"?0.76:0.64;
-  const min=skill==="advanced"?4200:skill==="intermediate"?5600:7200;
-  const max=skill==="advanced"?11000:skill==="intermediate"?14500:17800;
+  const min=skill==="advanced"?1600:skill==="intermediate"?2300:3000;
+  const max=skill==="advanced"?5100:skill==="intermediate"?6800:8900;
   return {correct:rng()<chance,responseMs:Math.floor(min+rng()*(max-min))};
 }
 
@@ -144,8 +144,8 @@ export function impulseBonus(streakAfterCorrect:number,responseMs:number):number
   else if(streakAfterCorrect>=3) streakBonus=6;
 
   let speedBonus=0;
-  if(responseMs<=5_000) speedBonus=8;
-  else if(responseMs<=10_000) speedBonus=4;
+  if(responseMs<=2_500) speedBonus=8;
+  else if(responseMs<=5_000) speedBonus=4;
 
   return Math.min(MAX_BONUS,streakBonus+speedBonus);
 }
