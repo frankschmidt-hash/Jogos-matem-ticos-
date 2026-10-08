@@ -8,6 +8,7 @@ import { generateQuestion, validateAnswer, type MathQuestion } from "@jogos/math
 import { HelpRules, MathQuestionModal, ResultFeedback } from "@jogos/ui";
 import type { ClientSession } from "../session";
 import { playSound } from "../experience";
+import { PropertyOnline } from "./PropertyOnline";
 
 const playerTone=["human","npc-a","npc-b","npc-c"] as const;
 
@@ -24,7 +25,7 @@ const boardCoordinate=(index:number):{row:number;col:number}=>{
   return {row:index-26,col:1};
 };
 
-function GameSetup({session,onStart}:{session:ClientSession;onStart:(game:GameState)=>void}) {
+function GameSetup({session,onStart,onOnline}:{session:ClientSession;onStart:(game:GameState)=>void;onOnline:()=>void}) {
   const [totalPlayers,setTotalPlayers]=useState<2|3|4>(2);
   const [mode,setMode]=useState<MatchMode>("short");
   const [rounds,setRounds]=useState(8);
@@ -66,7 +67,8 @@ function GameSetup({session,onStart}:{session:ClientSession;onStart:(game:GameSt
 
       <button onClick={()=>onStart(createGame({
         humanName:session.nickname,totalPlayers,mode,shortRounds:rounds
-      }))}>Iniciar partida</button>
+      }))}>Iniciar partida contra NPC</button>
+       <button className="button-secondary property-online-entry" onClick={onOnline}>Criar ou entrar em sala online</button>
 
       <HelpRules>
         <ul>
@@ -81,67 +83,107 @@ function GameSetup({session,onStart}:{session:ClientSession;onStart:(game:GameSt
   </main>;
 }
 
-function Scoreboard({game}:{game:GameState}) {
+export function Pawn({tone,name}:{tone:string;name:string}) {
+  return <span className={["prisma-pawn",tone].join(" ")} title={name} aria-label={"Peão de "+name}>
+    <span className="pawn-head"/><span className="pawn-body"/><span className="pawn-feet"/>
+  </span>;
+}
+export function Scoreboard({game,myId="human-1"}:{game:GameState;myId?:string}) {
   return <aside className="property-scoreboard">
     <h2>Jogadores</h2>
     {game.players.map((player,index)=><div
       key={player.id}
       className={["score-row",game.activePlayerIndex===index?"active":"",player.bankrupt?"bankrupt":""].filter(Boolean).join(" ")}
     >
-      <span className={["player-dot",playerTone[index]].join(" ")} aria-hidden="true"/>
+      <Pawn tone={playerTone[index]!} name={player.name}/>
       <div>
         <strong>{player.name}</strong>
-        <small>{player.kind==="human"?"Você":"NPC"} · casa {player.position}</small>
+        <small>{player.kind==="npc"?"NPC":player.id===myId?"Você":"Jogador"} · casa {player.position}</small>
       </div>
       <span>{player.balance} CP</span>
     </div>)}
   </aside>;
 }
 
-function Board({game}:{game:GameState}) {
-  return <div className="property-board-wrap">
-    <div className="property-board" aria-label="Tabuleiro Cidade Prisma">
-      {BOARD.map(space=>{
-        const {row,col}=boardCoordinate(space.index);
-        const property=space.type==="property"?game.properties[space.index]:undefined;
-        const ownerIndex=property?.ownerId ? game.players.findIndex(p=>p.id===property.ownerId) : -1;
-        return <div
-          key={space.index}
-          className={["board-space","type-"+space.type,space.type==="property"?"group-"+space.group:""].filter(Boolean).join(" ")}
-          style={{gridRow:row,gridColumn:col}}
-          title={space.name}
-        >
-          <span className="space-index">{space.index}</span>
-          <strong>{space.name}</strong>
-          {space.type==="property"&&<small>{space.price} CP · aluguel {currentRent(game,space.index)} CP</small>}
-          {property?.level ? <span className="level-chip">N{property.level}</span>:null}
-          {ownerIndex>=0?<span className={["owner-mark",playerTone[ownerIndex]].join(" ")} aria-label={"Propriedade de "+game.players[ownerIndex]!.name}/>:null}
-          <div className="token-stack">
-            {game.players.map((player,index)=>player.position===space.index&&!player.bankrupt?
-              <span key={player.id} className={["board-token",playerTone[index]].join(" ")} title={player.name}>{player.name.slice(0,1).toUpperCase()}</span>:null)}
-          </div>
-        </div>;
-      })}
-
-      <section className="board-center">
+export function Board({game,lastDie=null,rolling=false}:{game:GameState;lastDie?:number|null;rolling?:boolean}) {
+  const [focus,setFocus]=useState<number|null>(null);
+  const timeout=useRef<number|null>(null);
+  const positions=game.players.map(p=>p.position).join(",");
+  const previous=useRef(positions);
+  const zoom=(index:number)=>{
+    if(timeout.current!==null) window.clearTimeout(timeout.current);
+    setFocus(index);
+    timeout.current=window.setTimeout(()=>setFocus(null),10000);
+  };
+  useEffect(()=>{
+    const last=previous.current.split(",").map(Number);
+    const moved=game.players.findIndex((p,i)=>p.position!==last[i]&&!p.bankrupt);
+    previous.current=positions;
+    if(moved>=0) zoom(game.players[moved]!.position);
+  },[positions]);
+  useEffect(()=>()=>{if(timeout.current!==null)window.clearTimeout(timeout.current);},[]);
+  const landed=focus!==null?getSpace(focus):null;
+  return <div className="property-board-wrap"><div className="property-board" aria-label="Tabuleiro Cidade Prisma">
+    {BOARD.map(space=>{
+      const {row,col}=boardCoordinate(space.index);
+      const property=space.type==="property"?game.properties[space.index]:undefined;
+      const ownerIndex=property?.ownerId?game.players.findIndex(p=>p.id===property.ownerId):-1;
+      return <div key={space.index}
+        className={["board-space","type-"+space.type,space.type==="property"?"group-"+space.group:""].filter(Boolean).join(" ")}
+        style={{gridRow:row,gridColumn:col}}
+        title={"Toque para ampliar: "+space.name} role="button" tabIndex={0}
+        onClick={()=>zoom(space.index)}
+        onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();zoom(space.index);}}}
+      >
+        <span className="space-index">{space.index}</span>
+        <strong>{space.name}</strong>
+        {space.type==="property"&&<small>{space.price} CP · aluguel {currentRent(game,space.index)} CP</small>}
+        {property?.level?<span className="level-chip">N{property.level}</span>:null}
+        {ownerIndex>=0?<span className={["owner-mark",playerTone[ownerIndex]].join(" ")} aria-label={"Propriedade de "+game.players[ownerIndex]!.name}/>:null}
+        <div className="token-stack">
+          {game.players.map((player,index)=>player.position===space.index&&!player.bankrupt?
+            <div className="pawn-position" key={player.id}>
+              <Pawn tone={playerTone[index]!} name={player.name}/><span className="pawn-name">{player.name}</span>
+            </div>:null)}
+        </div>
+      </div>;
+    })}
+    <section className="board-center">
+      {landed?<article className="landing-zoom" role="status" aria-live="polite">
+        <span className="eyebrow">Casa {landed.index} · {landed.type==="property"?"Propriedade":"Cidade Prisma"}</span>
+        <div className={"landing-building type-"+landed.type} aria-hidden="true">
+          <span className="building-roof"/><span className="building-front"><i/><i/><i/></span>
+        </div>
+        <h2>{landed.name}</h2>
+        {landed.type==="property"?<>
+          <p className="landing-group">{GROUP_LABELS[landed.group]}</p>
+          <p>Compra: <strong>{landed.price} CP</strong></p>
+          <p>Aluguel: <strong>{currentRent(game,landed.index)} CP</strong></p>
+        </>:landed.type==="tax"||landed.type==="penalty"||landed.type==="service"?
+          <p>Despesa: <strong>{landed.amount} CP</strong></p>:
+          landed.type==="bonus"||landed.type==="transport"?
+          <p>Bônus: <strong>{landed.amount} CP</strong></p>:
+          <p>Veja as últimas ações para conhecer o efeito desta casa.</p>}
+        <button className="button-ghost landing-close" onClick={()=>{setFocus(null);if(timeout.current!==null)window.clearTimeout(timeout.current);}}>Fechar ampliação</button>
+        <small>Retorno automático em 10 segundos</small>
+      </article>:<>
         <img src="/assets/property-game/cidade-prisma.svg" alt="" className="board-emblem"/>
-        <div className="property-art-strip" aria-hidden="true">
-          <img src="/assets/property-game/dado-prisma.svg" alt=""/>
-          <img src="/assets/property-game/peao-prisma.svg" alt=""/>
-          <img src="/assets/property-game/carta-prisma.svg" alt=""/>
+        <div className={["board-dice",rolling?"rolling":""].join(" ")} role="status" aria-live="polite">
+          <img src="/assets/property-game/dado-prisma.svg" alt="" />
+          <span>{rolling?"…":lastDie??"?"}</span>
         </div>
         <span className="eyebrow">Cidade Prisma</span>
         <h2>Créditos, estratégia e matemática</h2>
         <p>Resolva a operação para definir seu movimento.</p>
-      </section>
-    </div>
-  </div>;
+      </>}
+    </section>
+  </div></div>;
 }
 
-function HumanPortfolio({
-  game,onUpgrade,onSell,error
-}:{game:GameState;onUpgrade:(index:number)=>void;onSell:(index:number)=>void;error:string}) {
-  const human=game.players.find(p=>p.kind==="human")!;
+export function HumanPortfolio({
+  game,myId="human-1",onUpgrade,onSell,error
+}:{game:GameState;myId?:string;onUpgrade:(index:number)=>void;onSell:(index:number)=>void;error:string}) {
+  const human=game.players.find(p=>p.id===myId)!;
   const owned=Object.values(game.properties).filter(p=>p.ownerId===human.id);
   return <section className="property-portfolio">
     <div className="section-title">
@@ -171,7 +213,7 @@ function HumanPortfolio({
   </section>;
 }
 
-export function PropertyGame({session}:{session:ClientSession}) {
+function SoloPropertyGame({session,onOnline}:{session:ClientSession;onOnline:()=>void}) {
   const [game,setGame]=useState<GameState|null>(null);
   const [question,setQuestion]=useState<MathQuestion|null>(null);
   const [answer,setAnswer]=useState("");
@@ -224,7 +266,7 @@ export function PropertyGame({session}:{session:ClientSession}) {
     return ()=>window.clearTimeout(timer);
   },[game,player]);
 
-  if(!game) return <GameSetup session={session} onStart={setGame}/>;
+  if(!game) return <GameSetup session={session} onStart={setGame} onOnline={onOnline}/>;
 
   const human=game.players.find(p=>p.kind==="human")!;
 
@@ -312,14 +354,12 @@ export function PropertyGame({session}:{session:ClientSession}) {
         <h1>Cidade Prisma</h1>
         <span>Rodada {game.round}{game.maxRounds?" de "+game.maxRounds:""} · vez de <strong>{player?.name}</strong></span>
       </div>
-      <div className={["dice",rolling?"rolling":""].filter(Boolean).join(" ")} aria-label={lastDie?"Último dado: "+lastDie:"Dado ainda não lançado"}>
-        {lastDie??"?"}
-      </div>
+
     </header>
 
     <div className="property-layout">
       <Scoreboard game={game}/>
-      <Board game={game}/>
+      <Board game={game} lastDie={lastDie} rolling={rolling}/>
 
       <aside className="property-actions">
         <h2>Ação atual</h2>
@@ -393,4 +433,11 @@ export function PropertyGame({session}:{session:ClientSession}) {
       </form>
     </MathQuestionModal>
   </main>;
+}
+
+export function PropertyGame({session}:{session:ClientSession}) {
+  const [online,setOnline]=useState(false);
+  return online
+    ?<PropertyOnline session={session} onExit={()=>setOnline(false)}/>
+    :<SoloPropertyGame session={session} onOnline={()=>setOnline(true)}/>;
 }
