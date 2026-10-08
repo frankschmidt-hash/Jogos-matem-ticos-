@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { io, type Socket } from "socket.io-client";
 import {
-  createNumberRace, ranking, resolveRound, startRound, statsFor, submitAnswer,
-  submitNpcAnswers, ROUND_DURATION_MS, type NumberRaceState, type Racer
+  createNumberRace, startTimedRace, answerTimedRace, finishTimedRace, tickTimedNpcs,
+  MATCH_DURATION_MS, TIMED_ADVANCE, type NumberRaceState, type Racer
 } from "@jogos/number-race";
 import { generateQuestion, validateAnswer, type MathQuestion } from "@jogos/math-engine";
-import { HelpRules, ResultFeedback } from "@jogos/ui";
+import { HelpRules } from "@jogos/ui";
 import { apiBase, type ClientSession } from "../session";
 import { playSound } from "../experience";
 import { CarPicker, NumberVehicle, opponentCar, useCarChoice, type CarChoice } from "./NumberRaceCars";
@@ -27,7 +27,7 @@ type NumberRoom={
   lastCorrectAnswer:string|null;
   updatedAt:number;
 };
-type AckResponse={ok:boolean;room?:NumberRoom;error?:string};
+type AckResponse={ok:boolean;room?:NumberRoom;error?:string;answerCorrect?:boolean;answerRecorded?:boolean};
 
 const ROOM_KEY="number-race-room-code";
 const auth=(session:ClientSession)=>({sessionId:session.sessionId,reconnectToken:session.reconnectToken});
@@ -44,6 +44,11 @@ function useNow(active:boolean,serverNow?:number){
     return ()=>window.clearInterval(timer);
   },[active]);
   return now;
+}
+
+function formattedTime(deadline:number|null|undefined,now:number){
+  const total=secondsLeft(deadline,now);
+  return String(Math.floor(total/60)).padStart(2,"0")+":"+String(total%60).padStart(2,"0");
 }
 
 function secondsLeft(deadline:number|null|undefined,now:number){
@@ -84,9 +89,12 @@ function NumericTrack({racers,finishLine,humanId,carChoice,carChoices}:{racers:R
     {[25,50,75].map((pct,index)=><div key={pct} className={"number-portal portal-"+(index+1)} style={{left:pct+"%"}}>
       <span>{index===0?"+":index===1?"×":"="}</span>
     </div>)}
-    <div className="number-finish-line"><span>100%</span></div>
+    <div className="number-finish-line"><span>CHEGADA</span></div>
     {ordered.map((racer,index)=>{
-      const pct=Math.min(100,racer.progress/finishLine*100);
+      // A referência visual escala com o líder: distância comparável por quantidade de acertos.
+      const leader=Math.max(0,...racers.map(item=>item.correctAnswers));
+      const goal=Math.max(22,leader+8);
+      const pct=Math.min(96,racer.correctAnswers/goal*96);
       const car=racer.id===humanId?carChoice:carChoices?.[racer.id]??opponentCar(racer.id);
       return <div className="number-lane" key={racer.id}>
         <span className="number-rank">{index+1}º</span>
@@ -100,31 +108,34 @@ function NumericTrack({racers,finishLine,humanId,carChoice,carChoices}:{racers:R
     })}
   </section>;
 }
-function NumberHud({
-  race,humanId,deadline,now
-}:{race:NumberRaceState|RoomRace;humanId:string;deadline:number|null;now:number}){
-  const ordered=[...race.racers].sort((a,b)=>b.progress-a.progress||b.correctAnswers-a.correctAnswers||a.totalCorrectResponseMs-b.totalCorrectResponseMs);
+function NumberHud({race,humanId,deadline,now}:{
+  race:NumberRaceState|RoomRace;humanId:string;deadline:number|null;now:number
+}){
+  const ordered=[...race.racers].sort((a,b)=>b.correctAnswers-a.correctAnswers||a.errors-b.errors||a.totalCorrectResponseMs-b.totalCorrectResponseMs);
   const human=race.racers.find(r=>r.id===humanId);
   const position=ordered.findIndex(r=>r.id===humanId)+1;
-  const progress=human?Math.min(100,Math.round(human.progress/race.finishLine*100)):0;
+  const remaining=secondsLeft(deadline,now);
   return <div className="number-hud">
     <div><span>Posição</span><strong>{position>0?position+"º / 6":"—"}</strong></div>
-    <div><span>Progresso</span><strong>{progress}%</strong></div>
-    <div><span>Combo</span><strong>{human?.streak??0}×</strong></div>
-    <div><span>Melhor sequência</span><strong>{human?.bestStreak??0}</strong></div>
-    <div className={secondsLeft(deadline,now)<=5?"number-time-danger":""}><span>Tempo</span><strong>{secondsLeft(deadline,now)}s</strong></div>
+    <div><span>Acertos</span><strong>{human?.correctAnswers??0}</strong></div>
+    <div><span>Distância</span><strong>{human?.progress??0} m</strong></div>
+    <div><span>Erros</span><strong>{human?.errors??0}</strong></div>
+    <div className={"number-global-timer "+(remaining<=30?"number-time-danger":"")} aria-live="off">
+      <span>Tempo restante</span><strong>{formattedTime(deadline,now)}</strong>
+    </div>
   </div>;
 }
 
 function FinalStats({
   racers,winnerId,humanId,onAgain
 }:{racers:Racer[];winnerId:string|null;humanId:string;onAgain:()=>void}){
-  const ordered=[...racers].sort((a,b)=>b.progress-a.progress||b.correctAnswers-a.correctAnswers||a.totalCorrectResponseMs-b.totalCorrectResponseMs);
+  const ordered=[...racers].sort((a,b)=>b.correctAnswers-a.correctAnswers||a.errors-b.errors||a.totalCorrectResponseMs-b.totalCorrectResponseMs);
   const winner=ordered.find(r=>r.id===winnerId);
   return <section className="panel number-finish">
     <img src="/assets/number-race/number-trophy.svg" alt="" className="number-finish-art"/>
     <p className="eyebrow">Corrida concluída</p>
-    <h1>{winner?.name??"Competidor"} venceu!</h1>
+    <h1>{winner?winner.name+" venceu!":"Empate!"}</h1>
+    <p>Placar final após 5 minutos · venceu quem acertou mais contas.</p>
     <div className="number-stats-table">
       {ordered.map((racer,index)=>{
         const s=statsFromRacer(racer,index+1);
@@ -144,116 +155,101 @@ function FinalStats({
 }
 
 function SoloNumberRace({session,onExit,carChoice}:{session:ClientSession;onExit:()=>void;carChoice:CarChoice}){
-  const makeRace=()=>{
-    let next=createNumberRace([{id:session.sessionId,name:session.nickname}]);
-    next=startRound(next,Date.now());
-    return submitNpcAnswers(next);
-  };
+  const makeRace=()=>startTimedRace(createNumberRace([{id:session.sessionId,name:session.nickname}]),Date.now());
   const [race,setRace]=useState<NumberRaceState>(makeRace);
-  const [question,setQuestion]=useState<MathQuestion|null>(()=>generateQuestion(session.gradeLevel,{difficulty:1,seed:"number-solo-1-"+session.sessionId}));
+  const [question,setQuestion]=useState<MathQuestion>(()=>generateQuestion(session.gradeLevel,{difficulty:1,seed:"number-solo-1-"+session.sessionId}));
   const [answer,setAnswer]=useState("");
   const [feedback,setFeedback]=useState<"correct"|"incorrect"|null>(null);
   const [correctAnswer,setCorrectAnswer]=useState<string|null>(null);
-  const [submitted,setSubmitted]=useState(false);
   const [error,setError]=useState("");
-  const resolved=useRef(0);
+  const questionNumber=useRef(1);
+  const questionStarted=useRef(Date.now());
+  const inputRef=useRef<HTMLInputElement>(null);
   const now=useNow(race.phase==="round-open");
 
   useEffect(()=>{
-    if(race.phase!=="round-open"||!race.roundDeadlineAt||now<race.roundDeadlineAt||resolved.current===race.round) return;
-    resolved.current=race.round;
-    setRace(current=>resolveRound(current,Date.now()));
-    setQuestion(null);
-  },[now,race.phase,race.round,race.roundDeadlineAt]);
+    if(race.phase!=="round-open"||race.matchDeadlineAt==null||now<race.matchDeadlineAt) return;
+    setRace(current=>current.phase==="round-open"?finishTimedRace(current,Math.max(now,current.matchDeadlineAt!)):current);
+  },[now,race.phase,race.matchDeadlineAt]);
 
   useEffect(()=>{
-    if(race.phase!=="round-resolution") return;
-    const timer=window.setTimeout(()=>{
-      setRace(current=>{
-        let next=startRound(current,Date.now());
-        next=submitNpcAnswers(next);
-        setQuestion(generateQuestion(session.gradeLevel,{
-          difficulty:next.round<4?1:next.round<8?2:3,
-          seed:"number-solo-"+next.round+"-"+session.sessionId
-        }));
-        setAnswer("");
-        setFeedback(null);
-        setCorrectAnswer(null);
-        setSubmitted(false);
-        setError("");
-        return next;
-      });
-    },450);
-    return ()=>window.clearTimeout(timer);
-  },[race.phase,session.gradeLevel,session.sessionId]);
+    if(race.phase!=="round-open") return;
+    const timer=window.setInterval(()=>{
+      setRace(current=>current.phase==="round-open" ? tickTimedNpcs(current,Date.now()):current);
+    },6000);
+    return ()=>window.clearInterval(timer);
+  },[race.phase]);
 
   const restart=()=>{
     const next=makeRace();
     setRace(next);
+    questionNumber.current=1;
+    questionStarted.current=Date.now();
     setQuestion(generateQuestion(session.gradeLevel,{difficulty:1,seed:"number-solo-restart-"+Date.now()}));
     setAnswer("");
     setFeedback(null);
     setCorrectAnswer(null);
-    setSubmitted(false);
     setError("");
-    resolved.current=0;
+  };
+
+  const submit=(event:FormEvent)=>{
+    event.preventDefault();
+    if(!answer.trim()||race.phase!=="round-open") return;
+    const when=Date.now();
+    if(race.matchDeadlineAt!=null && when>race.matchDeadlineAt){
+      setRace(current=>current.phase==="round-open"?finishTimedRace(current,when):current);
+      return;
+    }
+    try{
+      const correct=validateAnswer(question,answer);
+      setRace(current=>answerTimedRace(current,session.sessionId,correct,when-questionStarted.current,when));
+      playSound(correct?"engine":"incorrect");
+      setFeedback(correct?"correct":"incorrect");
+      setCorrectAnswer(correct?null:question.correctAnswer);
+      questionNumber.current+=1;
+      setQuestion(generateQuestion(session.gradeLevel,{
+        difficulty:1,seed:"number-solo-"+session.sessionId+"-"+questionNumber.current+"-"+race.matchStartedAt
+      }));
+      questionStarted.current=when;
+      setAnswer("");
+      setError("");
+      inputRef.current?.focus();
+    }catch(err){
+      setError(err instanceof Error?err.message:"Não foi possível enviar a resposta.");
+    }
   };
 
   if(race.phase==="finished"){
     return <main id="main-content" className="number-shell"><FinalStats racers={race.racers} winnerId={race.winnerId} humanId={session.sessionId} onAgain={restart}/></main>;
   }
 
-  const submit=(event:FormEvent)=>{
-    event.preventDefault();
-    if(submitted||!question||race.phase!=="round-open") return;
-    try{
-      const correct=validateAnswer(question,answer);
-      const responseMs=Math.max(0,Date.now()-(race.roundStartedAt??Date.now()));
-      setRace(current=>submitAnswer(current,session.sessionId,correct,responseMs,Date.now()));
-      playSound(correct?"engine":"incorrect");
-      setFeedback(correct?"correct":"incorrect");
-      setCorrectAnswer(correct?null:question.correctAnswer);
-      setSubmitted(true);
-    }catch(err){
-      setError(err instanceof Error?err.message:"Não foi possível enviar.");
-    }
-  };
-
-  const human=race.racers.find(r=>r.id===session.sessionId)!;
   return <main id="main-content" className="number-page">
     <header className="number-header">
-      <div><p className="eyebrow">Modo solo · precisão antes da velocidade</p><h1>Corrida Numérica</h1></div>
+      <div><p className="eyebrow">Modo solo · desafio de 5 minutos</p><h1>Corrida Numérica</h1></div>
       <button className="button-ghost" onClick={()=>window.confirm("Sair da corrida atual?")&&onExit()}>Sair</button>
     </header>
-
-    <NumberHud race={race} humanId={session.sessionId} deadline={race.roundDeadlineAt} now={now}/>
+    <NumberHud race={race} humanId={session.sessionId} deadline={race.matchDeadlineAt??null} now={now}/>
     <NumericTrack racers={race.racers} finishLine={race.finishLine} humanId={session.sessionId} carChoice={carChoice}/>
-
     <div className="number-lower">
       <section className="number-question">
-        <span className="eyebrow">Rodada {race.round} · {ROUND_DURATION_MS/1000} segundos</span>
-        <h2>{question?.expression??"Calculando posições..."}</h2>
-        {question&&race.phase==="round-open"&&<form onSubmit={submit}>
-          <input inputMode="decimal" value={answer} onChange={e=>setAnswer(e.target.value)} disabled={submitted} placeholder="Digite sua resposta"/>
-          <button disabled={submitted}>{submitted?"Resposta enviada":"Responder"}</button>
-        </form>}
-        {feedback&&<ResultFeedback status={feedback}/>}
+        <span className="eyebrow">Resolva o máximo de contas · cada acerto avança {TIMED_ADVANCE} m</span>
+        <h2>{question.expression}</h2>
+        <form onSubmit={submit}>
+          <input ref={inputRef} inputMode="decimal" value={answer} onChange={e=>setAnswer(e.target.value)} placeholder="Sua resposta" aria-label="Resposta da conta" autoFocus/>
+          <button type="submit" disabled={!answer.trim()}>Responder</button>
+        </form>
+        {feedback&&<p className={"number-answer-result "+feedback} role="status">{feedback==="correct"?"Acertou! O carro avançou.":"Não avançou. Tente a próxima conta."}</p>}
         {feedback==="incorrect"&&correctAnswer&&<p className="math-correction">Resposta correta: <strong>{correctAnswer}</strong></p>}
-        {submitted&&<p className="number-wait">Movimento aplicado ao final dos {ROUND_DURATION_MS/1000} segundos.</p>}
         {error&&<p className="error" role="alert">{error}</p>}
       </section>
-
       <section className="number-boost">
         <img src="/assets/number-race/boost.svg" alt="" />
-        <div>
-          <p className="eyebrow">Impulso numérico</p>
-          <h2>{human.streak} acerto(s) seguido(s)</h2>
-          <p>3 acertos: bônus pequeno. 5 ou mais: bônus moderado. Rapidez acrescenta apenas um bônus leve.</p>
-        </div>
+        <div><p className="eyebrow">Velocidade matemática</p><h2>Sem esperar entre as contas</h2><p>Mais acertos = mais distância. Todos têm 05:00.</p></div>
       </section>
     </div>
-
-    <details className="number-log"><summary>Progresso da corrida</summary><ol>{race.log.map(item=><li key={item.id}>{item.message}</li>)}</ol></details>
+    <details className="number-log"><summary>Regras e andamento</summary>
+      <ol><li>Partida única de 5 minutos.</li><li>Cada acerto move 100 m.</li><li>Vence quem acertar mais questões.</li></ol>
+    </details>
   </main>;
 }
 
@@ -266,9 +262,13 @@ function OnlineNumberRace({session,onExit,carChoice}:{session:ClientSession;onEx
   const [grade,setGrade]=useState<5|6|7|"mixed">(session.gradeLevel);
   const [answer,setAnswer]=useState("");
   const [error,setError]=useState("");
+  const [submitting,setSubmitting]=useState(false);
+  const [feedback,setFeedback]=useState<"correct"|"incorrect"|null>(null);
+  const inputRef=useRef<HTMLInputElement>(null);
   const now=useNow(Boolean(room?.race?.phase==="round-open"),room?.serverNow);
 
   useEffect(()=>{if(room?.status==="finished") playSound("victory");},[room?.status]);
+  useEffect(()=>{if(room?.status==="playing"&&!submitting) inputRef.current?.focus();},[room?.question?.id,room?.status,submitting]);
 
   const apply=(response:AckResponse)=>{
     if(!response.ok){
@@ -310,12 +310,20 @@ function OnlineNumberRace({session,onExit,carChoice}:{session:ClientSession;onEx
   };
   const submit=(event:FormEvent)=>{
     event.preventDefault();
-    if(!room?.question) return;
+    if(!room?.question||!answer.trim()||submitting||secondsLeft(room.race?.matchDeadlineAt,now)===0) return;
+    setSubmitting(true);
     socket.emit("number:answer",{
       ...auth(session),code:room.code,questionId:room.question.id,answer,
       clientSubmissionId:crypto.randomUUID()
     },(response:AckResponse)=>{
-      if(apply(response)) setAnswer("");
+      setSubmitting(false);
+      if(apply(response)){
+        if(response.answerRecorded){
+          setFeedback(response.answerCorrect?"correct":"incorrect");
+          playSound(response.answerCorrect?"engine":"incorrect");
+        }
+        setAnswer("");
+      }
     });
   };
   const leave=()=>{
@@ -384,7 +392,6 @@ function OnlineNumberRace({session,onExit,carChoice}:{session:ClientSession;onEx
     </main>;
   }
 
-  const answered=room.race.answeredIds.includes(session.sessionId);
   const human=room.race.racers.find(r=>r.id===session.sessionId);
 
   return <main id="main-content" className="number-page">
@@ -396,29 +403,28 @@ function OnlineNumberRace({session,onExit,carChoice}:{session:ClientSession;onEx
       <div className="number-header-actions"><div className="number-connection">{socket.connected?"Conectado":"Reconectando"}</div><button className="button-ghost" onClick={()=>window.confirm("Sair da sala e abandonar a corrida?")&&leave()}>Sair</button></div>
     </header>
 
-    <NumberHud race={room.race} humanId={session.sessionId} deadline={room.question?.deadlineAt??null} now={now}/>
+    <NumberHud race={room.race} humanId={session.sessionId} deadline={room.race.matchDeadlineAt??null} now={now}/>
     <NumericTrack racers={room.race.racers} finishLine={room.race.finishLine} humanId={session.sessionId} carChoice={carChoice} carChoices={room.carChoices}/>
 
     <div className="number-lower">
       <section className="number-question">
-        <span className="eyebrow">Servidor · {secondsLeft(room.question?.deadlineAt,now)}s</span>
-        <h2>{room.question?.expression??"Processando rodada..."}</h2>
+        <span className="eyebrow">Contas individuais · 05:00 para todos · novas contas imediatamente</span>
+        <h2>{room.question?.expression??"Sincronizando sua conta..."}</h2>
         {room.question&&<form onSubmit={submit}>
-          <input inputMode="decimal" value={answer} onChange={e=>setAnswer(e.target.value)} disabled={answered} placeholder="Digite sua resposta"/>
-          <button disabled={answered}>{answered?"Resposta registrada":"Responder"}</button>
+          <input ref={inputRef} inputMode="decimal" value={answer} onChange={e=>setAnswer(e.target.value)} disabled={submitting||secondsLeft(room.race?.matchDeadlineAt,now)===0} placeholder="Sua resposta" aria-label="Resposta da conta" autoFocus/>
+          <button type="submit" disabled={submitting||!answer.trim()||secondsLeft(room.race?.matchDeadlineAt,now)===0}>{submitting?"Enviando...":"Responder"}</button>
         </form>}
-        {answered&&room.question&&<p className="number-wait">Resposta registrada; aguardando o deadline oficial.</p>}
-        {!room.question&&room.lastCorrectAnswer&&<p className="math-correction">Resposta correta da rodada: <strong>{room.lastCorrectAnswer}</strong></p>}
-        {error&&<p className="error">{error}</p>}
+        {feedback&&<p className={"number-answer-result "+feedback} role="status">{feedback==="correct"?"Acertou! Você avançou.":"Errou. Continue na próxima conta."}</p>}
+        {error&&<p className="error" role="alert">{error}</p>}
       </section>
 
       <section className="number-boost">
         <img src="/assets/number-race/boost.svg" alt="" />
-        <div><p className="eyebrow">Seu impulso</p><h2>{human?.streak??0}× combo</h2><p>Sem itens de ataque. Seu resultado depende da matemática.</p></div>
+        <div><p className="eyebrow">Seus acertos</p><h2>{human?.correctAnswers??0} contas</h2><p>Cada resposta certa soma 100 m. Vence quem acertar mais.</p></div>
       </section>
     </div>
 
-    <details className="number-log"><summary>Progresso da corrida</summary><ol>{room.race.log.map(item=><li key={item.id}>{item.message}</li>)}</ol></details>
+    <details className="number-log"><summary>Placar e histórico</summary><ol>{room.race.racers.slice().sort((a,b)=>b.correctAnswers-a.correctAnswers||a.errors-b.errors).map(r=><li key={r.id}>{r.name}: {r.correctAnswers} acertos · {r.errors} erros</li>)}</ol></details>
   </main>;
 }
 
@@ -434,7 +440,7 @@ export function NumberRace({session}:{session:ClientSession}){
       <img src="/assets/number-race/number-emblem.svg" alt="" className="number-logo"/>
       <p className="eyebrow">Precisão · sequência · impulso</p>
       <h1>Corrida Numérica</h1>
-      <p>Seis competidores avançam resolvendo contas. Não há bombas ou ataques: a precisão decide a corrida e rapidez/combos dão apenas bônus pequenos.</p>
+      <p>Seis competidores têm exatamente 5 minutos para resolver o maior número possível de contas. O carro avança 100 m por acerto, sem bônus que distorçam o placar.</p>
       <CarPicker choice={carChoice} onChange={setCarChoice}/>
        <div className="number-mode-grid">
         <button onClick={()=>setMode("solo")}><strong>Jogar agora</strong><span>Você contra 5 NPCs</span></button>
@@ -442,11 +448,11 @@ export function NumberRace({session}:{session:ClientSession}){
       </div>
       <HelpRules>
         <ul>
-          <li>Cada rodada dura {ROUND_DURATION_MS/1000} segundos.</li>
-          <li>Acerto concede o avanço principal.</li>
-          <li>3 e 5 acertos seguidos geram pequenos bônus de impulso.</li>
-          <li>Resposta rápida dá bônus leve e limitado; não supera a importância do acerto.</li>
-          <li>Erro ou timeout: zero avanço e combo reiniciado.</li>
+          <li>Todos começam com 05:00 e o relógio chega a 00:00.</li>
+          <li>Ao responder uma conta, outra aparece imediatamente.</li>
+          <li>Cada acerto vale 100 metros, sem bônus; erro vale zero.</li>
+          <li>Vence quem tiver mais acertos ao fim dos 5 minutos.</li>
+          <li>Empates: menos erros e depois menor tempo somado das respostas corretas.</li>
         </ul>
       </HelpRules>
       <a className="button button-ghost" href="/lobby">Voltar ao lobby</a>
