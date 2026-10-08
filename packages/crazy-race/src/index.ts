@@ -14,6 +14,8 @@ export type Racer = {
   npcSkill?:NpcSkill;
   progress:number;
   correctAnswers:number;
+  errors:number;
+  timePenaltyMs:number;
   totalCorrectResponseMs:number;
   bombCharges:number;
   bombCooldownUntilRound:number;
@@ -49,6 +51,8 @@ export type RaceState = {
   phase:RacePhase;
   roundStartedAt:number | null;
   roundDeadlineAt:number | null;
+  matchStartedAt?:number | null;
+  matchDeadlineAt?:number | null;
   submissions:Record<string,RoundSubmission>;
   bombChallenges:Record<string,BombChallenge>;
   winnerId:string | null;
@@ -68,6 +72,10 @@ export const FINISH_LINE=880;
 export const MAX_BOMB_CHARGES=2;
 export const CHECKPOINTS=[220,440,660] as const;
 export const TRACK_BOMBS=CHECKPOINTS;
+export const MATCH_DURATION_MS=300_000;
+export const BOMB_PENALTY_MS=10_000;
+export const TIMED_BOMBS=[75_000,150_000,225_000] as const;
+export const TIMED_ADVANCE=110;
 const NPC_CAR_COLORS=["#e55835","#29a784","#e2a328","#904fe3","#e54a82"];
 
 const NPC_NAMES=["Vega","Turbo","Pixel","Nébula","Raio","Órbita"] as const;
@@ -81,7 +89,7 @@ function pushLog(state:RaceState,message:string):RaceState {
 export function createRace(humans:RaceHuman[],finishLine=FINISH_LINE):RaceState {
   if(humans.length<1 || humans.length>TOTAL_RACERS) throw new Error("A corrida precisa de 1 a 6 jogadores humanos.");
   const humanRacers:Racer[]=humans.map(h=>({
-    id:h.id,name:h.name,kind:"human",progress:0,correctAnswers:0,totalCorrectResponseMs:0,
+    id:h.id,name:h.name,kind:"human",progress:0,correctAnswers:0,errors:0,timePenaltyMs:0,totalCorrectResponseMs:0,
     bombCharges:0,bombCooldownUntilRound:0,protectedUntilRound:0,blockedRound:null,
     carModel:h.carModel??DEFAULT_CAR.carModel,carColor:h.carColor??DEFAULT_CAR.carColor,
     clearedTrackBombs:[],pendingTrackBomb:null
@@ -94,7 +102,7 @@ export function createRace(humans:RaceHuman[],finishLine=FINISH_LINE):RaceState 
       name:NPC_NAMES[npcIndex] ?? "NPC "+(npcIndex+1),
       kind:"npc",
       npcSkill:NPC_SKILLS[npcIndex] ?? "intermediate",
-      progress:0,correctAnswers:0,totalCorrectResponseMs:0,
+      progress:0,correctAnswers:0,errors:0,timePenaltyMs:0,totalCorrectResponseMs:0,
       bombCharges:0,bombCooldownUntilRound:0,protectedUntilRound:0,blockedRound:null,
       carModel:CAR_MODELS[(npcIndex+1)%CAR_MODELS.length]!,carColor:NPC_CAR_COLORS[npcIndex%NPC_CAR_COLORS.length]!,
       clearedTrackBombs:[],pendingTrackBomb:null
@@ -118,6 +126,10 @@ export function createRace(humans:RaceHuman[],finishLine=FINISH_LINE):RaceState 
 
 export function ranking(state:RaceState):Racer[] {
   return [...state.racers].sort((a,b)=>{
+    if(state.matchDeadlineAt!=null){
+      return b.correctAnswers-a.correctAnswers || a.errors-b.errors ||
+        a.totalCorrectResponseMs-b.totalCorrectResponseMs || a.name.localeCompare(b.name,"pt-BR");
+    }
     if(b.progress!==a.progress) return b.progress-a.progress;
     if(b.correctAnswers!==a.correctAnswers) return b.correctAnswers-a.correctAnswers;
     if(a.totalCorrectResponseMs!==b.totalCorrectResponseMs) return a.totalCorrectResponseMs-b.totalCorrectResponseMs;
@@ -263,7 +275,8 @@ export function resolveBombAnswer(
     if(r.id!==targetId) return r;
     return {
       ...r,
-      blockedRound:effectiveCorrect?r.blockedRound:state.round,
+      blockedRound:state.matchDeadlineAt!=null?r.blockedRound:(effectiveCorrect?r.blockedRound:state.round),
+      timePenaltyMs:r.timePenaltyMs+(state.matchDeadlineAt!=null&&!effectiveCorrect?BOMB_PENALTY_MS:0),
       protectedUntilRound:Math.max(r.protectedUntilRound,state.round+1)
     };
   });
@@ -275,7 +288,7 @@ export function resolveBombAnswer(
     bombChallenges:{...state.bombChallenges,[targetId]:nextChallenge}
   },effectiveCorrect
     ? target.name+" neutralizou a bomba matemática."
-    : target.name+" errou a bomba e ficou sem avanço nesta rodada."
+    : target.name+(state.matchDeadlineAt!=null?" errou a bomba e perdeu 10 segundos.":" errou a bomba e ficou sem avanço nesta rodada.")
   );
 }
 
@@ -406,4 +419,89 @@ export function progressPercent(state:RaceState,racerId:string):number {
   const racer=state.racers.find(r=>r.id===racerId);
   if(!racer) return 0;
   return Math.min(100,Math.round((racer.progress/state.finishLine)*100));
+}
+
+/** Cronômetro global de 05:00, com desconto individual por erro nas bombas. */
+export function startTimedRace(state:RaceState,now:number):RaceState{
+  if(state.phase!=="waiting") throw new Error("A corrida já começou.");
+  return pushLog({...state,round:1,phase:"round-open",roundStartedAt:now,
+    roundDeadlineAt:now+MATCH_DURATION_MS,matchStartedAt:now,
+    matchDeadlineAt:now+MATCH_DURATION_MS,submissions:{},winnerId:null},
+  "Desafio de 05:00 iniciado: vence quem acertar mais contas.");
+}
+export function racerDeadline(state:RaceState,racerId:string):number{
+  const racer=state.racers.find(r=>r.id===racerId);
+  if(!racer||state.matchDeadlineAt==null) throw new Error("Competidor ou corrida inválidos.");
+  return state.matchDeadlineAt-racer.timePenaltyMs;
+}
+export function answerTimedRace(state:RaceState,racerId:string,correct:boolean,responseMs:number,now:number):RaceState{
+  if(state.phase!=="round-open"||state.matchDeadlineAt==null||now>=racerDeadline(state,racerId)){
+    throw new Error("O tempo da corrida terminou para este jogador.");
+  }
+  if(!Number.isFinite(responseMs)||responseMs<0) throw new Error("Tempo de resposta inválido.");
+  const racer=state.racers.find(r=>r.id===racerId);
+  if(!racer) throw new Error("Competidor inválido.");
+  if(racer.pendingTrackBomb!==null) throw new Error("Desarme a bomba antes de continuar.");
+  if(Object.values(state.bombChallenges).some(c=>c.targetId===racerId&&!c.resolved)){
+    throw new Error("Neutralize a bomba recebida para continuar.");
+  }
+  const racers=state.racers.map(r=>{
+    if(r.id!==racerId) return r;
+    if(!correct) return {...r,errors:r.errors+1};
+    const newCorrect=r.correctAnswers+1;
+    return {...r,correctAnswers:newCorrect,progress:newCorrect*TIMED_ADVANCE,
+      totalCorrectResponseMs:r.totalCorrectResponseMs+Math.min(responseMs,MATCH_DURATION_MS),
+      bombCharges:Math.min(MAX_BOMB_CHARGES,r.bombCharges+(newCorrect%3===0?1:0))};
+  });
+  return {...state,racers};
+}
+/** Três bombas por competidor disparadas pelo tempo de prova, não pelos metros. */
+export function triggerTimedTrackBombs(state:RaceState,now:number):RaceState{
+  if(state.phase!=="round-open"||state.matchStartedAt==null||state.matchDeadlineAt==null) return state;
+  const elapsed=now-state.matchStartedAt;
+  const racers=state.racers.map(r=>{
+    if(r.pendingTrackBomb!==null||now>=racerDeadline(state,r.id)) return r;
+    const checkpoint=TIMED_BOMBS.find(t=>elapsed>=t&&!r.clearedTrackBombs.includes(t));
+    return checkpoint===undefined?r:{...r,pendingTrackBomb:checkpoint};
+  });
+  return {...state,racers};
+}
+/** Erro na bomba desconta 10 segundos; não remove acertos nem metros acumulados. */
+export function resolveTimedTrackBomb(state:RaceState,racerId:string,correct:boolean):RaceState{
+  const racer=state.racers.find(r=>r.id===racerId);
+  if(!racer||racer.pendingTrackBomb===null) throw new Error("Não há bomba pendente.");
+  const bomb=racer.pendingTrackBomb;
+  const racers=state.racers.map(r=>r.id===racerId?{...r,pendingTrackBomb:null,
+    clearedTrackBombs:[...r.clearedTrackBombs,bomb],
+    timePenaltyMs:r.timePenaltyMs+(correct?0:BOMB_PENALTY_MS)}:r);
+  return pushLog({...state,racers},correct
+    ?racer.name+" desarmou a bomba "+(TIMED_BOMBS.indexOf(bomb as typeof TIMED_BOMBS[number])+1)+"."
+    :racer.name+" errou a bomba e perdeu 10 segundos de prova.");
+}
+export function tickTimedNpcs(state:RaceState,now:number,rng:()=>number=Math.random):RaceState{
+  if(state.phase!=="round-open"||state.matchDeadlineAt==null||now>=state.matchDeadlineAt) return state;
+  let next={...state,round:state.round+1};
+  for(const npc of state.racers.filter(r=>r.kind==="npc")){
+    if(now>=racerDeadline(next,npc.id)) continue;
+    if(npc.pendingTrackBomb!==null){
+      const decision=npcDecision(npc.npcSkill??"intermediate",rng);
+      next=resolveTimedTrackBomb(next,npc.id,decision.correct);
+      continue;
+    }
+    const decision=npcDecision(npc.npcSkill??"intermediate",rng);
+    next=answerTimedRace(next,npc.id,decision.correct,decision.responseMs,now);
+  }
+  return next;
+}
+export function finishTimedRace(state:RaceState,now:number):RaceState{
+  if(state.phase!=="round-open"||state.matchDeadlineAt==null) throw new Error("Corrida não iniciada.");
+  if(now<state.matchDeadlineAt) throw new Error("Os cinco minutos ainda não acabaram.");
+  const sorted=ranking(state);
+  const first=sorted[0]!;
+  const second=sorted[1];
+  const tied=!!second&&first.correctAnswers===second.correctAnswers &&
+    first.errors===second.errors&&first.totalCorrectResponseMs===second.totalCorrectResponseMs;
+  const winnerId=tied?null:first.id;
+  return pushLog({...state,phase:"finished",winnerId,tieBreaker:tied},
+    winnerId?first.name+" venceu com "+first.correctAnswers+" acertos!":"Corrida encerrada em empate!");
 }
