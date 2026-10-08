@@ -50,7 +50,8 @@ async function createJoinStart(prefix,createEvent,joinEvent,startEvent,extraCrea
   const created=await ack(host,createEvent,{...auth(a),password,...extraCreate});
   assert(created?.ok&&created.room?.code,prefix+": criação de sala falhou");
   const code=created.room.code;
-  const joined=await ack(guest,joinEvent,{...auth(b),code,password});
+  const credential=createEvent==="crazy:create-room"&&created.pin?{pin:created.pin}:{password};
+  const joined=await ack(guest,joinEvent,{...auth(b),code,...credential});
   assert(joined?.ok,prefix+": entrada do segundo jogador falhou");
   const started=await ack(host,startEvent,{...auth(a),code});
   assert(started?.ok&&started.room?.question,prefix+": partida/questão não iniciou");

@@ -17,12 +17,14 @@ export const answerSubmissionSchema = z.object({
 });
 
 const crazyAuthSchema=heartbeatSchema;
-export const crazyCreateRoomSchema=crazyAuthSchema.extend({
-  password:roomPasswordSchema
-});
+const carModelSchema=z.enum(["esportivo","sedan","hatch","suv","picape","buggy","formula","classico","jipe","van"]);
+const carColorSchema=z.string().regex(/^#[0-9a-fA-F]{6}$/);
+const crazyCarSelection={carModel:carModelSchema.optional(),carColor:carColorSchema.optional()};
+export const crazyCreateRoomSchema=crazyAuthSchema.extend(crazyCarSelection);
 export const crazyJoinRoomSchema=crazyAuthSchema.extend({
   code:roomCodeSchema,
-  password:roomPasswordSchema
+  pin:z.string().regex(/^\d{3}$/),
+  ...crazyCarSelection
 });
 export const crazyRoomActionSchema=crazyAuthSchema.extend({
   code:roomCodeSchema
@@ -41,6 +43,7 @@ export const crazyBombAnswerSchema=crazyRoomActionSchema.extend({
   answer:z.string().min(1).max(64),
   clientSubmissionId:clientSubmissionIdSchema
 });
+export const crazyTrackAnswerSchema=crazyBombAnswerSchema;
 
 export type ClaimNicknameInput = z.infer<typeof claimNicknameSchema>;
 

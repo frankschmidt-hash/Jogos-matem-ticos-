@@ -40,14 +40,14 @@ describe("Prompt 06 multiplayer consolidado",()=>{
 
   it("senha errada não revela detalhes",()=>{
     const manager=new CrazyRaceRoomManager(new RoomInfrastructure());
-    const room=manager.createRoom(crazyHost,"1234",0);
-    expect(()=>manager.joinRoom(room.code,"xxxx",crazyGuest,1)).toThrow(/^Código ou senha inválidos\.$/);
+    const room=manager.createRoom(crazyHost,"123",0);
+    expect(()=>manager.joinRoom(room.code,"999",crazyGuest,1)).toThrow(/^Código ou senha inválidos\.$/);
   });
 
   it("host desconectado antes da partida transfere liderança após a janela",()=>{
     const manager=new CrazyRaceRoomManager(new RoomInfrastructure());
-    const room=manager.createRoom(crazyHost,"1234",0);
-    manager.joinRoom(room.code,"1234",crazyGuest,1);
+    const room=manager.createRoom(crazyHost,"123",0);
+    manager.joinRoom(room.code,"123",crazyGuest,1);
     manager.disconnect(room.code,crazyHost.sessionId,100);
     manager.cleanup(100+RECONNECT_GRACE_MS);
     expect(manager.getRoom(room.code)?.hostSessionId).toBe(crazyGuest.sessionId);
@@ -130,8 +130,8 @@ describe("Prompt 06 multiplayer consolidado",()=>{
 
   it("bomba multiplayer é idempotente e servidor escolhe o alvo válido",()=>{
     const manager=new CrazyRaceRoomManager(new RoomInfrastructure());
-    const room=manager.createRoom(crazyHost,"1234",0);
-    manager.joinRoom(room.code,"1234",crazyGuest,1);
+    const room=manager.createRoom(crazyHost,"123",0);
+    manager.joinRoom(room.code,"123",crazyGuest,1);
     manager.startRoom(room.code,crazyHost.sessionId,1000);
     room.race!.racers=room.race!.racers.map(r=>r.id===crazyHost.sessionId?{...r,bombCharges:1}:r);
     const direction=bombTarget(room.race!,crazyHost.sessionId,"ahead")?"ahead":"behind";
