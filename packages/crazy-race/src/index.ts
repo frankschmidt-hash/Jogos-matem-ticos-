@@ -217,6 +217,7 @@ export function useBomb(
   if(now>=state.roundDeadlineAt-1_000) throw new Error("A rodada está encerrando; aguarde a próxima.");
   const attacker=state.racers.find(r=>r.id===attackerId);
   if(!attacker) throw new Error("Competidor inválido.");
+  if(attacker.pendingTrackBomb!==null) throw new Error("Desarme primeiro a bomba do percurso.");
   if(attacker.bombCharges<=0) throw new Error("Você não possui bomba matemática.");
   if(state.round<attacker.bombCooldownUntilRound) throw new Error("Bomba em cooldown.");
   if(state.bombChallenges[attackerId] && !state.bombChallenges[attackerId]!.resolved) {
@@ -225,6 +226,7 @@ export function useBomb(
 
   const target=adjacentTarget(state,attackerId,direction);
   if(!target) throw new Error("Não há alvo nessa direção.");
+  if(target.pendingTrackBomb!==null) throw new Error("O alvo está desarmando uma bomba do percurso.");
   if(target.protectedUntilRound>=state.round) throw new Error("O alvo está protegido.");
   if(state.bombChallenges[target.id] && !state.bombChallenges[target.id]!.resolved) {
     throw new Error("O alvo já está resolvendo uma bomba.");
