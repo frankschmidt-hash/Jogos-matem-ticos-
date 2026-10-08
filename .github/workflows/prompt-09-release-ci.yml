@@ -54,6 +54,11 @@ jobs:
           BASE_URL: http://127.0.0.1:3001
         run: node scripts/smoke-e2e.mjs
 
+      - name: Cidade Prisma multiplayer two-client E2E
+        env:
+          BASE_URL: http://127.0.0.1:3001
+        run: node scripts/smoke-property-multiplayer.mjs
+
       - name: Published URL smoke
         env:
           BASE_URL: https://jogos-matematicos-production.up.railway.app
