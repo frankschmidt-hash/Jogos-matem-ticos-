@@ -9,12 +9,14 @@ import {
   crazyCreateRoomSchema, crazyJoinRoomSchema, crazyRoomActionSchema,
   numberAnswerSchema, numberCreateRoomSchema, numberJoinRoomSchema, numberRoomActionSchema,
   footballAnswerSchema, footballCreateRoomSchema, footballJoinRoomSchema, footballRoomActionSchema,
+  propertyCreateRoomSchema, propertyJoinRoomSchema, propertyRoomActionSchema, propertyGameActionSchema,
   disconnectSchema, heartbeatSchema, reconnectSchema
 } from "@jogos/protocol";
 import { SessionManager } from "./session-manager";
 import { CrazyRaceRoomManager } from "./crazy-race-room-manager";
 import { NumberRaceRoomManager } from "./number-race-room-manager";
 import { FootballRoomManager } from "./football-room-manager";
+import { PropertyRoomManager } from "./property-room-manager";
 import { roomInfrastructure } from "./room-infrastructure";
 import { pruneMissingTimers } from "./timer-registry";
 
@@ -60,6 +62,7 @@ const manager = new SessionManager(
 const crazyRooms=new CrazyRaceRoomManager();
 const numberRooms=new NumberRaceRoomManager();
 const footballRooms=new FootballRoomManager();
+const propertyRooms=new PropertyRoomManager();
 
 app.get("/health", async () => ({ ok:true, service:"jogos-matematicos-server" }));
 
@@ -196,6 +199,12 @@ const scheduleNumberRound=(code:string)=>{
 };
 
 
+
+const emitPropertyRooms=()=>io.emit("property:rooms",propertyRooms.listWaiting());
+const emitPropertyState=(code:string)=>{
+  const room=propertyRooms.getRoom(code);
+  if(room) io.to("property:"+code).emit("property:room-state",propertyRooms.publicSnapshot(code));
+};
 
 const emitFootballState=(code:string)=>{
   const room=footballRooms.getRoom(code);
@@ -529,6 +538,103 @@ io.on("connection", socket => {
 
 
 
+
+  socket.on("property:list-rooms",(payload:unknown,ack?:Ack)=>{
+    const parsed=heartbeatSchema.safeParse(payload);
+    if(!parsed.success) return ack?.({ok:false,error:"Sessão inválida."});
+    try{
+      manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
+      ack?.({ok:true,rooms:propertyRooms.listWaiting()});
+    }catch(error){ack?.({ok:false,error:errorMessage(error)});}
+  });
+
+  socket.on("property:create-room",(payload:unknown,ack?:Ack)=>{
+    const parsed=propertyCreateRoomSchema.safeParse(payload);
+    if(!parsed.success) return ack?.({ok:false,error:"Defina uma senha de 3 números e um modo de partida."});
+    try{
+      const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
+      const room=propertyRooms.createRoom(
+        {sessionId:session.sessionId,nickname:session.nickname},
+        parsed.data.pin,session.gradeLevel,parsed.data.mode,parsed.data.shortRounds
+      );
+      socket.data.propertyCode=room.code;
+      socket.data.sessionId=session.sessionId;
+      void socket.join("property:"+room.code);
+      ack?.({ok:true,room:propertyRooms.publicSnapshot(room.code)});
+      emitPropertyRooms();
+    }catch(error){ack?.({ok:false,error:errorMessage(error)});}
+  });
+
+  socket.on("property:join-room",(payload:unknown,ack?:Ack)=>{
+    const parsed=propertyJoinRoomSchema.safeParse(payload);
+    if(!parsed.success) return ack?.({ok:false,error:"Informe a senha de 3 dígitos."});
+    try{
+      const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
+      const room=propertyRooms.joinRoom(
+        parsed.data.code.toUpperCase(),parsed.data.pin,
+        {sessionId:session.sessionId,nickname:session.nickname}
+      );
+      socket.data.propertyCode=room.code;
+      socket.data.sessionId=session.sessionId;
+      void socket.join("property:"+room.code);
+      emitPropertyState(room.code);
+      emitPropertyRooms();
+      ack?.({ok:true,room:propertyRooms.publicSnapshot(room.code)});
+    }catch(error){ack?.({ok:false,error:errorMessage(error)});}
+  });
+
+  socket.on("property:reconnect-room",(payload:unknown,ack?:Ack)=>{
+    const parsed=propertyRoomActionSchema.safeParse(payload);
+    if(!parsed.success) return ack?.({ok:false,error:"Dados de reconexão inválidos."});
+    try{
+      const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
+      const room=propertyRooms.reconnect(parsed.data.code,session.sessionId);
+      socket.data.propertyCode=room.code;
+      socket.data.sessionId=session.sessionId;
+      void socket.join("property:"+room.code);
+      ack?.({ok:true,room:propertyRooms.publicSnapshot(room.code)});
+      emitPropertyState(room.code);
+      emitPropertyRooms();
+    }catch(error){ack?.({ok:false,error:errorMessage(error)});}
+  });
+
+  socket.on("property:start",(payload:unknown,ack?:Ack)=>{
+    const parsed=propertyRoomActionSchema.safeParse(payload);
+    if(!parsed.success) return ack?.({ok:false,error:"Sala inválida."});
+    try{
+      const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
+      const room=propertyRooms.startRoom(parsed.data.code,session.sessionId);
+      emitPropertyState(room.code);
+      emitPropertyRooms();
+      ack?.({ok:true,room:propertyRooms.publicSnapshot(room.code)});
+    }catch(error){ack?.({ok:false,error:errorMessage(error)});}
+  });
+
+  socket.on("property:action",(payload:unknown,ack?:Ack)=>{
+    const parsed=propertyGameActionSchema.safeParse(payload);
+    if(!parsed.success) return ack?.({ok:false,error:"Ação inválida."});
+    try{
+      const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
+      const room=propertyRooms.action(parsed.data.code,session.sessionId,parsed.data);
+      emitPropertyState(room.code);
+      ack?.({ok:true,room:propertyRooms.publicSnapshot(room.code)});
+    }catch(error){ack?.({ok:false,error:errorMessage(error)});}
+  });
+
+  socket.on("property:leave",(payload:unknown,ack?:Ack)=>{
+    const parsed=propertyRoomActionSchema.safeParse(payload);
+    if(!parsed.success) return ack?.({ok:false,error:"Sala inválida."});
+    try{
+      const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
+      const room=propertyRooms.leaveRoom(parsed.data.code,session.sessionId);
+      void socket.leave("property:"+parsed.data.code.toUpperCase());
+      delete socket.data.propertyCode;
+      if(room) emitPropertyState(room.code);
+      emitPropertyRooms();
+      ack?.({ok:true,room:room?propertyRooms.publicSnapshot(room.code):null});
+    }catch(error){ack?.({ok:false,error:errorMessage(error)});}
+  });
+
   socket.on("football:create-room",(payload:unknown,ack?:Ack)=>{
     const parsed=footballCreateRoomSchema.safeParse(payload);
     if(!parsed.success) return ack?.({ok:false,error:"Dados da sala inválidos."});
@@ -671,6 +777,7 @@ io.on("connection", socket => {
     const crazyCode=socket.data.crazyCode as string|undefined;
     const numberCode=socket.data.numberCode as string|undefined;
     const footballCode=socket.data.footballCode as string|undefined;
+    const propertyCode=socket.data.propertyCode as string|undefined;
     if(sessionId && sessionSockets.get(sessionId)===socket.id) sessionSockets.delete(sessionId);
     if(sessionId && crazyCode){
       crazyRooms.disconnect(crazyCode,sessionId);
@@ -684,6 +791,11 @@ io.on("connection", socket => {
       footballRooms.disconnect(footballCode,sessionId);
       emitFootballState(footballCode);
     }
+    if(sessionId && propertyCode){
+      propertyRooms.disconnect(propertyCode,sessionId);
+      emitPropertyState(propertyCode);
+      emitPropertyRooms();
+    }
   });
 });
 
@@ -691,6 +803,9 @@ setInterval(() => {
   manager.cleanup();
   for(const code of crazyRooms.cleanup()) emitCrazyState(code);
   for(const code of numberRooms.cleanup()) emitNumberState(code);
+  const propertyChanges=propertyRooms.cleanup();
+  for(const code of propertyChanges) emitPropertyState(code);
+  if(propertyChanges.length) emitPropertyRooms();
   for(const code of footballRooms.cleanup()){
     const room=footballRooms.getRoom(code);
     if(room?.status!=="playing"){
