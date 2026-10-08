@@ -115,7 +115,10 @@ const errorMessage=(error:unknown)=>error instanceof Error?error.message:"Opera�
 const emitCrazyState=(code:string)=>{
   const room=crazyRooms.getRoom(code);
   if(!room) return;
-  io.to("crazy:"+code).emit("crazy:room-state",crazyRooms.publicSnapshot(code));
+  for(const id of crazyRooms.memberIds(code)){
+    const socketId=sessionSockets.get(id);
+    if(socketId) io.to(socketId).emit("crazy:room-state",crazyRooms.publicSnapshot(code,id));
+  }
 };
 
 const broadcastCrazyRoomList=()=>io.emit("crazy:rooms-changed");
@@ -135,39 +138,28 @@ const sendBombQuestion=(code:string,targetId:string)=>{
 
 const scheduleRaceRound=(code:string)=>{
   const room=crazyRooms.getRoom(code);
-  const deadline=room?.race?.roundDeadlineAt;
-  if(!room || room.status!=="playing" || deadline===null || deadline===undefined) return;
-  const old=raceTimers.get(code);
-  if(old) clearTimeout(old);
-
-  const delay=Math.max(0,deadline-Date.now()+25);
-  const timer=setTimeout(()=>{
+  const deadline=room?.race?.matchDeadlineAt;
+  if(!room||room.status!=="playing"||deadline==null) return;
+  const previous=raceTimers.get(code);
+  if(previous) clearTimeout(previous);
+  const delay=Math.max(0,Math.min(1000,deadline-Date.now()+25));
+  raceTimers.set(code,setTimeout(()=>{
     try{
-      const resolved=crazyRooms.finalizeRound(code,Date.now());
+      if(Date.now()>=deadline){
+        crazyRooms.finalizeRound(code,Date.now());
+        raceTimers.delete(code);
+      }else{
+        crazyRooms.advanceTimedRace(code,Date.now());
+      }
       emitCrazyState(code);
       sendTrackQuestions(code);
-      if(resolved.status==="playing" && resolved.race?.phase==="round-resolution"){
-        const next=setTimeout(()=>{
-          try{
-            crazyRooms.openNextRound(code,Date.now());
-            emitCrazyState(code);
-            scheduleRaceRound(code);
-          }catch(error){
-            app.log.error({err:error,code},"Falha ao abrir próxima rodada da Corrida Maluca");
-          }
-        },1600);
-        raceTimers.set(code,next);
-      }else{
-        raceTimers.delete(code);
-      }
+      if(crazyRooms.getRoom(code)?.status==="playing") scheduleRaceRound(code);
     }catch(error){
-      app.log.error({err:error,code},"Falha ao finalizar rodada da Corrida Maluca");
+      app.log.error({err:error,code},"Falha no cronômetro da Corrida Maluca");
       raceTimers.delete(code);
     }
-  },delay);
-  raceTimers.set(code,timer);
+  },delay));
 };
-
 
 const emitNumberState=(code:string)=>{
   const room=numberRooms.getRoom(code);
@@ -293,7 +285,7 @@ io.on("connection", socket => {
       socket.data.crazyCode=room.code;
       socket.data.sessionId=session.sessionId;
       void socket.join("crazy:"+room.code);
-      ack?.({ok:true,room:crazyRooms.publicSnapshot(room.code),pin});
+      ack?.({ok:true,room:crazyRooms.publicSnapshot(room.code,session.sessionId),pin});
       broadcastCrazyRoomList();
     }catch(error){
       ack?.({ok:false,error:errorMessage(error)});
@@ -315,7 +307,7 @@ io.on("connection", socket => {
       void socket.join("crazy:"+room.code);
       emitCrazyState(room.code);
       broadcastCrazyRoomList();
-      ack?.({ok:true,room:crazyRooms.publicSnapshot(room.code)});
+      ack?.({ok:true,room:crazyRooms.publicSnapshot(room.code,session.sessionId)});
     }catch(error){
       ack?.({ok:false,error:errorMessage(error)});
     }
@@ -333,7 +325,7 @@ io.on("connection", socket => {
       void socket.join("crazy:"+room.code);
       ack?.({
         ok:true,
-        room:crazyRooms.publicSnapshot(room.code),
+        room:crazyRooms.publicSnapshot(room.code,session.sessionId),
         bombQuestion:crazyRooms.bombQuestionFor(room.code,session.sessionId),
         trackQuestion:crazyRooms.trackQuestionFor(room.code,session.sessionId)
       });
@@ -352,7 +344,7 @@ io.on("connection", socket => {
       emitCrazyState(room.code);
       scheduleRaceRound(room.code);
       broadcastCrazyRoomList();
-      ack?.({ok:true,room:crazyRooms.publicSnapshot(room.code)});
+      ack?.({ok:true,room:crazyRooms.publicSnapshot(room.code,session.sessionId)});
     }catch(error){
       ack?.({ok:false,error:errorMessage(error)});
     }
@@ -368,7 +360,7 @@ io.on("connection", socket => {
         parsed.data.answer,parsed.data.clientSubmissionId
       );
       emitCrazyState(room.code);
-      ack?.({ok:true,room:crazyRooms.publicSnapshot(room.code)});
+      ack?.({ok:true,room:crazyRooms.publicSnapshot(room.code,session.sessionId)});
     }catch(error){
       ack?.({ok:false,error:errorMessage(error)});
     }
@@ -384,7 +376,7 @@ io.on("connection", socket => {
       );
       emitCrazyState(result.room.code);
       if(result.targetKind==="human") sendBombQuestion(result.room.code,result.targetId);
-      ack?.({ok:true,room:crazyRooms.publicSnapshot(result.room.code),targetId:result.targetId});
+      ack?.({ok:true,room:crazyRooms.publicSnapshot(result.room.code,session.sessionId),targetId:result.targetId});
     }catch(error){
       ack?.({ok:false,error:errorMessage(error)});
     }
@@ -402,7 +394,7 @@ io.on("connection", socket => {
       emitCrazyState(result.room.code);
       ack?.({
         ok:true,
-        room:crazyRooms.publicSnapshot(result.room.code),
+        room:crazyRooms.publicSnapshot(result.room.code,session.sessionId),
         bombCorrection:result.correct===false?result.correctAnswer:null
       });
     }catch(error){
@@ -421,7 +413,7 @@ io.on("connection", socket => {
         parsed.data.answer,parsed.data.clientSubmissionId
       );
       emitCrazyState(result.room.code);
-      ack?.({ok:true,room:crazyRooms.publicSnapshot(result.room.code),
+      ack?.({ok:true,room:crazyRooms.publicSnapshot(result.room.code,session.sessionId),
         trackCorrect:result.correct,trackCorrection:result.correct===false?result.correctAnswer:null});
     }catch(error){ack?.({ok:false,error:errorMessage(error)});}
   });
@@ -435,7 +427,7 @@ io.on("connection", socket => {
       void socket.leave("crazy:"+parsed.data.code.toUpperCase());
       if(room) emitCrazyState(room.code);
       broadcastCrazyRoomList();
-      ack?.({ok:true,room:room?crazyRooms.publicSnapshot(room.code):null});
+      ack?.({ok:true,room:room?crazyRooms.publicSnapshot(room.code,session.sessionId):null});
     }catch(error){
       ack?.({ok:false,error:errorMessage(error)});
     }
@@ -449,7 +441,7 @@ io.on("connection", socket => {
       crazyRooms.reconnect(parsed.data.code.toUpperCase(),session.sessionId);
       ack?.({
         ok:true,
-        room:crazyRooms.publicSnapshot(parsed.data.code.toUpperCase()),
+        room:crazyRooms.publicSnapshot(parsed.data.code.toUpperCase(),session.sessionId),
         bombQuestion:crazyRooms.bombQuestionFor(parsed.data.code.toUpperCase(),session.sessionId),
         trackQuestion:crazyRooms.trackQuestionFor(parsed.data.code.toUpperCase(),session.sessionId)
       });
