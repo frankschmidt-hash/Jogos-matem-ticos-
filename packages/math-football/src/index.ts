@@ -3,6 +3,11 @@ export type NpcSkill="easy"|"medium"|"hard";
 export type MatchPhase="waiting"|"kick-open"|"kick-resolution"|"finished";
 export type FinishReason="score"|"abandonment"|null;
 export type KickReason="answer"|"timeout"|"npc";
+export type PenaltyTarget=0|1|2|3|4|5|6|7|8;
+export const PENALTY_TARGETS=[0,1,2,3,4,5,6,7,8] as const;
+export function validPenaltyTarget(target:unknown):target is PenaltyTarget{
+  return typeof target==="number" && Number.isInteger(target) && target>=0 && target<=8;
+}
 
 export type PenaltyPlayer={
   id:string;
@@ -19,6 +24,8 @@ export type PenaltyKick={
   goal:boolean;
   reason:KickReason;
   suddenDeath:boolean;
+  target:PenaltyTarget;
+  keeperTarget:PenaltyTarget;
 };
 
 export type PenaltyMatchState={
@@ -128,8 +135,10 @@ export function submitKick(
   shooterId:string,
   correct:boolean,
   now:number,
-  reason:KickReason="answer"
+  reason:KickReason="answer",
+  target:PenaltyTarget=4
 ):PenaltyMatchState{
+  if(!validPenaltyTarget(target)) throw new Error("Canto do chute inválido.");
   if(state.phase!=="kick-open") throw new Error("Não há cobrança aberta.");
   if(state.currentShooterId!==shooterId) throw new Error("Não é a vez deste jogador.");
   const shooter=state.players.find(p=>p.id===shooterId);
@@ -145,7 +154,9 @@ export function submitKick(
     correct:effectiveCorrect,
     goal:effectiveCorrect,
     reason:effectiveReason,
-    suddenDeath:state.suddenDeath
+    suddenDeath:state.suddenDeath,
+    target,
+    keeperTarget:effectiveCorrect?((target+1+(state.history.length%8))%9) as PenaltyTarget:target
   };
 
   let next:PenaltyMatchState={

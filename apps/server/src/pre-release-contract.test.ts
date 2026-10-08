@@ -30,7 +30,7 @@ describe("Prompt 08 pre-release contracts",()=>{
     expect(web("src/games/CrazyRace.tsx")).toContain('},1600);');
     // Corrida Numérica: 10s de conta + transição curta de 450ms, sem bloquear a próxima questão.
     expect(web("src/games/NumberRace.tsx")).toContain('},450);');
-    expect(web("src/games/MathFootball.tsx")).toContain('},1600);');
+    expect(web("src/games/MathFootball.tsx")).toContain('},2600);');
   });
 
   it("limpa timer curto do dado quando a tela é desmontada",()=>{

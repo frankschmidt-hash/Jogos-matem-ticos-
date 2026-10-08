@@ -1,39 +1,57 @@
 import { describe, expect, it } from "vitest";
 import { ONLINE_KICK_MS } from "@jogos/math-football";
 import { FootballRoomManager } from "./football-room-manager";
+import { RoomInfrastructure } from "./room-infrastructure";
 
 const host={sessionId:"football-host",nickname:"Host",connected:true};
 const guest={sessionId:"football-guest",nickname:"Guest",connected:true};
 
 function started(now=1000){
-  const manager=new FootballRoomManager();
-  const room=manager.createRoom(host,"1234",6,0);
-  manager.joinRoom(room.code,"1234",guest,10);
+  const manager=new FootballRoomManager(new RoomInfrastructure());
+  const room=manager.createRoom(host,"123",6,0);
+  manager.joinRoom(room.code,"123",guest,10);
   manager.startRoom(room.code,host.sessionId,now);
   return {manager,room};
 }
 
 describe("FootballRoomManager",()=>{
   it("cria sala e exige senha correta",()=>{
-    const manager=new FootballRoomManager();
-    const room=manager.createRoom(host,"1234",5,0);
-    expect(()=>manager.joinRoom(room.code,"0000",guest,1)).toThrow(/inválidos/i);
-    manager.joinRoom(room.code,"1234",guest,2);
+    const manager=new FootballRoomManager(new RoomInfrastructure());
+    const room=manager.createRoom(host,"123",5,0);
+    expect(()=>manager.joinRoom(room.code,"000",guest,1)).toThrow(/inválidos/i);
+    manager.joinRoom(room.code,"123",guest,2);
     expect(room.members).toHaveLength(2);
   });
 
+  it("exibe salas disponíveis sem revelar senha e exige PIN de 3 dígitos",()=>{
+    const manager=new FootballRoomManager(new RoomInfrastructure());
+    expect(()=>manager.createRoom(host,"1234",5,0)).toThrow(/3 dígitos/);
+    const room=manager.createRoom(host,"012",5,0);
+    expect(manager.listWaiting()).toEqual([{code:room.code,hostName:"Host",players:1,capacity:2}]);
+    manager.joinRoom(room.code,"012",guest,10);
+    expect(manager.listWaiting()).toHaveLength(0);
+  });
+
+  it("registra canto escolhido na jogada sincronizada",()=>{
+    const {manager,room}=started(1000);
+    const q=room.question!;
+    manager.submitAnswer(room.code,host.sessionId,q.id,q.correctAnswer,"target-valid-001",2000,2);
+    expect(room.match?.lastKick?.target).toBe(2);
+    expect(room.match?.lastKick?.keeperTarget).not.toBe(2);
+  });
+
   it("limita a sala a dois jogadores",()=>{
-    const manager=new FootballRoomManager();
-    const room=manager.createRoom(host,"1234",5,0);
-    manager.joinRoom(room.code,"1234",guest,1);
-    expect(()=>manager.joinRoom(room.code,"1234",{sessionId:"third-player",nickname:"Terceiro",connected:true},2)).toThrow(/cheia/i);
+    const manager=new FootballRoomManager(new RoomInfrastructure());
+    const room=manager.createRoom(host,"123",5,0);
+    manager.joinRoom(room.code,"123",guest,1);
+    expect(()=>manager.joinRoom(room.code,"123",{sessionId:"third-player",nickname:"Terceiro",connected:true},2)).toThrow(/cheia/i);
   });
 
   it("somente host inicia e precisa de dois jogadores",()=>{
-    const manager=new FootballRoomManager();
-    const room=manager.createRoom(host,"1234",5,0);
+    const manager=new FootballRoomManager(new RoomInfrastructure());
+    const room=manager.createRoom(host,"123",5,0);
     expect(()=>manager.startRoom(room.code,host.sessionId,1)).toThrow(/segundo/i);
-    manager.joinRoom(room.code,"1234",guest,2);
+    manager.joinRoom(room.code,"123",guest,2);
     expect(()=>manager.startRoom(room.code,guest.sessionId,3)).toThrow(/host/i);
   });
 

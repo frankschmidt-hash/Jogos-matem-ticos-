@@ -47,10 +47,16 @@ const host=await connect();
 let guest=await connect();
 
 async function createJoinStart(prefix,createEvent,joinEvent,startEvent,extraCreate={}){
-  const created=await ack(host,createEvent,{...auth(a),password,...extraCreate});
+  let roomPassword=createEvent==="football:create-room"?"358":password;
+  let created=await ack(host,createEvent,{...auth(a),password:roomPassword,...extraCreate});
+  // Published-URL smoke can point to either side of the PIN migration.
+  if(!created?.ok&&createEvent==="football:create-room"&&process.env.DEPLOYED_VERSION_SMOKE==="true"){
+    roomPassword=password;
+    created=await ack(host,createEvent,{...auth(a),password:roomPassword,...extraCreate});
+  }
   assert(created?.ok&&created.room?.code,prefix+": criação de sala falhou");
   const code=created.room.code;
-  const credential=createEvent==="crazy:create-room"&&created.pin?{pin:created.pin}:{password};
+  const credential=createEvent==="crazy:create-room"&&created.pin?{pin:created.pin}:{password:roomPassword};
   const joined=await ack(guest,joinEvent,{...auth(b),code,...credential});
   assert(joined?.ok,prefix+": entrada do segundo jogador falhou");
   const started=await ack(host,startEvent,{...auth(a),code});
