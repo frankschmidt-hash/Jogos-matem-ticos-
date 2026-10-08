@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  BOMB_DURATION_MS, FINISH_LINE, ROUND_DURATION_MS, allHumansSubmitted, bombTarget,
+  BOMB_DURATION_MS, CAR_MODELS, FINISH_LINE, ROUND_DURATION_MS, allHumansSubmitted, bombTarget,
   createRace, npcDecision, positionOf, resolveBombAnswer, resolveNpcBombIfNeeded,
-  resolveRound, startRound, submitNpcAnswers, submitRoundAnswer, useBomb
+  resolveRound, resolveTrackBomb, startRound, submitNpcAnswers, submitRoundAnswer, useBomb
 } from "./index";
 
 const oneHuman=()=>createRace([{id:"h1",name:"Aluno"}]);
@@ -140,5 +140,50 @@ describe("Corrida Maluca",()=>{
 
   it("linha de chegada padrão é positiva",()=>{
     expect(FINISH_LINE).toBeGreaterThan(0);
+  });
+});
+
+describe("Bombas do percurso e garagem",()=>{
+  it("contém dez modelos selecionáveis com cor própria",()=>{
+    expect(CAR_MODELS).toHaveLength(10);
+    expect(new Set(CAR_MODELS).size).toBe(10);
+    const race=createRace([{id:"h",name:"Teste",carModel:"picape",carColor:"#ef2134"}]);
+    expect(race.racers[0]?.carModel).toBe("picape");
+    expect(race.racers[0]?.carColor).toBe("#ef2134");
+  });
+
+  it("bloqueia o carro na primeira bomba aos 220 metros e devolve à largada quando erra",()=>{
+    let race=oneHuman();
+    for(let round=0;round<2;round++){
+      race=startRound(race,round*25000);
+      race=submitRoundAnswer(race,"h1",true,1000,round*25000+1000);
+      race=resolveRound(race,round*25000+ROUND_DURATION_MS);
+    }
+    expect(race.racers[0]?.progress).toBe(220);
+    expect(race.racers[0]?.pendingTrackBomb).toBe(220);
+    race=startRound(race,51000);
+    expect(()=>submitRoundAnswer(race,"h1",true,2000,53000)).toThrow(/bomba da pista/i);
+    race=resolveTrackBomb(race,"h1",false);
+    expect(race.racers[0]?.progress).toBe(0);
+    expect(race.racers[0]?.clearedTrackBombs).toEqual([]);
+    expect(race.racers[0]?.pendingTrackBomb).toBeNull();
+    expect(race.log[0]?.message).toMatch(/BOOM/i);
+  });
+
+  it("acerto desarma obstáculo e libera avanço, chegando às três bombas",()=>{
+    let race=oneHuman();
+    let now=0;
+    for(const checkpoint of [220,440,660]){
+      while(race.racers[0]!.pendingTrackBomb===null){
+        race=startRound(race,now);
+        race=submitRoundAnswer(race,"h1",true,1000,now+1000);
+        race=resolveRound(race,now+ROUND_DURATION_MS);
+        now+=25000;
+      }
+      expect(race.racers[0]?.progress).toBe(checkpoint);
+      race=resolveTrackBomb(race,"h1",true);
+      expect(race.racers[0]?.pendingTrackBomb).toBeNull();
+    }
+    expect(race.racers[0]?.clearedTrackBombs).toEqual([220,440,660]);
   });
 });
