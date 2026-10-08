@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type CSSProperties } from "react";
 import { io, type Socket } from "socket.io-client";
 import {
-  bombTarget, CAR_MODELS, TRACK_BOMBS, createRace, positionOf, progressPercent,
-  resolveNpcBombIfNeeded, resolveNpcTrackBombs, resolveRound, resolveTrackBomb,
-  startRound, submitNpcAnswers, submitRoundAnswer, useBomb,
+  bombTarget, CAR_MODELS, TIMED_BOMBS, createRace, answerTimedRace, finishTimedRace,
+  racerDeadline, resolveNpcBombIfNeeded, resolveTimedTrackBomb, startTimedRace,
+  tickTimedNpcs, triggerTimedTrackBombs, useBomb,
   type BombDirection, type CarModel, type CarSelection, type Racer, type RaceState
 } from "@jogos/crazy-race";
 import { generateRaceQuestion, validateAnswer, type MathQuestion } from "@jogos/math-engine";
@@ -73,6 +73,10 @@ function useNow(active:boolean,serverNow?:number) {
   return now;
 }
 
+function formatClock(seconds:number):string{
+  return String(Math.floor(seconds/60)).padStart(2,"0")+":"+String(seconds%60).padStart(2,"0");
+}
+
 function secondsLeft(deadline:number|null|undefined,now:number):number {
   if(!deadline) return 0;
   return Math.max(0,Math.ceil((deadline-now)/1000));
@@ -80,8 +84,9 @@ function secondsLeft(deadline:number|null|undefined,now:number):number {
 
 function orderedRacers(racers:Racer[]):Racer[] {
   return [...racers].sort((a,b)=>
-    b.progress-a.progress ||
     b.correctAnswers-a.correctAnswers ||
+    a.errors-b.errors ||
+    b.progress-a.progress ||
     a.totalCorrectResponseMs-b.totalCorrectResponseMs ||
     a.name.localeCompare(b.name,"pt-BR")
   );
@@ -114,17 +119,18 @@ function CarPicker({choice,onChange}:{choice:CarSelection;onChange:(value:CarSel
 
 function Track({racers,finishLine,humanId}:{racers:Racer[];finishLine:number;humanId:string}) {
   const ordered=orderedRacers(racers);
-  return <section className="crazy-track" aria-label="Pista da Corrida Maluca com três bombas de percurso">
+  const displayDistance=Math.max(5000,...racers.map(r=>r.progress+1000));
+  return <section className="crazy-track" aria-label="Pista da Corrida Maluca com três bombas ao longo de cinco minutos">
     <div className="roadside roadside-top" aria-hidden="true">{Array.from({length:11},(_,i)=><img
       key={i} src={i%3===0?"/assets/crazy-race/roadside-cone.svg":"/assets/crazy-race/roadside-tree.svg"} alt=""/>)}</div>
     <div className="track-finish" aria-hidden="true"/>
-    {TRACK_BOMBS.filter(point=>point<finishLine).map((point,index)=><div
-      key={point} className="track-checkpoint" style={{left:(point/finishLine*100)+"%"}}
-      title={"Bomba "+(index+1)+" - "+point+" metros"} aria-hidden="true">
+    {TIMED_BOMBS.map((point,index)=><div
+      key={point} className="track-checkpoint" style={{left:(point/300_000*100)+"%"}}
+      title={"Bomba "+(index+1)+" - aos "+formatClock(point/1000)} aria-hidden="true">
       <img src="/assets/crazy-race/math-bomb.svg" alt=""/><span>{index+1}</span>
     </div>)}
     {ordered.map((racer,index)=>{
-      const pct=Math.max(0,Math.min(100,racer.progress/finishLine*100));
+      const pct=Math.max(0,Math.min(98,racer.progress/displayDistance*100));
       return <div className="race-lane" key={racer.id}>
         <span className="lane-rank">{index+1}º</span>
         <div className="car-position" style={{left:"calc("+pct+"% - "+(pct*0.9)+"px)"}}>
@@ -140,16 +146,16 @@ function Track({racers,finishLine,humanId}:{racers:Racer[];finishLine:number;hum
 }
 
 function RaceHud({
-  racers,round,finishLine,humanId,deadline,now
-}:{racers:Racer[];round:number;finishLine:number;humanId:string;deadline:number|null;now:number}) {
+  racers,humanId,deadline,now
+}:{racers:Racer[];humanId:string;deadline:number|null;now:number}) {
   const human=racers.find(r=>r.id===humanId);
   const rank=human?orderedRacers(racers).findIndex(r=>r.id===humanId)+1:0;
   return <div className="crazy-hud">
     <div><span>Posição</span><strong>{rank || "—"}º / 6</strong></div>
-    <div><span>Rodada</span><strong>{round}</strong></div>
-    <div><span>Progresso</span><strong>{human?Math.min(100,Math.round(human.progress/finishLine*100)):0}%</strong></div>
-    <div className={secondsLeft(deadline,now)<=5?"timer-danger":""}><span>Tempo</span><strong>{secondsLeft(deadline,now)}s</strong></div>
-    <div><span>Bombas da pista</span><strong>{human?.clearedTrackBombs.length??0} / {TRACK_BOMBS.filter(p=>p<finishLine).length}</strong></div>
+    <div><span>Acertos</span><strong>{human?.correctAnswers??0}</strong></div>
+    <div><span>Erros</span><strong>{human?.errors??0}</strong></div>
+    <div className={secondsLeft(deadline,now)<=30?"timer-danger":""}><span>Tempo restante</span><strong>{formatClock(secondsLeft(deadline,now))}</strong></div>
+    <div><span>Bombas surpresa</span><strong>{human?.clearedTrackBombs.length??0} / 3</strong></div>
     <div><span>Ataques</span><strong>{human?.bombCharges ?? 0}</strong></div>
   </div>;
 }
@@ -186,12 +192,12 @@ function RaceFinish({
   const winner=racers.find(r=>r.id===winnerId);
   return <section className="crazy-finish panel">
     <img src="/assets/crazy-race/finish-flag.svg" alt="" className="finish-art"/>
-    <p className="eyebrow">Linha de chegada</p>
-    <h1>{winner?.name ?? "Corrida encerrada"} venceu!</h1>
+    <p className="eyebrow">Tempo encerrado · 05:00</p>
+    <h1>{winner?winner.name+" venceu!":"Empate na Corrida Maluca!"}</h1>
     <div className="race-ranking">
       {orderedRacers(racers).map((r,index)=><div key={r.id} className={r.id===humanId?"you":""}>
         <strong>{index+1}º {r.name}</strong>
-        <span>{r.correctAnswers} acertos · {Math.round(r.progress)} m</span>
+        <span>{r.correctAnswers} acertos · {r.errors} erros · {Math.round(r.progress)} m · {r.timePenaltyMs/1000}s de penalidade</span>
       </div>)}
     </div>
     <button onClick={onAgain}>Nova corrida</button>
@@ -671,7 +677,7 @@ export function CrazyRace({session}:{session:ClientSession}) {
       <img src="/assets/crazy-race/race-emblem.svg" alt="" className="crazy-logo"/>
       <p className="eyebrow">Arcade matemático</p>
       <h1>Corrida Maluca</h1>
-      <p>Escolha seu carro e dispute a pista contra NPCs ou amigos. Resolva contas para acelerar e desarme as 3 bombas do percurso!</p>
+      <p>Você tem 05:00 para acertar o maior número de contas. Uma nova conta aparece imediatamente após cada resposta. Desarme as 3 bombas surpresa!</p>
       <CarPicker choice={car} onChange={setCar}/>
       <div className="crazy-mode-grid">
         <button onClick={()=>setMode("solo")}>
@@ -685,13 +691,13 @@ export function CrazyRace({session}:{session:ClientSession}) {
       </div>
       <HelpRules>
         <ul>
-          <li>Uma rodada dura 20 segundos.</li>
-          <li>Acerto gera avanço; erro ou timeout mantém o carro parado.</li>
-          <li>Há três bombas fixas no percurso. Cada uma exige uma continha surpresa para ser desarmada.</li>
-          <li>Acertar a bomba da pista permite continuar. Errar provoca explosão e retorno à largada.</li>
+          <li>Todos começam com cinco minutos (05:00) no relógio.</li>
+          <li>Acertou ou errou: outra conta aparece imediatamente. Cada acerto gera avanço.</li>
+          <li>Três bombas-surpresa aparecem aos 01:15, 02:30 e 03:45.</li>
+          <li>Acertar a bomba permite continuar; errar desconta 10 segundos do seu tempo sem apagar os acertos.</li>
           <li>Bombas de ataque também podem ser lançadas contra o carro à frente ou atrás.</li>
           <li>No multiplayer, o criador recebe um PIN de 3 dígitos e controla o início da partida.</li>
-          <li>Vence quem cruza a linha de chegada após a resolução oficial da rodada.</li>
+          <li>Vence quem acertar mais contas dentro do tempo disponível. Empates seguem critérios de erros e velocidade.</li>
         </ul>
       </HelpRules>
       <a className="button button-ghost" href="/lobby">Voltar ao lobby</a>
