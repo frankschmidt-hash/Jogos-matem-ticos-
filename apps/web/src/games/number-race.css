@@ -147,3 +147,67 @@
 @media(prefers-reduced-motion:reduce){.number-car{transition:none}.number-track::before{animation:none}}
 html.reduce-motion .number-car{transition:none}
 html.reduce-motion .number-track::before{animation:none}
+
+/* Revisão 5 minutos — enquadramento unificado do placar, pista e conta. */
+.number-page{height:100dvh;max-height:100dvh;min-height:0;overflow:hidden;gap:clamp(3px,.8vh,7px)}
+.number-global-timer{background:linear-gradient(130deg,#173f5b,#107d81)!important;min-width:112px;border:2px solid #d7b452!important}
+.number-global-timer span{color:#e8ffef!important;font-weight:750;letter-spacing:.025em}
+.number-global-timer strong{color:#fff!important;font-variant-numeric:tabular-nums;font-size:clamp(1.36rem,2.4vw,2.05rem);line-height:1.12;letter-spacing:.04em}
+.number-global-timer.number-time-danger{background:linear-gradient(130deg,#a52e35,#711b26)!important}
+.number-time-danger strong{color:#fff!important}
+.number-track{background:
+  linear-gradient(90deg,#367955 0 2.4%,#b0c39b 2.4% 3.2%,#f0e7b1 3.2% 3.7%,#72888f 3.7% 4.4%,#263540 4.4% 95.6%,#72888f 95.6% 96.3%,#f0e7b1 96.3% 96.8%,#b0c39b 96.8% 97.6%,#367955 97.6%),
+  #263540;border-color:#334e5d;box-shadow:inset 0 0 0 2px #cce0d8,0 12px 22px rgba(6,31,41,.22)}
+.number-lane{background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(0,0,0,.08));border-bottom:2px dashed rgba(225,242,238,.48)}
+.number-lane::before{content:"";position:absolute;top:50%;left:6%;right:6%;height:4px;z-index:0;opacity:.22;background:repeating-linear-gradient(90deg,rgba(240,250,246,.78) 0 25px,transparent 25px 85px);animation:numericLaneMotion 2.2s linear infinite}
+.number-track::before{background:repeating-linear-gradient(90deg,transparent 0 24px,rgba(255,255,255,.055) 24px 51px);animation:numberRoadMotion 1.15s linear infinite}
+.number-car{will-change:left;filter:drop-shadow(1px 5px 3px rgba(0,0,0,.45))}
+.number-player{filter:drop-shadow(0 0 4px #ffd55b) drop-shadow(0 4px 3px #061923)}
+.number-car .number-vehicle-svg{filter:drop-shadow(0 1px 1px rgba(15,28,38,.4))}
+.number-roadside{justify-content:space-around}
+.number-roadside img{filter:drop-shadow(2px 3px 3px rgba(4,31,21,.42));animation:numericSceneryPass 3.7s ease-in-out infinite alternate}
+.number-roadside img:nth-child(even){animation-delay:-1.8s}
+.number-finish-line{background:repeating-conic-gradient(#e6ebed 0 25%,#1d2736 0 50%) 50%/14px 24px;right:4.6%;width:15px}
+.number-finish-line span{top:50%;right:15px;padding:4px;border-radius:5px;background:#e7f8f6;color:#14394e;writing-mode:vertical-rl}
+.number-question{border:2px solid #82c4be;background:linear-gradient(135deg,#ffffff,#f4fbff)}
+.number-question h2{font-size:clamp(1.7rem,3vw,2.3rem);font-variant-numeric:tabular-nums}
+.number-question input{font-size:1.12rem!important;font-weight:650}
+.number-question form button{font-weight:800}
+.number-answer-result{display:inline-block;margin:5px 0 0;padding:4px 9px;border-radius:7px;font-size:.8rem;font-weight:800}
+.number-answer-result.correct{background:#d9f7e4;color:#126743}
+.number-answer-result.incorrect{background:#fff0dc;color:#9d4f14}
+@keyframes numericLaneMotion{to{background-position:85px 0}}
+@keyframes numericSceneryPass{to{transform:translateY(5px) scale(1.035)}}
+@media(max-width:900px){.number-global-timer strong{font-size:1.32rem}.number-page{padding:6px 9px}}
+@media(max-width:560px){
+  .number-hud>div{min-width:0}
+  .number-hud .number-global-timer{grid-column:auto;min-width:0}
+  .number-global-timer strong{font-size:1.13rem}
+  .number-boost{display:none}
+  .number-track{max-height:none;min-height:0}
+  .number-question h2{font-size:1.55rem}
+  .number-answer-result{font-size:.72rem}
+  .number-page{height:100dvh;max-height:100dvh}
+}
+@media(max-width:420px){
+  .number-hud{grid-template-columns:repeat(2,1fr)}
+  .number-hud .number-global-timer{grid-column:span 2;display:flex;justify-content:space-between;align-items:center}
+  .number-lane{min-height:0}
+  .number-car{width:60px;height:39px}
+  .number-roadside img{width:18px;height:23px}
+  .number-header .eyebrow{max-width:220px}
+}
+@media(max-height:660px){
+  .number-page{gap:3px;padding-top:3px;padding-bottom:3px}
+  .number-track{min-height:0;flex:1 1 auto}
+  .number-lower{flex:0 0 auto}
+  .number-question{padding:6px 8px}
+  .number-question h2{margin:2px 0 4px}
+  .number-hud>div{padding:3px 6px}
+  .number-lane-name{bottom:-1px}
+}
+@media(prefers-reduced-motion:reduce){
+  .number-lane::before,.number-roadside img,.number-track::before{animation:none}
+}
+html.reduce-motion .number-lane::before,
+html.reduce-motion .number-roadside img{animation:none}
