@@ -107,7 +107,7 @@ function Home({onSession}:{onSession:(s:ClientSession)=>void}) {
     <section className="panel login-panel" aria-labelledby="login-title">
       <p className="eyebrow">Seu passe de entrada</p>
       <h2 id="login-title">Preparar jogador</h2>
-      <p className="muted">O nickname identifica você nas salas. Não use seu nome completo.</p>
+      <p className="muted">Use um apelido apropriado para a escola. Não use seu nome completo.</p>
       <form onSubmit={submit} className="stack">
         <label htmlFor="nickname">Nome de jogador
           <input
@@ -120,7 +120,7 @@ function Home({onSession}:{onSession:(s:ClientSession)=>void}) {
             placeholder="Ex.: Mestre7"
             aria-describedby="nickname-help"
           />
-          <small id="nickname-help">2 a 20 caracteres.</small>
+          <small id="nickname-help">2 a 20 caracteres. Palavras ofensivas ou obscenas não são permitidas.</small>
         </label>
         <label htmlFor="grade">Nível das contas
           <select id="grade" value={grade} onChange={e=>setGrade(e.target.value==="mixed"?"mixed":Number(e.target.value) as 5|6|7)}>

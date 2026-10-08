@@ -13,7 +13,46 @@ export type PlayerSession = {
   releaseAt?: number;
 };
 
-const OFFENSIVE = new Set(["idiota", "burro", "merda", "porra"]);
+/**
+ * Nicknames públicos precisam ser adequados ao ambiente escolar.
+ * Normaliza acentos, separadores, letras repetidas e substituições numéricas
+ * comuns para impedir tentativas simples de contornar o bloqueio.
+ * Termos curtos só são comparados como palavras inteiras para preservar nomes
+ * legítimos como "Paulo" e "Computador".
+ */
+const FORBIDDEN_WORDS = new Set([
+  "merda","porra","caralho","buceta","piroca","vagabundo","vagabunda",
+  "arrombado","arrombada","escroto","escrota","desgracado","desgracada",
+  "otario","otaria","idiota","imbecil","babaca","bosta","cretino",
+  "cretina","retardado","retardada","prostituta","prostituto",
+  "fedorento","fedorenta","filhodaputa","filhadaputa",
+  "cornudo","cornuda","pau no cu","paunocu","filhodamae"
+]);
+const SHORT_FORBIDDEN = new Set([
+  "puta","puto","putinha","putinho","foda","foder","fudeu",
+  "fdp","pqp","vsf","cuzao","cuzona","viado","viada",
+  "bicha","rola","pica","pau","cu","lixo"
+]);
+const PROFANITY_FOLD:Record<string,string>={
+  "0":"o","1":"i","3":"e","4":"a","5":"s","7":"t","8":"b"
+};
+const foldForModeration=(value:string):string=>value.normalize("NFKD")
+  .replace(/[\u0300-\u036f]/g,"")
+  .toLocaleLowerCase("pt-BR")
+  .replace(/[0134578]/g,character=>PROFANITY_FOLD[character]??character)
+  .replace(/[^a-z0-9]+/g,"");
+export const hasOffensiveNickname=(nickname:string):boolean=>{
+  const normal=nickname.normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("pt-BR");
+  const words=normal.split(/[ _-]+/).filter(Boolean);
+  const forms=[foldForModeration(nickname),...words.map(foldForModeration)];
+  // Identifica letras intencionalmente repetidas (ex.: poorrra).
+  const variants=forms.flatMap(word=>[word,word.replace(/([a-z])\1+/g,"$1")]);
+  return variants.some(value=>
+    [...FORBIDDEN_WORDS].some(word=>value.includes(word.replace(/ /g,""))) ||
+    SHORT_FORBIDDEN.has(value) ||
+    SHORT_FORBIDDEN.has(value.replace(/[0-9]+$/,""))
+  );
+};
 
 export const normalizeNickname = (value: string): string =>
   value.normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("pt-BR");
@@ -23,8 +62,7 @@ export const validateNickname = (value: string): {ok:true; clean:string; normali
   if (clean.length < 2 || clean.length > 20) return {ok:false, reason:"O nome deve ter entre 2 e 20 caracteres."};
   if (!/^[\p{L}\p{N}_ -]+$/u.test(clean)) return {ok:false, reason:"Use apenas letras, números, espaço, _ ou -."};
   const normalized = normalizeNickname(clean);
-  const terms = normalized.split(/[ _-]+/);
-  if (terms.some(term => OFFENSIVE.has(term))) return {ok:false, reason:"Escolha outro nome de jogador."};
+  if (hasOffensiveNickname(clean)) return {ok:false, reason:"Este nickname contém linguagem inadequada. Escolha outro nome para jogar."};
   return {ok:true, clean, normalized};
 };
 
