@@ -4,6 +4,7 @@
 .football-scoreboard{position:relative;z-index:1;max-width:100%;margin:0;background:linear-gradient(118deg,#073876,#05172f 48%,#752025);border:1px solid #4e8ed4;box-shadow:0 8px 18px #00152766}
 .football-scoreboard article:first-child b{color:#97d6ff}.football-scoreboard article:last-child b{color:#ffb3b5}
 .football-stadium-v2{
+  --shot-y:var(--shot-y-desktop);--keeper-y:var(--keeper-y-desktop);
   position:relative;isolation:isolate;height:clamp(470px,44vw,595px);margin:10px 0 0;
   background:#0e233e;border:2px solid #17415d;border-radius:22px;
   box-shadow:inset 0 0 48px #092238,0 20px 38px #05213a3d;overflow:hidden;color:#fff
@@ -93,7 +94,7 @@
 .football-room-actions{display:flex;gap:9px;justify-content:center;flex-wrap:wrap}
 @media(max-width:850px){
   .football-page{padding:12px}
-  .football-stadium-v2{height:clamp(600px,92vw,740px)}
+  .football-stadium-v2{height:clamp(600px,92vw,740px);--shot-y:var(--shot-y-mobile);--keeper-y:var(--keeper-y-mobile)}
   .football-action-overlay{left:3%;right:3%;top:auto;bottom:6%;width:94%;max-height:none}
   .football-action-overlay .football-question{padding:12px}
   .football-action-overlay .football-question form{flex-direction:row}
