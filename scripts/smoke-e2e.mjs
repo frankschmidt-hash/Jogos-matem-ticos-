@@ -47,10 +47,11 @@ const host=await connect();
 let guest=await connect();
 
 async function createJoinStart(prefix,createEvent,joinEvent,startEvent,extraCreate={}){
-  const created=await ack(host,createEvent,{...auth(a),password,...extraCreate});
+  const roomPassword=createEvent==="football:create-room"?"358":password;
+  const created=await ack(host,createEvent,{...auth(a),password:roomPassword,...extraCreate});
   assert(created?.ok&&created.room?.code,prefix+": criação de sala falhou");
   const code=created.room.code;
-  const credential=createEvent==="crazy:create-room"&&created.pin?{pin:created.pin}:{password};
+  const credential=createEvent==="crazy:create-room"&&created.pin?{pin:created.pin}:{password:roomPassword};
   const joined=await ack(guest,joinEvent,{...auth(b),code,...credential});
   assert(joined?.ok,prefix+": entrada do segundo jogador falhou");
   const started=await ack(host,startEvent,{...auth(a),code});
