@@ -6,7 +6,8 @@ import {
 import {
   createRace, resolveBombAnswer, resolveNpcBombIfNeeded, resolveNpcTrackBombs, resolveRound,
   resolveTrackBomb, startRound, submitNpcAnswers, submitRoundAnswer, useBomb,
-  type BombDirection, type CarModel, type RaceState
+  answerTimedRace, finishTimedRace, racerDeadline, resolveTimedTrackBomb, startTimedRace,
+  tickTimedNpcs, triggerTimedTrackBombs, type BombDirection, type CarModel, type RaceState
 } from "@jogos/crazy-race";
 import { generateRaceQuestion, validateAnswer, type GradeLevel, type MathQuestion } from "@jogos/math-engine";
 
@@ -31,6 +32,9 @@ export type CrazyRoom=LifecycleCarrier & {
   status:"waiting"|"playing"|"finished";
   race:RaceState|null;
   question:MathQuestion|null;
+  questions:Record<string,MathQuestion>;
+  questionStartedAt:Record<string,number>;
+  lastNpcTickAt:number;
   lastCorrectAnswer:string|null;
   bombQuestions:Record<string,MathQuestion>;
   trackQuestions:Record<string,MathQuestion>;
@@ -91,6 +95,7 @@ export class CrazyRaceRoomManager{
     const room:CrazyRoom={
       code,password:this.infra.createPassword("CR-"+password),hostSessionId:member.sessionId,
       gradeLevel:host.gradeLevel,members:[member],status:"waiting",race:null,question:null,
+      questions:{},questionStartedAt:{},lastNpcTickAt:0,
       lastCorrectAnswer:null,bombQuestions:{},trackQuestions:{},bombActionResults:new Map(),
       lifecycleState:"ready",lifecycleHistory:["ready"],createdAt:now,updatedAt:now
     };
@@ -180,10 +185,18 @@ export class CrazyRaceRoomManager{
     room.race=createRace(humans.map(m=>({
       id:m.sessionId,name:m.nickname,carModel:m.carModel,carColor:m.carColor
     })));
+    room.race=startTimedRace(room.race,now);
     room.status="playing";
     this.infra.transition(room,"playing");
+    room.question=null;
+    room.questions={};
+    room.questionStartedAt={};
+    for(const human of room.race.racers.filter(r=>r.kind==="human")){
+      room.questions[human.id]=this.makeQuestion(room,human.id,now);
+      room.questionStartedAt[human.id]=now;
+    }
+    room.lastNpcTickAt=now;
     room.updatedAt=now;
-    this.openRound(room,now);
     return room;
   }
 
@@ -201,24 +214,48 @@ export class CrazyRaceRoomManager{
     room.updatedAt=now;
   }
 
+  private makeQuestion(room:CrazyRoom,sessionId:string,now:number):MathQuestion{
+    const level=room.race?.round??1;
+    return generateRaceQuestion(room.gradeLevel,{
+      difficulty:level>25?3:level>12?2:1,
+      seed:"crazy:timed:"+room.code+":"+sessionId+":"+now+":"+Math.random()
+    });
+  }
+
   submitAnswer(
     code:string,sessionId:string,questionId:string,answer:string,clientSubmissionId:string,now=Date.now()
   ):CrazyRoom{
     const room=this.mustPlaying(code);
-    if(!room.race||!room.question||room.race.roundStartedAt===null||room.race.roundDeadlineAt===null){
-      throw new Error("Rodada indisponível.");
-    }
-    if(room.question.id!==questionId) throw new Error("Questão não pertence à rodada atual.");
-    if(room.race.racers.find(r=>r.id===sessionId)?.pendingTrackBomb!==null)
-      throw new Error("Responda à bomba da pista antes de continuar.");
-    this.infra.assertActionRate("crazy-answer:"+room.code,sessionId,now);
+    if(!room.race||room.race.matchDeadlineAt==null) throw new Error("Corrida indisponível.");
+    const question=room.questions[sessionId];
+    if(!question||question.id!==questionId) throw new Error("Questão não pertence ao jogador ou já foi respondida.");
+    if(now>=racerDeadline(room.race,sessionId)) throw new Error("O tempo da corrida terminou.");
+    this.infra.assertActionRate("crazy-answer:"+room.code,sessionId,now,35,10_000);
     if(this.infra.isReplay("crazy-answer:"+room.code+":"+questionId,sessionId,clientSubmissionId,now)) return room;
-    if(now>room.race.roundDeadlineAt+NETWORK_GRACE_MS) throw new Error("O tempo da rodada terminou.");
+    const correct=validateAnswer(question,answer);
+    room.race=answerTimedRace(room.race,sessionId,correct,now-(room.questionStartedAt[sessionId]??now),now);
+    room.questions[sessionId]=this.makeQuestion(room,sessionId,now);
+    room.questionStartedAt[sessionId]=now;
+    room.updatedAt=now;
+    return room;
+  }
 
-    const acceptedAt=Math.min(now,room.race.roundDeadlineAt);
-    const responseMs=acceptedAt-room.race.roundStartedAt;
-    const correct=validateAnswer(room.question,answer);
-    room.race=submitRoundAnswer(room.race,sessionId,correct,responseMs,acceptedAt);
+  advanceTimedRace(code:string,now=Date.now()):CrazyRoom{
+    const room=this.mustPlaying(code);
+    if(!room.race||room.race.matchDeadlineAt==null) throw new Error("Corrida indisponível.");
+    if(now>=room.race.matchDeadlineAt) return this.finalizeRound(code,now);
+    room.race=triggerTimedTrackBombs(room.race,now);
+    if(now-room.lastNpcTickAt>=6000){
+      room.race=tickTimedNpcs(room.race,now);
+      room.lastNpcTickAt=now;
+    }
+    for(const racer of room.race.racers){
+      if(racer.kind!=="human"||racer.pendingTrackBomb===null||room.trackQuestions[racer.id]) continue;
+      room.trackQuestions[racer.id]=generateRaceQuestion(room.gradeLevel,{
+        difficulty:racer.clearedTrackBombs.length===0?1:racer.clearedTrackBombs.length===1?2:3,
+        seed:"crazy:timed:bomb:"+room.code+":"+racer.id+":"+racer.pendingTrackBomb
+      });
+    }
     room.updatedAt=now;
     return room;
   }
@@ -228,6 +265,7 @@ export class CrazyRaceRoomManager{
   ): {room:CrazyRoom;targetId:string;targetKind:"human"|"npc"}{
     const room=this.mustPlaying(code);
     if(!room.race) throw new Error("Corrida indisponível.");
+    if(now>=racerDeadline(room.race,sessionId)) throw new Error("Seu tempo de corrida terminou.");
     this.infra.assertActionRate("crazy-bomb:"+room.code,sessionId,now,12,10_000);
     const replayKey=sessionId+":"+clientSubmissionId;
     const previous=room.bombActionResults.get(replayKey);
@@ -271,7 +309,7 @@ export class CrazyRaceRoomManager{
     const question=room.bombQuestions[sessionId];
     const challenge=room.race.bombChallenges[sessionId];
     if(!question||question.id!==questionId||!challenge||challenge.resolved) throw new Error("Bomba matemática inválida.");
-    if(now>challenge.deadlineAt+NETWORK_GRACE_MS) throw new Error("O tempo da bomba terminou.");
+    if(now>=racerDeadline(room.race,sessionId)||now>challenge.deadlineAt) throw new Error("O tempo da bomba terminou.");
 
     const acceptedAt=Math.min(now,challenge.deadlineAt);
     const correct=validateAnswer(question,answer);
@@ -293,9 +331,10 @@ export class CrazyRaceRoomManager{
     if(!room.race) throw new Error("Corrida indisponível.");
     const question=room.trackQuestions[sessionId];
     if(!question||question.id!==questionId) throw new Error("Bomba da pista inválida.");
+    if(now>=racerDeadline(room.race,sessionId)) throw new Error("Seu tempo terminou.");
     const correct=validateAnswer(question,answer);
     const correctAnswer=question.correctAnswer;
-    room.race=resolveTrackBomb(room.race,sessionId,correct);
+    room.race=resolveTimedTrackBomb(room.race,sessionId,correct);
     delete room.trackQuestions[sessionId];
     room.updatedAt=now;
     return {room,correct,correctAnswer};
