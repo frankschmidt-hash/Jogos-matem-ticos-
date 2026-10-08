@@ -8,6 +8,7 @@ import {
   type NumberRaceState
 } from "@jogos/number-race";
 import { generateQuestion, validateAnswer, type GradeLevel, type MathQuestion } from "@jogos/math-engine";
+import type { NumberCarChoice } from "@jogos/protocol";
 
 export type NumberRoomMember=CoreRoomMember;
 export type NumberRoomMemberInput=MemberInput;
@@ -18,6 +19,7 @@ export type NumberRoom=LifecycleCarrier & {
   hostSessionId:string;
   gradeLevel:GradeLevel;
   members:NumberRoomMember[];
+  carChoices:Record<string,NumberCarChoice>;
   status:"waiting"|"playing"|"finished";
   race:NumberRaceState|null;
   question:MathQuestion|null;
@@ -31,6 +33,7 @@ export type PublicNumberRoom={
   hostSessionId:string;
   gradeLevel:GradeLevel;
   members:NumberRoomMember[];
+  carChoices:Record<string,NumberCarChoice>;
   status:"waiting"|"playing"|"finished";
   lifecycleState:RoomLifecycleState;
   capacity:{max:number;occupied:number;available:number};
@@ -58,42 +61,45 @@ export class NumberRaceRoomManager{
   constructor(private infra:RoomInfrastructure=roomInfrastructure){}
 
   createRoom(
-    host:NumberRoomMemberInput,password:string,gradeLevel:GradeLevel,now=Date.now()
+    host:NumberRoomMemberInput,password:string,gradeLevel:GradeLevel,now=Date.now(),carChoice?:NumberCarChoice
   ):NumberRoom{
     const code=this.infra.allocateCode("number-race");
     const member=this.infra.createMember(host,now);
     const room:NumberRoom={
       code,password:this.infra.createPassword(password),hostSessionId:member.sessionId,gradeLevel,
-      members:[member],status:"waiting",race:null,question:null,lastCorrectAnswer:null,
+      members:[member],carChoices:carChoice?{[member.sessionId]:carChoice}:{},status:"waiting",race:null,question:null,lastCorrectAnswer:null,
       lifecycleState:"ready",lifecycleHistory:["ready"],createdAt:now,updatedAt:now
     };
     this.rooms.set(code,room);
     return room;
   }
 
-  joinRoom(code:string,password:string,memberInput:NumberRoomMemberInput,now=Date.now()):NumberRoom{
+  joinRoom(code:string,password:string,memberInput:NumberRoomMemberInput,now=Date.now(),carChoice?:NumberCarChoice):NumberRoom{
     const room=this.mustRoom(code);
     if(room.status!=="waiting") throw new Error("A partida já foi iniciada.");
     this.infra.verifyPassword("number-race",room.code,memberInput.sessionId,password,room.password,now);
     const existing=room.members.find(m=>m.sessionId===memberInput.sessionId);
     if(existing){
       this.infra.reconnectMember(existing,now);
+      if(carChoice) room.carChoices[existing.sessionId]=carChoice;
       this.syncWaitingLifecycle(room);
       room.updatedAt=now;
       return room;
     }
     if(this.infra.capacity(room.members,6).available<=0) throw new Error("A sala está cheia.");
     room.members.push(this.infra.createMember(memberInput,now));
+    if(carChoice) room.carChoices[memberInput.sessionId]=carChoice;
     this.syncWaitingLifecycle(room);
     room.updatedAt=now;
     return room;
   }
 
-  reconnect(code:string,sessionId:string,now=Date.now()):NumberRoom{
+  reconnect(code:string,sessionId:string,now=Date.now(),carChoice?:NumberCarChoice):NumberRoom{
     const room=this.mustRoom(code);
     const member=room.members.find(m=>m.sessionId===sessionId);
     if(!member) throw new Error("Jogador não pertence a esta sala.");
     this.infra.reconnectMember(member,now);
+    if(carChoice) room.carChoices[sessionId]=carChoice;
     this.syncWaitingLifecycle(room);
     room.updatedAt=now;
     return room;
@@ -116,6 +122,7 @@ export class NumberRaceRoomManager{
 
     if(room.status==="waiting"){
       room.members=room.members.filter(m=>m.sessionId!==sessionId);
+      delete room.carChoices[sessionId];
       if(room.members.length===0){
         this.infra.transition(room,"closed");
         this.rooms.delete(room.code);
@@ -233,6 +240,7 @@ export class NumberRaceRoomManager{
       hostSessionId:room.hostSessionId,
       gradeLevel:room.gradeLevel,
       members:room.members.map(m=>({...m})),
+      carChoices:{...room.carChoices},
       status:room.status,
       lifecycleState:room.lifecycleState,
       capacity:this.infra.capacity(room.members,6),
