@@ -1,63 +1,142 @@
 :root{--nr-ink:#173b55;--nr-blue:#16779b;--nr-green:#319672;--nr-gold:#eeb94b}
-.number-shell{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at top,#edfbf7,#f4f8fb 58%)}
-.number-setup,.number-online-menu,.number-room-lobby,.number-finish{width:min(760px,100%)}
-.number-logo{width:104px;height:104px;display:block;margin-bottom:10px}
-.number-mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:24px 0}
-.number-mode-grid button{display:grid;gap:5px;text-align:left;padding:20px;background:linear-gradient(135deg,#176e91,#32916f)}
-.number-mode-grid span{font-weight:500;opacity:.82}
-.number-page{max-width:1500px;margin:auto;padding:24px}
-.number-header{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:14px}
-.number-header h1{margin:.1rem 0}
-.number-connection{padding:8px 12px;border-radius:999px;background:#e4f7ef;color:#24694f;font-weight:800}
-.number-hud{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px}
-.number-hud>div{background:#fff;border:1px solid #d7e5e3;border-radius:14px;padding:10px 12px;box-shadow:0 5px 16px rgba(22,58,84,.06)}
-.number-hud span{display:block;color:#627581;font-size:.72rem}
-.number-hud strong{font-size:1.08rem;color:var(--nr-ink)}
+.number-shell{min-height:100dvh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at top,#edfbf7,#f4f8fb 58%)}
+.number-setup,.number-online-menu,.number-room-lobby,.number-finish{width:min(860px,100%)}
+.number-logo{width:92px;height:92px;display:block;margin-bottom:8px}
+.number-mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:15px 0}
+.number-mode-grid button{display:grid;gap:5px;text-align:left;padding:16px;background:linear-gradient(135deg,#176e91,#32916f)}
+.number-mode-grid span{font-weight:500;opacity:.88}
+
+/* Seis pistas, cronômetro e resposta cabem juntos no viewport. */
+.number-page{width:100%;max-width:1500px;height:100vh;height:100dvh;min-height:0;box-sizing:border-box;margin:auto;padding:clamp(8px,1.4vh,16px) 18px;display:flex;flex-direction:column;gap:8px;overflow:hidden}
+.number-header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex:0 0 auto;margin:0}
+.number-header h1{font-size:clamp(1.2rem,2.5vw,1.85rem);line-height:1.1;margin:2px 0}
+.number-header .eyebrow{margin:0}
+.number-header-actions{display:flex;align-items:center;gap:8px}
+.number-header-actions .button-ghost,.number-header>.button-ghost{padding:7px 12px}
+.number-connection{display:inline-flex;align-items:center;gap:7px;padding:6px 10px;border-radius:999px;background:#e4f7ef;color:#24694f;font-weight:800}
+.number-connection::before{content:"";width:8px;height:8px;border-radius:50%;background:#2f9c72}
+.number-hud{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;flex:0 0 auto;margin:0}
+.number-hud>div{min-width:0;background:#fff;border:1px solid #d7e5e3;border-radius:11px;padding:6px 11px;box-shadow:0 4px 11px rgba(22,58,84,.06)}
+.number-hud span{display:block;color:#627581;font-size:.69rem}
+.number-hud strong{font-size:1.06rem;color:var(--nr-ink)}
 .number-time-danger{background:#fff1f0!important}.number-time-danger strong{color:#a62935}
-.number-track{position:relative;overflow:hidden;background:linear-gradient(90deg,#d7ebe7 0 4%,#153747 4% 96%,#d7ebe7 96%);border-radius:24px;padding:14px 32px 14px 40px;box-shadow:inset 0 0 0 4px #9bc5bb,0 12px 30px rgba(20,55,70,.12)}
-.number-lane{position:relative;height:72px;border-bottom:1px solid rgba(180,238,221,.35)}
+.number-hud>div:last-child{box-shadow:inset 0 0 0 2px var(--nr-gold)}
+
+/* Asfalto com faixas animadas, limites refletivos e referências laterais de movimento. */
+.number-track{position:relative;isolation:isolate;overflow:hidden;flex:1 1 auto;min-height:235px;max-height:510px;display:grid;grid-template-rows:repeat(6,minmax(0,1fr));padding:7px 39px;border:4px solid #627984;border-radius:20px;background:
+  linear-gradient(90deg,#65a17c 0 3%,#edddbb 3% 3.7%,#a4b3ba 3.7% 4.4%,#273b47 4.4% 95.6%,#a4b3ba 95.6% 96.3%,#edddbb 96.3% 97%,#65a17c 97%),
+  #273b47;box-shadow:inset 0 0 0 2px #dae7e0,0 8px 20px rgba(20,55,70,.14)}
+.number-track::before{content:"";position:absolute;inset:5px 4.4%;z-index:0;background:repeating-linear-gradient(90deg,transparent 0 39px,rgba(255,255,255,.05) 39px 78px);animation:numberRoadMotion 2.2s linear infinite;pointer-events:none}
+.number-track::after{content:"";position:absolute;inset:0 4%;z-index:0;pointer-events:none;border-left:4px solid #f4e4bb;border-right:4px solid #f4e4bb;opacity:.9}
+.number-lane{position:relative;z-index:1;min-width:0;border-bottom:2px dashed rgba(232,242,236,.35)}
 .number-lane:last-child{border-bottom:0}
-.number-rank{position:absolute;left:-29px;top:23px;color:#d8f6ee;font-weight:900;font-size:.75rem}
-.number-lane-name{position:absolute;left:8px;bottom:4px;color:#bfe8dc;font-size:.68rem}
-.number-car{position:absolute;top:11px;width:63px;height:37px;border-radius:9px 16px 9px 16px;background:linear-gradient(135deg,#e1a839,#efc75d);border:3px solid #102e43;transition:left .72s cubic-bezier(.2,.8,.25,1);display:grid;place-items:center;color:#14354b;font-size:.62rem;z-index:4;box-shadow:0 5px 10px rgba(0,0,0,.3)}
-.number-car:before,.number-car:after{content:"";position:absolute;bottom:-8px;width:14px;height:14px;border-radius:50%;background:#102e43;border:3px solid #8fb0bb}
-.number-car:before{left:8px}.number-car:after{right:8px}
-.number-car-screen{position:absolute;top:-14px;left:17px;width:28px;height:18px;border-radius:8px 8px 2px 2px;background:#d9fbef;border:3px solid #102e43;display:grid;place-items:center;font-weight:900;color:#27836a}
-.number-player{background:linear-gradient(135deg,#1c88ac,#3eb083);box-shadow:0 0 0 4px #f1bd4c,0 5px 10px rgba(0,0,0,.32);color:#fff}
-.number-npc:nth-of-type(2n){background:linear-gradient(135deg,#c98b3c,#e6b95c)}
-.number-portal{position:absolute;top:0;bottom:0;width:34px;margin-left:-17px;z-index:2;border-left:4px solid rgba(91,226,186,.75);border-right:4px solid rgba(91,226,186,.75);background:rgba(47,157,126,.08)}
-.number-portal span{position:absolute;top:7px;left:5px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:#d9fff4;color:#195842;font-weight:900}
-.number-finish-line{position:absolute;right:4%;top:0;bottom:0;width:13px;background:repeating-linear-gradient(0deg,#d8fff2 0 11px,#173b55 11px 22px);z-index:3}
-.number-finish-line span{position:absolute;top:4px;right:15px;color:#dcfff5;font-size:.62rem}
-.number-lower{display:grid;grid-template-columns:1.25fr 1fr;gap:14px;margin-top:14px}
-.number-question,.number-boost,.number-log{background:#fff;border:1px solid #d7e4e3;border-radius:18px;padding:17px;box-shadow:0 7px 22px rgba(19,57,76,.06)}
-.number-question h2{font-size:2rem;margin:.35rem 0 14px;color:var(--nr-ink)}
-.number-question form{display:grid;grid-template-columns:1fr auto;gap:8px}
-.number-wait{padding:10px;border-radius:10px;background:#eaf7f3;color:#2c6656}
-.number-boost{display:flex;gap:14px;align-items:center}
-.number-boost img{width:82px;height:82px;flex:none}
-.number-boost h2{margin:.25rem 0;color:#257e67}
-.number-log{margin-top:14px}.number-log h2{margin-top:0}.number-log ol{margin-bottom:0;padding-left:20px}.number-log li{padding:4px 0;color:#566b75}
+.number-rank{position:absolute;left:2px;top:2px;z-index:5;color:#dafff1;font-weight:900;font-size:.72rem;text-shadow:0 1px 2px #182c39}
+.number-lane-name{position:absolute;left:25px;bottom:0;z-index:3;max-width:38%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#d1f5e6;font-size:.66rem;font-weight:750;text-shadow:0 2px 2px #172f3d}
+.number-car{position:absolute;top:50%;width:94px;height:54px;transform:translateY(-51%);transition:left .72s cubic-bezier(.2,.8,.25,1);z-index:4;filter:drop-shadow(0 3px 2px rgba(0,0,0,.28))}
+.number-vehicle-svg{display:block;width:100%;height:100%;overflow:visible}
+.number-player{filter:drop-shadow(0 0 4px #f3d055) drop-shadow(0 4px 3px rgba(0,0,0,.4))}
+.number-car-screen{position:absolute;right:5px;top:-1px;min-width:23px;padding:1px 3px;border-radius:7px;background:#f6ffec;border:1px solid #214454;color:#267453;font-size:.65rem;font-weight:900;text-align:center}
+.number-roadside{position:absolute;top:5%;bottom:5%;z-index:3;display:flex;flex-direction:column;justify-content:space-around;align-items:center;width:33px;pointer-events:none}
+.number-roadside-left{left:0}.number-roadside-right{right:0}
+.number-roadside img{width:29px;height:32px;object-fit:contain;filter:drop-shadow(0 2px 1px rgba(15,51,49,.4))}
+.number-roadside img:nth-child(even){width:24px;height:25px}
+.number-portal{position:absolute;top:4%;bottom:4%;width:16px;margin-left:-8px;z-index:2;border-left:2px solid rgba(91,226,186,.53);border-right:2px solid rgba(91,226,186,.53);background:rgba(47,157,126,.04);box-shadow:0 0 14px rgba(83,236,194,.16);pointer-events:none}
+.number-portal span{position:absolute;top:4px;left:-4px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:#d9fff4;color:#195842;font-size:.75rem;font-weight:900}
+.number-finish-line{position:absolute;right:4.5%;top:0;bottom:0;width:12px;background:repeating-linear-gradient(0deg,#d8fff2 0 10px,#173b55 10px 20px);z-index:3;pointer-events:none}
+.number-finish-line span{position:absolute;top:4px;right:11px;color:#dcfff5;font-size:.62rem;font-weight:900}
+
+/* Conta imediatamente abaixo da pista; entrada sempre acessível sem rolagem. */
+.number-lower{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(235px,.8fr);gap:8px;margin:0;flex:0 0 auto}
+.number-question,.number-boost,.number-log{background:#fff;border:1px solid #d7e4e3;border-radius:13px;box-shadow:0 5px 16px rgba(19,57,76,.06)}
+.number-question{min-width:0;padding:10px 13px}
+.number-question .eyebrow{margin:0}
+.number-question h2{font-size:clamp(1.5rem,3vw,2rem);line-height:1.12;margin:4px 0 9px;color:var(--nr-ink)}
+.number-question form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px}
+.number-question input{min-height:41px;min-width:0}
+.number-question form button{min-height:41px;padding:7px 13px}
+.number-wait,.math-correction{margin:6px 0 0;font-size:.82rem}
+.number-wait{padding:5px 7px;border-radius:7px;background:#eaf7f3;color:#2c6656}
+.number-boost{display:flex;gap:9px;align-items:center;min-width:0;padding:9px;background:linear-gradient(135deg,#fff,#ecfaf5)}
+.number-boost img{width:60px;height:60px;flex:none}
+.number-boost h2{margin:2px 0;font-size:1.18rem;color:#257e67}
+.number-boost p{margin:3px 0;font-size:.75rem}
+.number-log{position:relative;flex:0 0 auto;margin:0;padding:5px 11px}
+.number-log summary{cursor:pointer;color:var(--nr-ink);font-weight:700;font-size:.76rem}
+.number-log ol{position:absolute;bottom:calc(100% + 5px);right:0;z-index:20;width:min(470px,94vw);max-height:180px;overflow:auto;margin:0;padding:12px 12px 12px 32px;background:#fff;border:1px solid #cadbd8;border-radius:11px;box-shadow:0 12px 30px rgba(15,32,48,.2)}
+.number-log li{padding:3px 0;color:#566b75;font-size:.83rem}
 .number-online-actions{display:grid;gap:10px;margin:22px 0}
 .number-members{display:grid;gap:7px;margin:18px 0}
 .number-members>div{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:9px;padding:10px;border:1px solid #dce8e6;border-radius:10px}
-.number-finish{text-align:center}
-.number-finish-art{width:112px}
+.number-finish{text-align:center}.number-finish-art{width:112px}
 .number-stats-table{display:grid;gap:7px;margin:18px 0;text-align:left}
 .number-stat-row{display:grid;grid-template-columns:1.5fr repeat(5,1fr);gap:8px;align-items:center;padding:10px 12px;background:#f3f7f7;border-radius:11px;font-size:.82rem}
 .number-stat-row.you{background:#e7f8f1;box-shadow:inset 0 0 0 2px #51ad8f}
-@media(max-width:900px){.number-hud{grid-template-columns:repeat(3,1fr)}.number-lower{grid-template-columns:1fr}.number-stat-row{grid-template-columns:1.5fr repeat(2,1fr)}}
-@media(max-width:560px){.number-shell,.number-page{padding:14px}.number-mode-grid{grid-template-columns:1fr}.number-header{align-items:flex-start}.number-hud{grid-template-columns:repeat(2,1fr)}.number-track{padding-right:16px}.number-car{width:56px}.number-question h2{font-size:1.55rem}.number-question form{grid-template-columns:1fr}.number-boost{align-items:flex-start}.number-boost img{width:62px;height:62px}.number-stat-row{grid-template-columns:1fr 1fr;align-items:start}}
-@media(prefers-reduced-motion:reduce){.number-car{transition:none}}
 
-/* Prompt 07 — identidade numérica, portais e feedback de progresso */
-.number-portal{box-shadow:0 0 18px rgba(83,236,194,.22);animation:portalPulse 1.8s ease-in-out infinite alternate}
-.number-portal::after{content:"";position:absolute;inset:9px -8px;border-radius:50%;border:1px solid rgba(137,255,221,.32)}
-.number-player::after{content:"";position:absolute;right:50px;top:15px;width:52px;height:7px;background:linear-gradient(90deg,transparent,rgba(84,231,195,.75));filter:blur(2px);z-index:-1}
-.number-question input{min-height:48px}
-.number-boost{background:linear-gradient(135deg,#fff,#ecfaf5)}
-.number-connection{display:inline-flex;align-items:center;gap:7px}.number-connection::before{content:"";width:8px;height:8px;border-radius:50%;background:#2f9c72}
-@keyframes portalPulse{to{filter:brightness(1.18);box-shadow:0 0 28px rgba(83,236,194,.38)}}
-@media(min-width:1500px){.number-page{max-width:1640px}.number-lane{height:78px}}
-@media(max-width:420px){.number-page{padding:10px}.number-hud{gap:6px}.number-hud>div{padding:9px}.number-track{border-radius:16px;padding-left:34px;padding-right:11px}.number-lane{height:61px}.number-lane-name{max-width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.number-car{width:52px;height:33px}.number-car-screen{left:12px}.number-header{gap:8px}.number-connection{font-size:.76rem;padding:7px 9px}}
-html.reduce-motion .number-car{transition:none}html.reduce-motion .number-portal{animation:none}
+/* Garagem: escolha de carro e cor antes de entrar em qualquer modo. */
+.number-garage{padding:12px;border:1px solid #d7e5e3;border-radius:15px;background:#f4faf9}
+.number-garage-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.number-garage-heading h2{font-size:1.15rem;margin:3px 0}
+.number-garage-preview{display:flex;align-items:center;gap:5px;font-size:.84rem;color:var(--nr-ink)}
+.number-garage-preview .number-vehicle-svg{width:99px;height:55px}
+.number-model-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;margin-top:9px}
+.number-model-option{min-width:0;min-height:83px!important;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:5px!important;border:2px solid #d9e7e7!important;border-radius:11px!important;color:#254c60!important;background:white!important;box-shadow:none!important;font-size:.73rem!important;font-weight:700}
+.number-model-option .number-vehicle-svg{width:min(100%,112px);height:55px}
+.number-model-option.selected{border-color:#158eb1!important;background:#ddf4f6!important;box-shadow:0 0 0 1px #158eb1!important}
+.number-model-option:hover{border-color:#2d9bb2!important}
+.number-color-label{margin:10px 0 6px;font-size:.82rem;color:var(--nr-ink);font-weight:800}
+.number-color-grid{display:flex;gap:9px;flex-wrap:wrap}
+.number-color-option{width:32px!important;min-width:32px!important;height:32px!important;min-height:32px!important;padding:0!important;border:2px solid #607684!important;border-radius:50%!important;display:grid;place-items:center;color:#142735!important;font-weight:900!important;box-shadow:none!important}
+.number-color-option.selected{outline:3px solid #16779b;outline-offset:2px}
+@keyframes numberRoadMotion{to{background-position:78px 0}}
+@media(min-width:1500px){.number-page{max-width:1640px}}
+@media(max-width:900px){
+  .number-page{padding:8px 10px;gap:6px}
+  .number-hud{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+  .number-hud>div{padding:5px 6px}
+  .number-hud span{font-size:.62rem}
+  .number-hud strong{font-size:.95rem}
+  .number-lower{grid-template-columns:1fr}
+  .number-boost{display:none}
+  .number-stat-row{grid-template-columns:1.5fr repeat(2,1fr)}
+}
+@media(max-width:560px){
+  .number-shell{padding:12px}
+  .number-mode-grid{grid-template-columns:1fr}
+  .number-model-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .number-garage-preview{gap:2px}
+  .number-garage-preview .number-vehicle-svg{width:71px}
+  .number-header{gap:7px}
+  .number-header h1{font-size:1.24rem}
+  .number-header .eyebrow{font-size:.6rem}
+  .number-connection{display:none}
+  .number-track{padding:5px 26px;min-height:218px;border-radius:12px}
+  .number-roadside{width:23px}
+  .number-roadside img{width:20px;height:25px}
+  .number-roadside img:nth-child(even){width:17px;height:19px}
+  .number-car{width:72px;height:43px}
+  .number-car-screen{font-size:.57rem}
+  .number-lane-name{font-size:.6rem}
+  .number-hud{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .number-hud>div{padding:3px 7px}
+  .number-hud span{font-size:.6rem}
+  .number-hud strong{font-size:.87rem}
+  .number-question{padding:8px}
+  .number-question h2{margin:4px 0 7px;font-size:1.5rem}
+  .number-question form{grid-template-columns:minmax(0,1fr) auto}
+  .number-question form button{padding:7px 9px}
+  .number-wait{padding:4px}
+  .number-stat-row{grid-template-columns:1fr 1fr;align-items:start}
+}
+@media(max-height:640px){
+  .number-page{gap:4px;padding-top:4px;padding-bottom:4px}
+  .number-header h1{font-size:1.1rem}
+  .number-track{min-height:180px}
+  .number-car{height:40px;width:74px}
+  .number-question h2{font-size:1.35rem;margin:2px 0 5px}
+  .number-question input,.number-question form button{min-height:34px}
+  .number-boost p:last-child{display:none}
+  .number-log{padding:3px 9px}
+}
+@media(prefers-reduced-motion:reduce){.number-car{transition:none}.number-track::before{animation:none}}
+html.reduce-motion .number-car{transition:none}
+html.reduce-motion .number-track::before{animation:none}
