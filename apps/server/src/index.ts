@@ -241,7 +241,7 @@ function scheduleFootballAdvance(code:string){
       app.log.error({err:error,code},"Falha ao abrir próxima cobrança do Futebol Matemático");
       footballKickTimers.delete(code);
     }
-  },1600);
+  },2600);
   footballKickTimers.set(code,timer);
 }
 
@@ -871,6 +871,7 @@ setInterval(() => {
     emitFootballState(code);
   }
 
+  emitFootballRooms();
   pruneMissingTimers(raceTimers,code=>Boolean(crazyRooms.getRoom(code)),timer=>clearTimeout(timer));
   pruneMissingTimers(numberRaceTimers,code=>Boolean(numberRooms.getRoom(code)),timer=>clearTimeout(timer));
   pruneMissingTimers(footballKickTimers,code=>Boolean(footballRooms.getRoom(code)),timer=>clearTimeout(timer));
