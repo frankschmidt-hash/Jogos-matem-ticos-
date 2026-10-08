@@ -10,7 +10,8 @@ RUN npm install --legacy-peer-deps --no-audit --no-fund \
     && npm test \
     && npm run build \
     && node scripts/release-audit.mjs \
-    && npm prune --omit=dev --legacy-peer-deps
+    && npm prune --omit=dev --legacy-peer-deps \
+    && npm audit --omit=dev --audit-level=high
 
 FROM node:22-bookworm-slim AS runtime
 
