@@ -64,9 +64,14 @@ assert(crazy.room.question.deadlineAt-crazy.room.question.startedAt===20000,"Cor
 
 const number=await createJoinStart("Corrida Numérica","number:create-room","number:join-room","number:start",{gradeLevel:"mixed"});
 assert(number.room.race?.racers?.length===6,"Corrida Numérica não iniciou com 6 competidores");
-const numberRoundDuration=number.room.question.deadlineAt-number.room.question.startedAt;
-const allowedNumberDurations=process.env.DEPLOYED_VERSION_SMOKE==="true"?[10000,20000]:[10000];
-assert(allowedNumberDurations.includes(numberRoundDuration),"Corrida Numérica sem janela de 10s");
+const numberTimeWindow=number.room.question.deadlineAt-number.room.question.startedAt;
+const allowedNumberDurations=process.env.DEPLOYED_VERSION_SMOKE==="true"?[300000,10000]:[300000];
+assert(allowedNumberDurations.includes(numberTimeWindow),"Corrida Numérica sem relógio de 5 minutos");
+if(numberTimeWindow===300000){
+  const firstQuestion=number.room.question;
+  const firstResponse=await ack(host,"number:answer",{...auth(a),code:number.code,questionId:firstQuestion.id,answer:"0",clientSubmissionId:"number-continuous-01"});
+  assert(firstResponse?.ok && firstResponse.room?.question?.id!==firstQuestion.id,"Corrida Numérica não gerou outra questão imediatamente");
+}
 
 guest.close();
 await new Promise(r=>setTimeout(r,150));
