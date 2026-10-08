@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateQuestion, generateRaceQuestion, validateAnswer, type GradeLevel } from "./index";
+import { generateQuestion, generateRaceQuestion, satisfiesIntegerMultiplicationAndDivision, validateAnswer, type GradeLevel } from "./index";
 
 describe("math engine", () => {
   it("gera questões determinísticas com seed", () => {
@@ -118,5 +118,61 @@ describe("Corrida Maluca: contas curtas e diretas",()=>{
         expect(operations).toEqual(new Set(["+","-","×","÷"]));
       }
     }
+  });
+});
+
+describe("Divisão e multiplicação inteiras em todos os jogos", () => {
+  const gameModes = [
+    { name: "Banco Imobiliário", create: generateQuestion },
+    { name: "Corrida Maluca (incluindo bombas)", create: generateRaceQuestion },
+    { name: "Corrida Numérica", create: generateQuestion },
+    { name: "Futebol Matemático", create: generateQuestion }
+  ] as const;
+
+  for (const game of gameModes) {
+    it(`${game.name}: audita resultados e operandos de 5º a 7º ano e modo misto`, () => {
+      for (const grade of [5, 6, 7, "mixed"] as const) {
+        for (const difficulty of [1, 2, 3] as const) {
+          let multiplications = 0, divisions = 0;
+          for (let i = 0; i < 360; i++) {
+            const seed = `integer-rule-${game.name}-${grade}-${difficulty}-${i}`;
+            const question = game.create(grade, { difficulty, seed });
+            expect(satisfiesIntegerMultiplicationAndDivision(question)).toBe(true);
+            expect(validateAnswer(question, question.correctAnswer)).toBe(true);
+            if (question.expression.includes("×")) {
+              multiplications++;
+              expect(Number.isInteger(Number(question.correctAnswer))).toBe(true);
+            }
+            if (question.expression.includes("÷")) {
+              divisions++;
+              const match = question.expression.match(/^(-?\d+) ÷ (-?\d+)$/);
+              expect(match).not.toBeNull();
+              const dividend = Number(match?.[1]), divisor = Number(match?.[2]);
+              expect(Number.isInteger(dividend)).toBe(true);
+              expect(Number.isInteger(divisor)).toBe(true);
+              expect(divisor).not.toBe(0);
+              expect(dividend % divisor).toBe(0);
+              expect(question.correctAnswer).toBe(String(dividend / divisor));
+            }
+          }
+          expect(multiplications).toBeGreaterThan(0);
+          expect(divisions).toBeGreaterThan(0);
+        }
+      }
+    });
+  }
+
+  it("rejeita decimais, divisões não exatas e respostas não inteiras apenas em × e ÷", () => {
+    expect(satisfiesIntegerMultiplicationAndDivision({ expression: "1,5 × 2", correctAnswer: "3" })).toBe(false);
+    expect(satisfiesIntegerMultiplicationAndDivision({ expression: "7 ÷ 2", correctAnswer: "3.5" })).toBe(false);
+    expect(satisfiesIntegerMultiplicationAndDivision({ expression: "9 ÷ 0", correctAnswer: "0" })).toBe(false);
+    expect(satisfiesIntegerMultiplicationAndDivision({ expression: "2 × 3", correctAnswer: "7" })).toBe(false);
+    expect(satisfiesIntegerMultiplicationAndDivision({ expression: "8 ÷ 2", correctAnswer: "4" })).toBe(true);
+  });
+
+  it("preserva adição e subtração de decimais e adição de frações", () => {
+    expect(satisfiesIntegerMultiplicationAndDivision({ expression: "1,5 + 2,3", correctAnswer: "3.8" })).toBe(true);
+    expect(satisfiesIntegerMultiplicationAndDivision({ expression: "5,2 - 2,7", correctAnswer: "2.5" })).toBe(true);
+    expect(satisfiesIntegerMultiplicationAndDivision({ expression: "1/2 + 1/4", correctAnswer: "3/4" })).toBe(true);
   });
 });

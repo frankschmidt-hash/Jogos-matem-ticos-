@@ -78,10 +78,52 @@ export const seededRandom = (seed: string): Random => {
 const int = (r: Random, min: number, max: number) => Math.floor(r() * (max - min + 1)) + min;
 const pick = <T>(r: Random, items: readonly T[]): T => items[int(r, 0, items.length - 1)]!;
 
-const q = (gradeLevel: ConcreteGradeLevel, category: string, expression: string, correctAnswer: string, difficulty: Difficulty, seed?: string, acceptedAnswers?: string[]): MathQuestion => ({
-  id: `${gradeLevel}-${category}-${seed ?? crypto.randomUUID()}`,
-  gradeLevel, category, expression, correctAnswer, acceptedAnswers, difficulty, generatedAt: Date.now(), seed
-});
+/**
+ * Regra pedagógica dos quatro jogos: somente expressões com × ou ÷
+ * precisam utilizar operandos inteiros e produzir respostas inteiras.
+ * Somas/subtrações com decimais e frações permanecem permitidas.
+ */
+export const satisfiesIntegerMultiplicationAndDivision = (
+  question: Pick<MathQuestion, "expression" | "correctAnswer">
+): boolean => {
+  const { expression, correctAnswer } = question;
+  if (!/[×÷]/.test(expression)) return true;
+  const operands = expression.match(/-?\d+(?:[.,]\d+)?/g) ?? [];
+  if (operands.length < 2 || operands.some(value => !Number.isSafeInteger(Number(value.replace(",", "."))))) return false;
+  if (!Number.isSafeInteger(Number(correctAnswer))) return false;
+
+  const divisions = [...expression.matchAll(/(-?\d+)\s*÷\s*(-?\d+)/g)];
+  if (expression.includes("÷") && divisions.length === 0) return false;
+  if (divisions.some(([, dividend, divisor]) => Number(divisor) === 0 || Number(dividend) % Number(divisor) !== 0)) return false;
+
+  const direct = expression.match(/^\s*(-?\d+)\s*([×÷])\s*(-?\d+)\s*$/);
+  if (direct) {
+    const a = Number(direct[1]), b = Number(direct[3]), expected = Number(correctAnswer);
+    return direct[2] === "×" ? a * b === expected : b !== 0 && a / b === expected;
+  }
+  return true;
+};
+
+const q = (gradeLevel: ConcreteGradeLevel, category: string, expression: string, correctAnswer: string, difficulty: Difficulty, seed?: string, acceptedAnswers?: string[]): MathQuestion => {
+  const question: MathQuestion = {
+    id: `${gradeLevel}-${category}-${seed ?? crypto.randomUUID()}`,
+    gradeLevel, category, expression, correctAnswer, acceptedAnswers, difficulty, generatedAt: Date.now(), seed
+  };
+  if (!satisfiesIntegerMultiplicationAndDivision(question)) {
+    throw new Error("Multiplicação e divisão devem usar números inteiros e ter resultado inteiro.");
+  }
+  return question;
+};
+
+/** Divisão exata por construção, em todos os anos e modos (inclusive desafios de bomba). */
+const exactDivision = (r: Random, gradeLevel: ConcreteGradeLevel, difficulty: Difficulty, seed?: string, factorLimit?: number): MathQuestion => {
+  const divisorLimit = factorLimit ?? (gradeLevel === 5 ? (difficulty === 3 ? 20 : 12)
+    : gradeLevel === 6 ? (difficulty === 1 ? 12 : difficulty === 2 ? 16 : 20)
+    : (difficulty === 1 ? 14 : difficulty === 2 ? 20 : 25));
+  const quotientLimit = factorLimit ?? (gradeLevel === 5 ? (difficulty === 1 ? 10 : 20) : divisorLimit);
+  const divisor = int(r, 2, divisorLimit), quotient = int(r, 2, quotientLimit);
+  return q(gradeLevel, "exact-division", `${divisor * quotient} ÷ ${divisor}`, String(quotient), difficulty, seed);
+};
 
 const grade5 = (r: Random, difficulty: Difficulty, seed?: string): MathQuestion => {
   const category = pick(r, ["addition", "subtraction", "multiplication", "exact-division", "decimal"] as const);
@@ -92,10 +134,7 @@ const grade5 = (r: Random, difficulty: Difficulty, seed?: string): MathQuestion 
     const lim=difficulty===1?10:difficulty===2?12:20; const a=int(r,2,lim), b=int(r,2,lim);
     return q(5,category,`${a} × ${b}`,String(a*b),difficulty,seed);
   }
-  if (category === "exact-division") {
-    const divisor=int(r,2,difficulty===3?20:12), quotient=int(r,2,difficulty===1?10:20);
-    return q(5,category,`${divisor*quotient} ÷ ${divisor}`,String(quotient),difficulty,seed);
-  }
+  if (category === "exact-division") return exactDivision(r, 5, difficulty, seed);
   const decimalMax=difficulty===1?49:difficulty===2?99:199;
   const a=int(r,1,decimalMax)/10, b=int(r,1,decimalMax)/10;
   const answer=(a+b).toFixed(1).replace(/\.0$/,"");
@@ -103,7 +142,8 @@ const grade5 = (r: Random, difficulty: Difficulty, seed?: string): MathQuestion 
 };
 
 const grade6 = (r: Random, difficulty: Difficulty, seed?: string): MathQuestion => {
-  const category = pick(r, ["four-operations", "integer", "decimal", "fraction", "percentage", "expression"] as const);
+  const category = pick(r, ["four-operations", "integer", "decimal", "fraction", "percentage", "expression", "exact-division"] as const);
+  if (category === "exact-division") return exactDivision(r, 6, difficulty, seed);
   if (category === "fraction") {
     const denominators=difficulty===1?[2,3,4,5,6]:difficulty===2?[2,3,4,5,6,8,10]:[3,4,5,6,8,9,10,12];
     const den = pick(r,denominators); const a=int(r,1,den-1), b=int(r,1,den-1);
@@ -136,7 +176,8 @@ const grade6 = (r: Random, difficulty: Difficulty, seed?: string): MathQuestion 
 };
 
 const grade7 = (r: Random, difficulty: Difficulty, seed?: string): MathQuestion => {
-  const category = pick(r, ["signed", "rational", "fraction", "decimal", "percentage", "ratio", "expression"] as const);
+  const category = pick(r, ["signed", "rational", "fraction", "decimal", "percentage", "ratio", "expression", "exact-division"] as const);
+  if (category === "exact-division") return exactDivision(r, 7, difficulty, seed);
   if (category === "fraction") {
     const denominators=difficulty===1?[2,3,4,5,6]:difficulty===2?[2,3,4,5,6,8,10]:[3,4,5,6,8,9,10,12];
     const d1=pick(r,denominators), d2=pick(r,denominators); const a=int(r,1,d1), b=int(r,1,d2);
@@ -203,6 +244,5 @@ export const generateRaceQuestion = (
     const a=int(r,2,maxFactor),b=int(r,2,maxFactor);
     return q(level,category,`${a} × ${b}`,String(a*b),difficulty,seed);
   }
-  const divisor=int(r,2,maxFactor),quotient=int(r,2,maxFactor);
-  return q(level,category,`${divisor*quotient} ÷ ${divisor}`,String(quotient),difficulty,seed);
+  return exactDivision(r, level, difficulty, seed, maxFactor);
 };
