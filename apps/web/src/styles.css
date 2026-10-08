@@ -342,3 +342,65 @@ html.reduce-motion .dice.rolling{animation:none}
 .rankings-warning{color:#814126;font-size:.84rem}
 @media(max-width:1080px){.rankings-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:610px){.rankings-grid{grid-template-columns:1fr}.ranking-card{padding:16px}.rankings-heading{align-items:start}}
+
+/* Corrige a página inicial: hero + entrada compactos em cima,
+   quatro rankings Top 10 no mesmo enquadramento de desktop, sem ocultá-los abaixo da dobra. */
+@media(min-width:1101px){
+  .portal-home{
+    max-width:1680px;
+    width:100%;
+    min-height:100dvh;
+    padding:26px clamp(20px,3vw,52px) 32px;
+    grid-template-columns:minmax(0,1.45fr) minmax(340px,.65fr);
+    align-content:center;
+    align-items:center;
+    column-gap:34px;
+    row-gap:18px;
+  }
+  .portal-intro{
+    grid-template-columns:minmax(0,1fr) minmax(165px,.42fr);
+    gap:14px;
+  }
+  .portal-copy h1{
+    font-size:clamp(2.75rem,4.15vw,4.35rem);
+    line-height:1.01;
+    margin:.12em 0 .16em;
+  }
+  .portal-badge{margin-bottom:10px}
+  .portal-lead{font-size:1.02rem;line-height:1.4}
+  .portal-points{margin-top:12px;gap:5px;font-size:.88rem}
+  .portal-points span{width:22px;height:22px}
+  .portal-visual img{width:100%;max-height:240px}
+  .login-panel{padding:22px 25px;max-width:490px}
+  .login-panel h2{font-size:1.45rem}
+  .login-panel .muted{font-size:.87rem;line-height:1.4}
+  .login-panel .stack{margin-top:14px;gap:11px}
+  .login-panel label{gap:5px}
+  .login-panel input,.login-panel select{min-height:43px;padding:9px 12px}
+  .login-panel .primary-cta{min-height:43px}
+  .home-rankings{margin-top:2px}
+  .rankings-heading{margin-bottom:10px;align-items:center}
+  .rankings-heading h2{font-size:1.55rem;margin:2px 0 3px}
+  .rankings-heading .muted{font-size:.81rem}
+  .rankings-heading .eyebrow{margin:0}
+  .rankings-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:13px}
+  .ranking-card{padding:12px 14px;border-radius:14px}
+  .ranking-card h3{font-size:.99rem}
+  .ranking-card header p{margin-bottom:7px}
+  .ranking-list{gap:0}
+  .ranking-list li{min-height:28px;padding:4px 3px;font-size:.78rem}
+  .ranking-points small{display:inline;font-size:.65rem}
+}
+@media(min-width:1101px) and (max-height:775px){
+  .portal-home{align-content:start;padding-top:13px;padding-bottom:14px;row-gap:10px}
+  .portal-copy h1{font-size:clamp(2.3rem,3.65vw,3.7rem)}
+  .portal-lead{margin:10px 0}
+  .portal-points{margin-top:8px}
+  .login-panel{padding:16px 22px}
+  .rankings-heading .muted{display:none}
+  .ranking-list li{min-height:25px;padding:2px}
+}
+@media(min-width:720px) and (max-width:1100px){
+  .portal-home{max-width:100%;padding:30px 24px;gap:22px}
+  .home-rankings{grid-column:1/-1}
+}

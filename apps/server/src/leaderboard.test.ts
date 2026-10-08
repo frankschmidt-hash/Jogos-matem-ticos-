@@ -22,6 +22,13 @@ describe("Rankings Top 10 globais",()=>{
     expect(board.record("number-race","Aluno",13,-6,14)).toBe(true);
     expect(board.snapshot()["number-race"][0]?.nickname).toBe("Aluno");
   });
+  it("recusa nicknames ofensivos no histórico público de resultados",()=>{
+    const board=new LeaderboardStore(null);
+    expect(board.record("crazy-race","P0RR4",100)).toBe(false);
+    expect(board.record("crazy-race","M3RDA",90)).toBe(false);
+    expect(board.record("crazy-race","Mestre7",100)).toBe(true);
+    expect(board.snapshot()["crazy-race"].map(row=>row.nickname)).toEqual(["Mestre7"]);
+  });
   it("recusa valores impossíveis e não devolve referências mutáveis",()=>{
     const board=new LeaderboardStore(null);
     expect(board.record("math-football","A",5)).toBe(false);
