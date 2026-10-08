@@ -11,7 +11,10 @@ export type ClientSession = {
 const KEY="jogos-matematicos-session";
 const configuredApi=import.meta.env.VITE_API_URL;
 // The production frontend and API share one host; never send player data to a build-time external URL.
-export const apiBase=import.meta.env.PROD ? "" : (configuredApi?.trim() || "http://localhost:3001");
+// The Docker build stage may use NODE_ENV=development even for a public deployment.
+// Detect local development using the browser hostname, never the compile-time PROD flag.
+const localBrowser=typeof window!=="undefined" && ["localhost","127.0.0.1","[::1]"].includes(window.location.hostname);
+export const apiBase=localBrowser ? (configuredApi?.trim() || "http://localhost:3001") : "";
 
 export const saveSession=(s:ClientSession)=>localStorage.setItem(KEY,JSON.stringify(s));
 export const loadSession=():ClientSession|null=>{
