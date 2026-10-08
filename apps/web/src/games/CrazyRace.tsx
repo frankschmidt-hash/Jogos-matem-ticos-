@@ -199,9 +199,9 @@ function RaceFinish({
   </section>;
 }
 
-function SoloRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
+function SoloRace({session,onExit,car}:{session:ClientSession;onExit:()=>void;car:CarSelection}) {
   const begin=()=>{
-    let race=createRace([{id:session.sessionId,name:session.nickname}]);
+    let race=createRace([{id:session.sessionId,name:session.nickname,...car}]);
     race=startRound(race,Date.now());
     race=submitNpcAnswers(race);
     return race;
@@ -213,13 +213,15 @@ function SoloRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
   const [correctAnswer,setCorrectAnswer]=useState<string|null>(null);
   const [submitted,setSubmitted]=useState(false);
   const [message,setMessage]=useState("");
+  const [trackQuestion,setTrackQuestion]=useState<MathQuestion|null>(null);
+  const [trackMessage,setTrackMessage]=useState("");
   const resolvedRound=useRef(0);
   const now=useNow(race.phase==="round-open");
 
   useEffect(()=>{
     if(race.phase!=="round-open"||!race.roundDeadlineAt||now<race.roundDeadlineAt||resolvedRound.current===race.round) return;
     resolvedRound.current=race.round;
-    setRace(current=>resolveRound(current,Date.now()));
+    setRace(current=>resolveNpcTrackBombs(resolveRound(current,Date.now())));
     setQuestion(null);
   },[now,race.phase,race.round,race.roundDeadlineAt]);
 
@@ -244,6 +246,15 @@ function SoloRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
     return ()=>window.clearTimeout(timer);
   },[race.phase,session.gradeLevel,session.sessionId]);
 
+  const pendingTrackBomb=race.racers.find(r=>r.id===session.sessionId)?.pendingTrackBomb??null;
+  useEffect(()=>{
+    if(pendingTrackBomb===null){setTrackQuestion(null);return;}
+    setTrackQuestion(current=>current??generateQuestion(session.gradeLevel,{
+      difficulty:pendingTrackBomb===TRACK_BOMBS[0]?1:pendingTrackBomb===TRACK_BOMBS[1]?2:3,
+      seed:"crazy-solo-track-"+session.sessionId+"-"+pendingTrackBomb+"-"+race.round
+    }));
+  },[pendingTrackBomb,session.gradeLevel,session.sessionId,race.round]);
+
   const restart=()=>{
     const next=begin();
     setRace(next);
@@ -253,6 +264,8 @@ function SoloRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
     setCorrectAnswer(null);
     setSubmitted(false);
     setMessage("");
+    setTrackQuestion(null);
+    setTrackMessage("");
     resolvedRound.current=0;
   };
 
@@ -274,6 +287,19 @@ function SoloRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
     }catch(error){
       setMessage(error instanceof Error?error.message:"Não foi possível enviar.");
     }
+  };
+
+  const submitTrack=(event:FormEvent)=>{
+    event.preventDefault();
+    if(pendingTrackBomb===null||!trackQuestion) return;
+    const input=new FormData(event.currentTarget).get("trackAnswer")?.toString()??"";
+    const correct=validateAnswer(trackQuestion,input);
+    setRace(current=>resolveTrackBomb(current,session.sessionId,correct));
+    setTrackMessage(correct
+      ?"Bomba neutralizada! Você continua a corrida."
+      :"BOOM! Resposta correta: "+trackQuestion.correctAnswer+". Você voltou ao início!");
+    setTrackQuestion(null);
+    playSound(correct?"engine":"incorrect");
   };
 
   const bomb=(direction:BombDirection)=>{
@@ -302,7 +328,7 @@ function SoloRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
       <section className="race-question-card">
         <span className="eyebrow">20 segundos</span>
         <h2>{question?.expression ?? "Processando rodada..."}</h2>
-        {race.phase==="round-open"&&question&&<form onSubmit={submit}>
+        {race.phase==="round-open"&&question&&pendingTrackBomb===null&&<form onSubmit={submit}>
           <input
             aria-label="Resposta da rodada"
             inputMode="decimal"
@@ -316,12 +342,26 @@ function SoloRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
         {feedback&&<ResultFeedback status={feedback}/>}
         {feedback==="incorrect"&&correctAnswer&&<p className="math-correction">Resposta correta: <strong>{correctAnswer}</strong></p>}
         {submitted&&<p className="race-waiting">Resposta registrada. O movimento acontece ao terminar os 20 segundos.</p>}
+         {pendingTrackBomb!==null&&<p className="bomb-warning">Bomba no km {pendingTrackBomb}! Resolva o desafio para voltar a acelerar.</p>}
+         {trackMessage&&<p className="race-waiting" role="status">{trackMessage}</p>}
         {message&&<p className="error" role="alert">{message}</p>}
       </section>
 
-      <BombControls race={race} humanId={session.sessionId} onBomb={bomb} disabled={race.phase!=="round-open"}/>
+      <BombControls race={race} humanId={session.sessionId} onBomb={bomb} disabled={race.phase!=="round-open"||pendingTrackBomb!==null}/>
     </div>
 
+    {pendingTrackBomb!==null&&trackQuestion&&<div className="bomb-overlay" role="dialog" aria-modal="true" aria-label="Desafio da bomba na pista">
+      <section className="bomb-dialog track-bomb-dialog">
+        <img src="/assets/crazy-race/math-bomb.svg" alt="Bomba da pista" />
+        <p className="eyebrow">Bomba {TRACK_BOMBS.indexOf(pendingTrackBomb as 220|440|660)+1} de 3 · {pendingTrackBomb} metros</p>
+        <h2>{trackQuestion.expression}</h2>
+        <p>Acertou: continua a corrida. Errou: explosão e volta à largada!</p>
+        <form onSubmit={submitTrack}>
+          <input autoFocus name="trackAnswer" aria-label="Resposta da bomba da pista" inputMode="decimal" required placeholder="Sua resposta"/>
+          <button>Desarmar bomba</button>
+        </form>
+      </section>
+    </div>}
     <section className="crazy-log"><h2>Últimos acontecimentos</h2><ol>{race.log.map(item=><li key={item.id}>{item.message}</li>)}</ol></section>
   </main>;
 }
