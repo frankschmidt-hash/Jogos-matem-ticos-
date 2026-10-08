@@ -621,7 +621,7 @@ function OnlineRace({session,onExit,car}:{session:ClientSession;onExit:()=>void;
         {human?.blockedRound===room.race.round&&<p className="bomb-warning">Você foi bloqueado por uma bomba de adversário nesta rodada.</p>}
         {pendingTrack!==null&&<p className="bomb-warning">Bomba da pista no km {pendingTrack}: responda para continuar.</p>}
         {trackMessage&&<p className="race-waiting" role="status">{trackMessage}</p>}
-        {bombCorrection&&<p className="math-correction">Ataque matemático — resposta correta: <strong>{bombCorrection}</strong></p>}
+        {bombCorrection&&<p className="math-correction">Bomba matemática — resposta correta: <strong>{bombCorrection}</strong></p>}
         {error&&<p className="error" role="alert">{error}</p>}
       </section>
       <BombControls race={room.race} humanId={session.sessionId} onBomb={bomb} disabled={!room.question||receivedBomb||pendingTrack!==null}/>
