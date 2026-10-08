@@ -371,13 +371,15 @@ function OnlineRace({session,onExit,car}:{session:ClientSession;onExit:()=>void;
   const [code,setCode]=useState("");
   const [error,setError]=useState("");
   const [answer,setAnswer]=useState("");
+  const [submitting,setSubmitting]=useState(false);
+  const [feedback,setFeedback]=useState<"correct"|"incorrect"|null>(null);
   const [bombQuestion,setBombQuestion]=useState<BombQuestion|null>(null);
   const [bombAnswer,setBombAnswer]=useState("");
   const [bombCorrection,setBombCorrection]=useState<string|null>(null);
   const [trackQuestion,setTrackQuestion]=useState<TrackQuestion|null>(null);
   const [trackAnswer,setTrackAnswer]=useState("");
   const [trackMessage,setTrackMessage]=useState("");
-  const now=useNow(Boolean(room?.race?.phase==="round-open"||bombQuestion),room?.serverNow);
+  const now=useNow(Boolean(room?.status==="playing"||bombQuestion),room?.serverNow);
 
   useEffect(()=>{if(room?.status==="finished") playSound("victory");},[room?.status]);
 
@@ -400,6 +402,7 @@ function OnlineRace({session,onExit,car}:{session:ClientSession;onExit:()=>void;
     const stateHandler=(next:OnlineRoom)=>{
       setRoom(next);
       if(next.race?.racers.find(r=>r.id===session.sessionId)?.pendingTrackBomb===null) setTrackQuestion(null);
+      if(next.race&&!next.race.bombTargets.includes(session.sessionId)) setBombQuestion(null);
     };
     const bombHandler=(q:BombQuestion)=>{setBombCorrection(null);setBombQuestion(q);};
     const trackHandler=(q:TrackQuestion)=>{setTrackMessage("");setTrackQuestion(q);};
@@ -462,12 +465,23 @@ function OnlineRace({session,onExit,car}:{session:ClientSession;onExit:()=>void;
   };
   const submit=(event:FormEvent)=>{
     event.preventDefault();
-    if(!room?.question) return;
+    if(!room?.question||!room.race||!answer.trim()||submitting) return;
+    const me=room.race.racers.find(r=>r.id===session.sessionId);
+    if(!me||secondsLeft(room.question.deadlineAt,now)===0) return;
+    const previous=me.correctAnswers;
+    setSubmitting(true);
     socket.emit("crazy:answer",{
       ...auth(session),code:room.code,questionId:room.question.id,answer,
       clientSubmissionId:crypto.randomUUID()
     },(response:AckResponse)=>{
-      if(applyAck(response)) setAnswer("");
+      setSubmitting(false);
+      if(applyAck(response)){
+        const after=response.room?.race?.racers.find(r=>r.id===session.sessionId);
+        const correct=(after?.correctAnswers??previous)>previous;
+        setFeedback(correct?"correct":"incorrect");
+        playSound(correct?"engine":"incorrect");
+        setAnswer("");
+      }
     });
   };
   const bomb=(direction:BombDirection)=>{
@@ -499,7 +513,7 @@ function OnlineRace({session,onExit,car}:{session:ClientSession;onExit:()=>void;
       if(applyAck(response)){
         if(response.trackCorrect!==null){
           const success=Boolean(response.trackCorrect);
-          setTrackMessage(success?"Bomba desarmada! Continue correndo.":"BOOM! Você voltou para a largada. Resposta correta: "+(response.trackCorrection??"—"));
+          setTrackMessage(success?"Bomba desarmada! Continue acertando contas.":"BOOM! Você perdeu 10 segundos. Resposta correta: "+(response.trackCorrection??"—"));
           playSound(success?"engine":"incorrect");
         }
         setTrackQuestion(null);
@@ -591,43 +605,45 @@ function OnlineRace({session,onExit,car}:{session:ClientSession;onExit:()=>void;
     </main>;
   }
 
-  const answered=room.race.answeredIds.includes(session.sessionId);
   const human=room.race.racers.find(r=>r.id===session.sessionId);
   const receivedBomb=room.race.bombTargets.includes(session.sessionId);
   const pendingTrack=human?.pendingTrackBomb??null;
+  const deadline=room.race.matchDeadlineAt==null?null:room.race.matchDeadlineAt-(human?.timePenaltyMs??0);
+  const active=room.status==="playing"&&deadline!=null&&now<deadline;
   return <main id="main-content" className="crazy-page">
     <header className="crazy-header">
       <div><p className="eyebrow">Sala {room.code} · multiplayer</p><h1>Corrida Maluca</h1></div>
       <div className="connection-pill">{socket.connected?"Conectado":"Reconectando"}</div>
     </header>
-    <RaceHud racers={room.race.racers} round={room.race.round} finishLine={room.race.finishLine} humanId={session.sessionId} deadline={room.race.roundDeadlineAt} now={now}/>
+    <RaceHud racers={room.race.racers} humanId={session.sessionId} deadline={deadline} now={now}/>
     <Track racers={room.race.racers} finishLine={room.race.finishLine} humanId={session.sessionId}/>
 
     <div className="crazy-lower">
       <section className="race-question-card">
-        <span className="eyebrow">Servidor · {secondsLeft(room.question?.deadlineAt,now)}s</span>
+        <span className="eyebrow">05:00 de corrida · {formatClock(secondsLeft(deadline,now))} restantes · contas contínuas</span>
         <h2>{room.question?.expression ?? "Processando rodada..."}</h2>
-        {room.question&&pendingTrack===null&&<form onSubmit={submit}>
-          <input aria-label="Resposta da rodada" inputMode="decimal" value={answer} onChange={e=>setAnswer(e.target.value)} disabled={answered} placeholder="Digite sua resposta"/>
-          <button disabled={answered}>{answered?"Resposta registrada":"Responder"}</button>
+        {room.question&&active&&pendingTrack===null&&<form onSubmit={submit}>
+          <input aria-label="Resposta da conta" inputMode="decimal" value={answer} onChange={e=>setAnswer(e.target.value)} disabled={submitting} placeholder="Digite sua resposta" autoFocus/>
+          <button disabled={submitting||!answer.trim()}>{submitting?"Registrando...":"Responder"}</button>
         </form>}
-        {answered&&room.question&&<p className="race-waiting">Aguardando o encerramento oficial da rodada.</p>}
-        {!room.question&&room.lastCorrectAnswer&&<p className="math-correction">Resposta correta da rodada: <strong>{room.lastCorrectAnswer}</strong></p>}
-        {human?.blockedRound===room.race.round&&<p className="bomb-warning">Você foi bloqueado por uma bomba de adversário nesta rodada.</p>}
-        {pendingTrack!==null&&<p className="bomb-warning">Bomba da pista no km {pendingTrack}: responda para continuar.</p>}
+        {!active&&<p className="race-waiting">Seu tempo terminou. Aguardando o encerramento dos cinco minutos para revelar o vencedor.</p>}
+        {feedback&&<ResultFeedback status={feedback}/>}
+
+
+        {pendingTrack!==null&&active&&<p className="bomb-warning">Bomba surpresa! Responda para voltar a acelerar.</p>}
         {trackMessage&&<p className="race-waiting" role="status">{trackMessage}</p>}
         {bombCorrection&&<p className="math-correction">Bomba matemática — resposta correta: <strong>{bombCorrection}</strong></p>}
         {error&&<p className="error" role="alert">{error}</p>}
       </section>
-      <BombControls race={room.race} humanId={session.sessionId} onBomb={bomb} disabled={!room.question||receivedBomb||pendingTrack!==null}/>
+      <BombControls race={room.race} humanId={session.sessionId} onBomb={bomb} disabled={!active||!room.question||receivedBomb||pendingTrack!==null}/>
     </div>
 
-    {pendingTrack!==null&&trackQuestion&&<div className="bomb-overlay" role="dialog" aria-modal="true" aria-label="Bomba de percurso">
+    {active&&pendingTrack!==null&&trackQuestion&&<div className="bomb-overlay" role="dialog" aria-modal="true" aria-label="Bomba de percurso">
       <section className="bomb-dialog track-bomb-dialog">
         <img src="/assets/crazy-race/math-bomb.svg" alt="Bomba de percurso"/>
-        <p className="eyebrow">Bomba de percurso · km {trackQuestion.checkpoint}</p>
+        <p className="eyebrow">Bomba surpresa {TIMED_BOMBS.indexOf(trackQuestion.checkpoint as typeof TIMED_BOMBS[number])+1} de 3</p>
         <h2>{trackQuestion.expression}</h2>
-        <p>Acertar libera a passagem; errar explode a bomba e faz você voltar à largada.</p>
+        <p>Acertou: continua a corrida. Errou: perde 10 segundos do seu relógio.</p>
         <form onSubmit={answerTrack}>
           <input autoFocus aria-label="Resposta da bomba de percurso" inputMode="decimal" value={trackAnswer}
             onChange={e=>setTrackAnswer(e.target.value)} required placeholder="Sua resposta"/>
@@ -636,7 +652,7 @@ function OnlineRace({session,onExit,car}:{session:ClientSession;onExit:()=>void;
       </section>
     </div>}
 
-    {bombQuestion&&pendingTrack===null&&<div className="bomb-overlay" role="dialog" aria-modal="true">
+    {active&&bombQuestion&&pendingTrack===null&&<div className="bomb-overlay" role="dialog" aria-modal="true">
       <section className="bomb-dialog">
         <img src="/assets/crazy-race/math-bomb.svg" alt="" />
         <p className="eyebrow">Bomba matemática recebida de um adversário</p>
