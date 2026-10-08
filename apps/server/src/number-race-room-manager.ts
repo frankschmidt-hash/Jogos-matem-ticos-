@@ -54,8 +54,8 @@ export type PublicNumberRoom={
   updatedAt:number;
 };
 
-function difficultyForRound(round:number):1|2|3{
-  return round<4?1:round<8?2:3;
+function difficultyForRound(_round:number):1|2|3{
+  return 1; // contas curtas, sem enunciados extensos
 }
 
 export class NumberRaceRoomManager{
@@ -193,6 +193,7 @@ export class NumberRaceRoomManager{
     const correct=validateAnswer(question,answer);
     const elapsed=Math.max(0,now-(room.questionStartedAt[sessionId]??now));
     room.race=answerTimedRace(room.race,sessionId,correct,elapsed,now);
+    room.race.submissions[sessionId]={racerId:sessionId,correct,responseMs:elapsed,submittedAt:now};
     this.makeNextQuestion(room,sessionId,now);
     room.question=room.questions[room.hostSessionId]??null;
     room.updatedAt=now;
