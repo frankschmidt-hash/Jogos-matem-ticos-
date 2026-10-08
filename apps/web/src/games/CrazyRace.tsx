@@ -366,21 +366,24 @@ function SoloRace({session,onExit,car}:{session:ClientSession;onExit:()=>void;ca
   </main>;
 }
 
-function OnlineRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
+function OnlineRace({session,onExit,car}:{session:ClientSession;onExit:()=>void;car:CarSelection}) {
   const socket=useMemo<Socket>(()=>io(apiBase,{transports:["websocket"],autoConnect:true}),[]);
   const [room,setRoom]=useState<OnlineRoom|null>(null);
+  const [availableRooms,setAvailableRooms]=useState<RoomListing[]>([]);
   const [mode,setMode]=useState<"menu"|"create"|"join">("menu");
-  const [password,setPassword]=useState("");
+  const [pin,setPin]=useState("");
+  const [privatePin,setPrivatePin]=useState<string|null>(()=>sessionStorage.getItem(ROOM_PIN_KEY));
   const [code,setCode]=useState("");
   const [error,setError]=useState("");
   const [answer,setAnswer]=useState("");
   const [bombQuestion,setBombQuestion]=useState<BombQuestion|null>(null);
   const [bombAnswer,setBombAnswer]=useState("");
   const [bombCorrection,setBombCorrection]=useState<string|null>(null);
-  const now=useNow(Boolean(room?.race?.phase==="round-open"),room?.serverNow);
-  const roomRef=useRef<OnlineRoom|null>(null);
+  const [trackQuestion,setTrackQuestion]=useState<TrackQuestion|null>(null);
+  const [trackAnswer,setTrackAnswer]=useState("");
+  const [trackMessage,setTrackMessage]=useState("");
+  const now=useNow(Boolean(room?.race?.phase==="round-open"||bombQuestion),room?.serverNow);
 
-  useEffect(()=>{roomRef.current=room},[room]);
   useEffect(()=>{if(room?.status==="finished") playSound("victory");},[room?.status]);
 
   const applyAck=(response:AckResponse)=>{
@@ -393,45 +396,70 @@ function OnlineRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
       sessionStorage.setItem(ROOM_KEY,response.room.code);
     }
     if(response.bombQuestion) setBombQuestion(response.bombQuestion);
+    if(response.trackQuestion) setTrackQuestion(response.trackQuestion);
     setError("");
     return true;
   };
 
   useEffect(()=>{
-    const stateHandler=(next:OnlineRoom)=>setRoom(next);
-    const bombHandler=(q:BombQuestion)=>{
-      setBombCorrection(null);
-      setBombQuestion(q);
+    const stateHandler=(next:OnlineRoom)=>{
+      setRoom(next);
+      if(next.race?.racers.find(r=>r.id===session.sessionId)?.pendingTrackBomb===null) setTrackQuestion(null);
+    };
+    const bombHandler=(q:BombQuestion)=>{setBombCorrection(null);setBombQuestion(q);};
+    const trackHandler=(q:TrackQuestion)=>{setTrackMessage("");setTrackQuestion(q);};
+    const refreshRooms=()=>{
+      socket.emit("crazy:list-rooms",{},(response:AckResponse)=>{
+        if(response.ok&&response.rooms) setAvailableRooms(response.rooms);
+      });
     };
     const connectHandler=()=>{
+      refreshRooms();
       const saved=sessionStorage.getItem(ROOM_KEY);
       if(!saved) return;
       socket.emit("crazy:reconnect-room",{...auth(session),code:saved},(response:AckResponse)=>{
-        if(response.ok&&response.room){
-          setRoom(response.room);
-          if(response.bombQuestion) setBombQuestion(response.bombQuestion);
-        }else{
+        if(response.ok&&response.room) applyAck(response);
+        else {
           sessionStorage.removeItem(ROOM_KEY);
+          sessionStorage.removeItem(ROOM_PIN_KEY);
+          setPrivatePin(null);
         }
       });
     };
     socket.on("crazy:room-state",stateHandler);
     socket.on("crazy:bomb-question",bombHandler);
+    socket.on("crazy:track-question",trackHandler);
+    socket.on("crazy:rooms-changed",refreshRooms);
     socket.on("connect",connectHandler);
     if(socket.connected) connectHandler();
+    const timer=window.setInterval(()=>{if(socket.connected) refreshRooms();},8000);
     return ()=>{
+      window.clearInterval(timer);
       socket.off("crazy:room-state",stateHandler);
       socket.off("crazy:bomb-question",bombHandler);
+      socket.off("crazy:track-question",trackHandler);
+      socket.off("crazy:rooms-changed",refreshRooms);
       socket.off("connect",connectHandler);
       socket.disconnect();
     };
   },[socket,session.sessionId,session.reconnectToken]);
 
   const create=()=>{
-    socket.emit("crazy:create-room",{...auth(session),password},(response:AckResponse)=>applyAck(response));
+    socket.emit("crazy:create-room",{...auth(session),...car},(response:AckResponse)=>{
+      if(applyAck(response)&&response.pin){
+        setPrivatePin(response.pin);
+        sessionStorage.setItem(ROOM_PIN_KEY,response.pin);
+      }
+    });
   };
   const join=()=>{
-    socket.emit("crazy:join-room",{...auth(session),code:code.trim().toUpperCase(),password},(response:AckResponse)=>applyAck(response));
+    if(!/^\d{3}$/.test(pin)){setError("Digite o PIN de três dígitos da sala.");return;}
+    socket.emit("crazy:join-room",{...auth(session),code:code.trim().toUpperCase(),pin,...car},(response:AckResponse)=>{
+      if(applyAck(response)){
+        sessionStorage.removeItem(ROOM_PIN_KEY);
+        setPrivatePin(null);
+      }
+    });
   };
   const start=()=>{
     if(!room) return;
@@ -449,13 +477,15 @@ function OnlineRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
   };
   const bomb=(direction:BombDirection)=>{
     if(!room) return;
-    socket.emit("crazy:bomb",{...auth(session),code:room.code,direction,clientSubmissionId:crypto.randomUUID()},(response:AckResponse)=>applyAck(response));
+    socket.emit("crazy:bomb",{...auth(session),code:room.code,direction,clientSubmissionId:crypto.randomUUID()},
+      (response:AckResponse)=>applyAck(response));
   };
   const answerBomb=(event:FormEvent)=>{
     event.preventDefault();
     if(!room||!bombQuestion) return;
     socket.emit("crazy:bomb-answer",{
-      ...auth(session),code:room.code,questionId:bombQuestion.id,answer:bombAnswer,clientSubmissionId:crypto.randomUUID()
+      ...auth(session),code:room.code,questionId:bombQuestion.id,answer:bombAnswer,
+      clientSubmissionId:crypto.randomUUID()
     },(response:AckResponse)=>{
       if(applyAck(response)){
         setBombCorrection(response.bombCorrection??null);
@@ -464,9 +494,28 @@ function OnlineRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
       }
     });
   };
+  const answerTrack=(event:FormEvent)=>{
+    event.preventDefault();
+    if(!room||!trackQuestion) return;
+    socket.emit("crazy:track-answer",{
+      ...auth(session),code:room.code,questionId:trackQuestion.id,answer:trackAnswer,
+      clientSubmissionId:crypto.randomUUID()
+    },(response:AckResponse)=>{
+      if(applyAck(response)){
+        if(response.trackCorrect!==null){
+          const success=Boolean(response.trackCorrect);
+          setTrackMessage(success?"Bomba desarmada! Continue correndo.":"BOOM! Você voltou para a largada. Resposta correta: "+(response.trackCorrection??"—"));
+          playSound(success?"engine":"incorrect");
+        }
+        setTrackQuestion(null);
+        setTrackAnswer("");
+      }
+    });
+  };
   const leave=()=>{
     if(room) socket.emit("crazy:leave",{...auth(session),code:room.code},()=>{});
     sessionStorage.removeItem(ROOM_KEY);
+    sessionStorage.removeItem(ROOM_PIN_KEY);
     socket.disconnect();
     onExit();
   };
@@ -475,19 +524,37 @@ function OnlineRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
     return <main id="main-content" className="crazy-shell">
       <section className="panel crazy-online-menu">
         <img src="/assets/crazy-race/race-emblem.svg" alt="" className="crazy-logo"/>
-        <p className="eyebrow">Multiplayer online</p>
-        <h1>Corrida Maluca</h1>
-        {mode==="menu"&&<div className="online-actions">
-          <button onClick={()=>setMode("create")}>Criar sala</button>
-          <button className="button-secondary" onClick={()=>setMode("join")}>Entrar em sala</button>
-          <button className="button-ghost" onClick={onExit}>Voltar</button>
-        </div>}
-        {mode!=="menu"&&<div className="stack">
-          {mode==="join"&&<label>Código da sala<input value={code} onChange={e=>setCode(e.target.value.toUpperCase())} maxLength={6}/></label>}
-          <label>Senha da sala<input type="password" value={password} onChange={e=>setPassword(e.target.value)} minLength={4} maxLength={32}/></label>
-          <button onClick={mode==="create"?create:join}>{mode==="create"?"Criar sala":"Entrar"}</button>
+        <p className="eyebrow">Multiplayer online · até 6 pilotos</p>
+        <h1>Salas da Corrida Maluca</h1>
+        {mode==="menu"&&<>
+          <div className="online-actions">
+            <button onClick={()=>setMode("create")}>Criar minha sala</button>
+            <button className="button-ghost" onClick={onExit}>Voltar à garagem</button>
+          </div>
+          <h2>Salas disponíveis</h2>
+          <p>Escolha uma sala e digite o PIN de 3 dígitos que o criador compartilhou.</p>
+          <div className="crazy-room-list" aria-live="polite">
+            {availableRooms.length===0&&<p>Nenhuma sala aberta. Crie uma para convidar outros jogadores.</p>}
+            {availableRooms.map(available=><div className="crazy-room-item" key={available.code}>
+              <div><strong>{available.hostNickname}</strong><small>Sala {available.code} · {available.occupied}/{available.max} pilotos</small></div>
+              <button className="button-secondary" onClick={()=>{setCode(available.code);setPin("");setError("");setMode("join");}}>Entrar</button>
+            </div>)}
+          </div>
+          <button className="button-ghost" onClick={()=>{setCode("");setMode("join");}}>Entrar com código</button>
+        </>}
+        {mode==="create"&&<div className="stack">
+          <p>O sistema criará uma sala e gerará um PIN secreto de três dígitos para você compartilhar.</p>
+          <button onClick={create}>Criar sala com PIN</button>
           <button className="button-ghost" onClick={()=>setMode("menu")}>Cancelar</button>
         </div>}
+        {mode==="join"&&<form className="stack" onSubmit={event=>{event.preventDefault();join();}}>
+          <label>Código da sala<input value={code} required onChange={e=>setCode(e.target.value.toUpperCase())} maxLength={6}/></label>
+          <label>PIN de 3 dígitos<input type="password" inputMode="numeric" autoComplete="off"
+            required value={pin} onChange={e=>setPin(e.target.value.replace(/\D/g,"").slice(0,3))}
+            minLength={3} maxLength={3} pattern="[0-9]{3}" placeholder="000"/></label>
+          <button type="submit">Entrar na corrida</button>
+          <button type="button" className="button-ghost" onClick={()=>setMode("menu")}>Cancelar</button>
+        </form>}
         {error&&<p className="error" role="alert">{error}</p>}
       </section>
     </main>;
@@ -497,21 +564,24 @@ function OnlineRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
     const isHost=room.hostSessionId===session.sessionId;
     return <main id="main-content" className="crazy-shell">
       <section className="panel crazy-room-lobby">
-        <p className="eyebrow">Sala privada</p>
-        <h1>Código {room.code}</h1>
-        <p>Compartilhe o código e a senha com os outros jogadores. Cada humano substituirá um NPC até o limite de 6 competidores.</p>
+        <p className="eyebrow">Sala de espera · somente o criador inicia</p>
+        <h1>Sala {room.code}</h1>
+        <p>Compartilhe o código da sala e o PIN com os convidados. Novos jogadores substituem NPCs, até completar seis carros.</p>
+        {isHost&&<div className="room-private-pin">
+          <span>PIN privado de 3 dígitos</span><strong>{privatePin??"Veja o PIN salvo ao criar a sala"}</strong>
+          {privatePin&&<button className="button-secondary" onClick={()=>void navigator.clipboard?.writeText(privatePin)}>Copiar PIN</button>}
+        </div>}
         <p><strong>Vagas:</strong> {room.capacity.occupied}/{room.capacity.max} · {room.capacity.available} disponível(is)</p>
-        <button className="button-secondary" onClick={()=>void navigator.clipboard?.writeText(room.code)}>Copiar código</button>
+        <button className="button-secondary" onClick={()=>void navigator.clipboard?.writeText(room.code)}>Copiar código da sala</button>
         <div className="room-members">
           {room.members.map(member=><div key={member.sessionId}>
             <span className={member.connected?"online-dot":"online-dot offline"}/>
-            <strong>{member.nickname}</strong>
-            <small>{member.presence==="connected"?"Conectado":member.presence==="reconnecting"?"Reconectando":member.presence==="disconnected"?"Desconectado":"Abandonou"}</small>
-            {member.sessionId===room.hostSessionId&&<small>Host</small>}
+            <strong>{member.nickname} {member.sessionId===room.hostSessionId?"(Criador)":""}</strong>
+            <small>{member.connected?"Conectado":"Desconectado"} · {CAR_LABELS[(member.carModel??"esportivo") as CarModel]}</small>
           </div>)}
         </div>
-        {isHost&&<button disabled={room.lifecycleState!=="ready"} onClick={start}>Iniciar corrida com {room.capacity.occupied} humano(s)</button>}
-        {!isHost&&<p>Aguardando o host iniciar...</p>}
+        {isHost?<button disabled={room.lifecycleState!=="ready"} onClick={start}>Iniciar partida ({room.capacity.occupied} jogador(es))</button>
+          :<p>Aguardando o criador iniciar a partida...</p>}
         <button className="button-ghost" onClick={leave}>Sair da sala</button>
         {error&&<p className="error" role="alert">{error}</p>}
       </section>
@@ -529,16 +599,12 @@ function OnlineRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
   const answered=room.race.answeredIds.includes(session.sessionId);
   const human=room.race.racers.find(r=>r.id===session.sessionId);
   const receivedBomb=room.race.bombTargets.includes(session.sessionId);
-
+  const pendingTrack=human?.pendingTrackBomb??null;
   return <main id="main-content" className="crazy-page">
     <header className="crazy-header">
-      <div>
-        <p className="eyebrow">Sala {room.code} · multiplayer</p>
-        <h1>Corrida Maluca</h1>
-      </div>
+      <div><p className="eyebrow">Sala {room.code} · multiplayer</p><h1>Corrida Maluca</h1></div>
       <div className="connection-pill">{socket.connected?"Conectado":"Reconectando"}</div>
     </header>
-
     <RaceHud racers={room.race.racers} round={room.race.round} finishLine={room.race.finishLine} humanId={session.sessionId} deadline={room.race.roundDeadlineAt} now={now}/>
     <Track racers={room.race.racers} finishLine={room.race.finishLine} humanId={session.sessionId}/>
 
@@ -546,24 +612,39 @@ function OnlineRace({session,onExit}:{session:ClientSession;onExit:()=>void}) {
       <section className="race-question-card">
         <span className="eyebrow">Servidor · {secondsLeft(room.question?.deadlineAt,now)}s</span>
         <h2>{room.question?.expression ?? "Processando rodada..."}</h2>
-        {room.question&&<form onSubmit={submit}>
-          <input inputMode="decimal" value={answer} onChange={e=>setAnswer(e.target.value)} disabled={answered} placeholder="Digite sua resposta"/>
+        {room.question&&pendingTrack===null&&<form onSubmit={submit}>
+          <input aria-label="Resposta da rodada" inputMode="decimal" value={answer} onChange={e=>setAnswer(e.target.value)} disabled={answered} placeholder="Digite sua resposta"/>
           <button disabled={answered}>{answered?"Resposta registrada":"Responder"}</button>
         </form>}
         {answered&&room.question&&<p className="race-waiting">Aguardando o encerramento oficial da rodada.</p>}
         {!room.question&&room.lastCorrectAnswer&&<p className="math-correction">Resposta correta da rodada: <strong>{room.lastCorrectAnswer}</strong></p>}
-        {human?.blockedRound===room.race.round&&<p className="bomb-warning">Você foi bloqueado por uma bomba nesta rodada.</p>}
-        {bombCorrection&&<p className="math-correction">Bomba matemática — resposta correta: <strong>{bombCorrection}</strong></p>}
+        {human?.blockedRound===room.race.round&&<p className="bomb-warning">Você foi bloqueado por uma bomba de adversário nesta rodada.</p>}
+        {pendingTrack!==null&&<p className="bomb-warning">Bomba da pista no km {pendingTrack}: responda para continuar.</p>}
+        {trackMessage&&<p className="race-waiting" role="status">{trackMessage}</p>}
+        {bombCorrection&&<p className="math-correction">Ataque matemático — resposta correta: <strong>{bombCorrection}</strong></p>}
         {error&&<p className="error" role="alert">{error}</p>}
       </section>
-
-      <BombControls race={room.race} humanId={session.sessionId} onBomb={bomb} disabled={!room.question||receivedBomb}/>
+      <BombControls race={room.race} humanId={session.sessionId} onBomb={bomb} disabled={!room.question||receivedBomb||pendingTrack!==null}/>
     </div>
 
-    {bombQuestion&&<div className="bomb-overlay" role="dialog" aria-modal="true">
+    {pendingTrack!==null&&trackQuestion&&<div className="bomb-overlay" role="dialog" aria-modal="true" aria-label="Bomba de percurso">
+      <section className="bomb-dialog track-bomb-dialog">
+        <img src="/assets/crazy-race/math-bomb.svg" alt="Bomba de percurso"/>
+        <p className="eyebrow">Bomba de percurso · km {trackQuestion.checkpoint}</p>
+        <h2>{trackQuestion.expression}</h2>
+        <p>Acertar libera a passagem; errar explode a bomba e faz você voltar à largada.</p>
+        <form onSubmit={answerTrack}>
+          <input autoFocus aria-label="Resposta da bomba de percurso" inputMode="decimal" value={trackAnswer}
+            onChange={e=>setTrackAnswer(e.target.value)} required placeholder="Sua resposta"/>
+          <button>Desarmar bomba</button>
+        </form>
+      </section>
+    </div>}
+
+    {bombQuestion&&pendingTrack===null&&<div className="bomb-overlay" role="dialog" aria-modal="true">
       <section className="bomb-dialog">
         <img src="/assets/crazy-race/math-bomb.svg" alt="" />
-        <p className="eyebrow">Bomba matemática recebida</p>
+        <p className="eyebrow">Bomba matemática recebida de um adversário</p>
         <h2>{bombQuestion.expression}</h2>
         <p>{secondsLeft(bombQuestion.deadlineAt,now)} segundos para neutralizar.</p>
         <form onSubmit={answerBomb}>
