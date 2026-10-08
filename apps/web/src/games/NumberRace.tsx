@@ -22,6 +22,7 @@ type NumberRoom={
   capacity:{max:number;occupied:number;available:number};
   serverNow:number;
   race:RoomRace|null;
+  carChoices:Record<string,CarChoice>;
   question:null|{id:string;expression:string;gradeLevel:number;difficulty:number;deadlineAt:number|null};
   lastCorrectAnswer:string|null;
   updatedAt:number;
@@ -61,7 +62,7 @@ function statsFromRacer(racer:Racer,position:number){
   };
 }
 
-function NumericTrack({racers,finishLine,humanId,carChoice}:{racers:Racer[];finishLine:number;humanId:string;carChoice:CarChoice}){
+function NumericTrack({racers,finishLine,humanId,carChoice,carChoices}:{racers:Racer[];finishLine:number;humanId:string;carChoice:CarChoice;carChoices?:Record<string,CarChoice>}){
   const ordered=[...racers].sort((a,b)=>
     b.progress-a.progress ||
     b.correctAnswers-a.correctAnswers ||
@@ -86,7 +87,7 @@ function NumericTrack({racers,finishLine,humanId,carChoice}:{racers:Racer[];fini
     <div className="number-finish-line"><span>100%</span></div>
     {ordered.map((racer,index)=>{
       const pct=Math.min(100,racer.progress/finishLine*100);
-      const car=racer.id===humanId?carChoice:opponentCar(racer.id);
+      const car=racer.id===humanId?carChoice:carChoices?.[racer.id]??opponentCar(racer.id);
       return <div className="number-lane" key={racer.id}>
         <span className="number-rank">{index+1}º</span>
         <div className={["number-car",racer.id===humanId?"number-player":"",racer.kind==="npc"?"number-npc":""].filter(Boolean).join(" ")}
@@ -182,7 +183,7 @@ function SoloNumberRace({session,onExit,carChoice}:{session:ClientSession;onExit
         setError("");
         return next;
       });
-    },1600);
+    },450);
     return ()=>window.clearTimeout(timer);
   },[race.phase,session.gradeLevel,session.sessionId]);
 
@@ -287,7 +288,7 @@ function OnlineNumberRace({session,onExit,carChoice}:{session:ClientSession;onEx
     const reconnect=()=>{
       const saved=sessionStorage.getItem(ROOM_KEY);
       if(!saved) return;
-      socket.emit("number:reconnect-room",{...auth(session),code:saved},(response:AckResponse)=>{
+      socket.emit("number:reconnect-room",{...auth(session),code:saved,carChoice},(response:AckResponse)=>{
         if(response.ok&&response.room) setRoom(response.room);
         else sessionStorage.removeItem(ROOM_KEY);
       });
@@ -302,8 +303,8 @@ function OnlineNumberRace({session,onExit,carChoice}:{session:ClientSession;onEx
     };
   },[socket,session.sessionId,session.reconnectToken]);
 
-  const create=()=>socket.emit("number:create-room",{...auth(session),password,gradeLevel:grade},(response:AckResponse)=>apply(response));
-  const join=()=>socket.emit("number:join-room",{...auth(session),code:code.trim().toUpperCase(),password},(response:AckResponse)=>apply(response));
+  const create=()=>socket.emit("number:create-room",{...auth(session),password,gradeLevel:grade,carChoice},(response:AckResponse)=>apply(response));
+  const join=()=>socket.emit("number:join-room",{...auth(session),code:code.trim().toUpperCase(),password,carChoice},(response:AckResponse)=>apply(response));
   const start=()=>{
     if(room) socket.emit("number:start",{...auth(session),code:room.code},(response:AckResponse)=>apply(response));
   };
@@ -396,7 +397,7 @@ function OnlineNumberRace({session,onExit,carChoice}:{session:ClientSession;onEx
     </header>
 
     <NumberHud race={room.race} humanId={session.sessionId} deadline={room.question?.deadlineAt??null} now={now}/>
-    <NumericTrack racers={room.race.racers} finishLine={room.race.finishLine} humanId={session.sessionId} carChoice={carChoice}/>
+    <NumericTrack racers={room.race.racers} finishLine={room.race.finishLine} humanId={session.sessionId} carChoice={carChoice} carChoices={room.carChoices}/>
 
     <div className="number-lower">
       <section className="number-question">
