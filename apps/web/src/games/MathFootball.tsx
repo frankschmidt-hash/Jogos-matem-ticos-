@@ -6,6 +6,7 @@ import {
   type PenaltyPlayer, type PenaltyTarget
 } from "@jogos/math-football";
 import { generateQuestion, validateAnswer } from "@jogos/math-engine";
+import { recordSoloResult } from "../session";
 import { HelpRules, ResultFeedback } from "@jogos/ui";
 import { apiBase, type ClientSession } from "../session";
 import { playSound } from "../experience";
@@ -132,6 +133,7 @@ function SoloFootball({
   session,skill,timeMs,onExit
 }:{session:ClientSession;skill:NpcSkill;timeMs:number;onExit:()=>void}){
   const [match,setMatch]=useState<PenaltyMatchState>(()=>makeSoloMatch(session,skill,timeMs));
+  const leaderboardRun=useRef(crypto.randomUUID());
   const [answer,setAnswer]=useState("");
   const [target,setTarget]=useState<PenaltyTarget>(4);
   const [finalReady,setFinalReady]=useState(false);
@@ -151,6 +153,9 @@ function SoloFootball({
   },[match.lastKick?.number]);
   useEffect(()=>{
     if(match.phase!=="finished"){setFinalReady(false);return;}
+    if(match.finishReason==="score") void recordSoloResult(session,"math-football",
+      match.goals[session.sessionId]??0,leaderboardRun.current,
+      -(match.errors[session.sessionId]??0)).catch(()=>{});
     const timer=window.setTimeout(()=>setFinalReady(true),2400);
     return ()=>window.clearTimeout(timer);
   },[match.phase]);
@@ -204,6 +209,7 @@ function SoloFootball({
   };
 
   const restart=()=>{
+    leaderboardRun.current=crypto.randomUUID();
     setMatch(makeSoloMatch(session,skill,timeMs));
     setAnswer("");
     setTarget(4);
