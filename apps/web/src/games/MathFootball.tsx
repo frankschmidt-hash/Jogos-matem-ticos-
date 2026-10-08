@@ -243,7 +243,7 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
   const socket=useMemo<Socket>(()=>io(apiBase,{transports:["websocket"],autoConnect:true}),[]);
   const [room,setRoom]=useState<FootballRoom|null>(null);
   const [mode,setMode]=useState<"menu"|"create"|"join">("menu");
-  const [password,setPassword]=useState("");
+  const [password,setPassword]=useState(()=>String(Math.floor(Math.random()*900)+100));
   const [code,setCode]=useState("");
   const [grade,setGrade]=useState<5|6|7|"mixed">(session.gradeLevel);
   const [answer,setAnswer]=useState("");
@@ -336,8 +336,7 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
   if(!room){
     return <main id="main-content" className="football-shell"><section className="panel football-online-menu">
       <img src="/assets/math-football/football-emblem.svg" alt="" className="football-logo"/>
-      <p className="eyebrow">Duelo online</p>
-      <h1>Futebol Matemático</h1>
+      <p className="eyebrow">Duelo online</p><h1>Futebol Matemático</h1>
       {mode==="menu"?<div className="football-online-actions">
         <button onClick={()=>setMode("create")}>Criar sala</button>
         <button className="button-secondary" onClick={()=>setMode("join")}>Entrar em sala</button>
@@ -348,10 +347,22 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
             <option value={5}>5º ano</option><option value={6}>6º ano</option><option value={7}>7º ano</option><option value="mixed">Misto</option>
           </select>
         </label>}
-        {mode==="join"&&<label>Código da sala<input value={code} onChange={e=>setCode(e.target.value.toUpperCase())} maxLength={6}/></label>}
-        <label>Senha<input type="password" value={password} onChange={e=>setPassword(e.target.value)} minLength={4} maxLength={32}/></label>
-        <button onClick={mode==="create"?create:join}>{mode==="create"?"Criar sala":"Entrar"}</button>
+        {mode==="join"&&<label>Código da sala<input value={code} onChange={e=>setCode(e.target.value.toUpperCase())} maxLength={6} placeholder="Selecione uma sala na lista"/></label>}
+        <label>Senha numérica de 3 dígitos
+          <input className="football-room-pin" inputMode="numeric" pattern="[0-9]{3}" type="text"
+            value={password} onChange={e=>setPassword(e.target.value.replace(/\D/g,"").slice(0,3))} maxLength={3} aria-label="Senha numérica de três dígitos"/>
+        </label>
+        {mode==="create"&&<p className="football-pin-hint">Compartilhe a senha com seu adversário. Ela não aparece na lista de salas.</p>}
+        <button disabled={!/^\d{3}$/.test(password)||(mode==="join"&&code.length!==6)} onClick={mode==="create"?create:join}>{mode==="create"?"Criar sala":"Entrar"}</button>
         <button className="button-ghost" onClick={()=>setMode("menu")}>Cancelar</button>
+      </div>}
+      {(mode==="menu"||mode==="join")&&<div className="football-rooms-list" aria-label="Salas abertas para jogar">
+        <strong>Salas disponíveis</strong>
+        {rooms.length===0?<p>Nenhuma sala disponível no momento. Você pode criar uma.</p>:rooms.map(item=><div className="football-room-list-item" key={item.code}>
+          <div><strong>{item.hostName}</strong><small style={{display:"block"}}>Sala {item.code} · {item.players}/{item.capacity} jogadores</small></div>
+          <button className="button-secondary" onClick={()=>{setCode(item.code);setMode("join");}}>Selecionar</button>
+        </div>)}
+        <button className="button-ghost" onClick={fetchRooms}>Atualizar salas</button>
       </div>}
       {error&&<p className="error">{error}</p>}
     </section></main>;
@@ -362,9 +373,10 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
     return <main id="main-content" className="football-shell"><section className="panel football-room-lobby">
       <p className="eyebrow">Sala privada · 2 jogadores</p>
       <h1>{room.code}</h1>
+      {isHost&&<p>Senha para convidar: <strong className="football-room-pin">{password}</strong></p>}
       <p>Nível: <strong>{room.gradeLevel==="mixed"?"Misto":room.gradeLevel+"º ano"}</strong></p>
       <p><strong>Vagas:</strong> {room.capacity.occupied}/{room.capacity.max} · {room.capacity.available} disponível(is)</p>
-      <button className="button-secondary" onClick={()=>void navigator.clipboard?.writeText(room.code)}>Copiar código</button>
+      <div className="football-room-actions"><button className="button-secondary" onClick={()=>void navigator.clipboard?.writeText(room.code)}>Copiar código</button>{isHost&&<button className="button-secondary" onClick={()=>void navigator.clipboard?.writeText(password)}>Copiar senha</button>}</div>
       <div className="football-members">
         {room.members.map(member=><div key={member.sessionId}>
           <span className={member.connected?"online-dot":"online-dot offline"}/>
@@ -431,7 +443,7 @@ export function MathFootball({session}:{session:ClientSession}){
     <img src="/assets/math-football/football-emblem.svg" alt="" className="football-logo"/>
     <p className="eyebrow">Matemática decide a cobrança</p>
     <h1>Futebol Matemático</h1>
-    <p>Resolva a conta antes do chute. Acertou: gol. Errou: o goleiro defende. A disputa segue as regras de uma série de pênaltis.</p>
+    <p>Escolha um dos nove setores do gol e resolva a conta. Acertou: gol com o goleiro indo para outra direção. Errou: defesa do goleiro. A disputa segue as regras de uma série de pênaltis.</p>
     <div className="football-options">
       <label>Nível do NPC
         <select value={skill} onChange={e=>setSkill(e.target.value as NpcSkill)}>
@@ -449,7 +461,7 @@ export function MathFootball({session}:{session:ClientSession}){
     </div>
     <div className="football-mode-grid">
       <button onClick={()=>setMode("solo")}><strong>Contra NPC</strong><span>Treino individual</span></button>
-      <button onClick={()=>setMode("online")}><strong>Jogador × Jogador</strong><span>Sala com código e senha</span></button>
+      <button onClick={()=>setMode("online")}><strong>Jogador × Jogador</strong><span>Salas disponíveis e senha de 3 dígitos</span></button>
     </div>
     <HelpRules>
       <ul>
