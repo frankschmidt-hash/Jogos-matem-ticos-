@@ -41,6 +41,20 @@ function Athlete({keeper=false,celebrating=false,disappointed=false}:{
       <path d="M49 44 Q46 6 78 5 Q113 0 118 34 L113 44 Q107 29 98 28 Q78 36 62 28Z" fill="#281c1d"/>
       <path d="M49 39 Q40 15 60 12 L63 32 M73 12 Q85 -1 100 18" stroke="#1c1316" strokeWidth="9" fill="none"/>
     </g>
+    <g aria-hidden="true" fill="none" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M56 81 Q77 92 111 80 M48 144 Q82 154 117 145 M53 174 Q84 180 113 170" stroke={keeper?"#b4c8d5":"#fff6a0"} strokeWidth="2" opacity=".48"/>
+      <path d="M53 85 Q64 106 61 137 M110 84 Q105 107 111 142 M61 157 Q73 166 82 162 M93 163 L108 160" stroke="#071e32" strokeWidth="2" opacity=".35"/>
+      <path d="M56 181 Q61 196 54 212 M111 179 Q111 200 115 218" stroke="#eff8ff" strokeWidth="2" opacity=".38"/>
+      <path d="M43 225 L58 227 M107 224 L122 224" stroke={keeper?"#88c9ff":"#147943"} strokeWidth="4" opacity=".85"/>
+      <path d="M24 245 L57 245 M112 246 L138 247" stroke="#ffffff" strokeWidth="1.7" opacity=".85"/>
+      <path d="M72 43 L78 42 M93 42 L99 43" stroke="#251b1c" strokeWidth="3"/>
+      <path d="M74 59 Q83 64 93 58" stroke="#9d5947" strokeWidth="2" opacity=".75"/>
+    </g>
+    <g aria-hidden="true">
+      <path d="M55 79 L64 77 L59 97 L51 104Z M112 78 L119 88 L125 100 L113 99Z" fill={keeper?"#71889a":"#167643"} opacity=".95"/>
+      <path d="M65 154 Q83 159 106 154" fill="none" stroke={keeper?"#14283f":"#11458b"} strokeWidth="3" opacity=".65"/>
+      <path d="M66 86 Q81 93 98 88" fill="none" stroke="#ffffff" strokeWidth="1.6" opacity=".48"/>
+    </g>
     {disappointed&&!keeper&&<g stroke="#152538" strokeLinecap="round" strokeWidth="10" fill="none"><path d="M17 143 Q16 95 56 31" stroke="#d59a62"/><circle cx="56" cy="31" r="7" fill="#d59a62" stroke="none"/></g>}
     {celebrating&&!keeper&&<g stroke="#e8ad70" strokeWidth="12" fill="none" strokeLinecap="round"><path d="M148 146 L139 73 L148 20"/></g>}
     {keeper?<g fill="#f5faff"><circle cx="72" cy="47" r="3"/><circle cx="97" cy="47" r="3"/><path d="M75 62 Q83 66 92 62" stroke="#713d38" strokeWidth="2" fill="none"/><text x="80" y="128" textAnchor="middle" fontSize="29" fontWeight="900" fill="white">1</text></g>
