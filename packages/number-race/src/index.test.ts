@@ -9,6 +9,7 @@ const race=()=>createNumberRace([{id:"h1",name:"Aluno"}]);
 
 describe("Corrida Numérica",()=>{
   it("usa cronômetro de 10 segundos",()=>{
+    expect(ROUND_DURATION_MS).toBe(10_000);
     const s=startRound(race(),1000);
     expect(s.roundDeadlineAt!-s.roundStartedAt!).toBe(ROUND_DURATION_MS);
   });
@@ -70,6 +71,7 @@ describe("Corrida Numérica",()=>{
     for(const skill of ["beginner","intermediate","advanced"] as const){
       const d=npcDecision(skill,()=>0.4);
       expect(d.responseMs).toBeGreaterThanOrEqual(1600);
+      expect(d.responseMs).toBeLessThan(ROUND_DURATION_MS);
     }
   });
 
