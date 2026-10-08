@@ -178,3 +178,31 @@ export const generateQuestion = (grade: GradeLevel, options: {difficulty?: Diffi
   if (concrete === 6) return grade6(r,difficulty,seed);
   return grade7(r,difficulty,seed);
 };
+
+/** Contas diretas da Corrida Maluca: apenas +, -, × e ÷, sem problemas escritos. */
+export const generateRaceQuestion = (
+  grade: GradeLevel, options: {difficulty?: Difficulty; seed?: string} = {}
+): MathQuestion => {
+  const difficulty=options.difficulty??1;
+  const seed=options.seed;
+  const r=seed?seededRandom(seed):Math.random;
+  const level:ConcreteGradeLevel=grade==="mixed"?pick(r,[5,6,7] as const):grade;
+  const category=pick(r,["addition","subtraction","multiplication","exact-division"] as const);
+  const base=level===5?25:level===6?40:60;
+  const limit=base+(difficulty-1)*20;
+  const maxFactor=Math.min(12,(level===5?8:level===6?9:10)+(difficulty-1)*2);
+  if(category==="addition"){
+    const a=int(r,1,limit),b=int(r,1,limit);
+    return q(level,category,`${a} + ${b}`,String(a+b),difficulty,seed);
+  }
+  if(category==="subtraction"){
+    const a=int(r,2,limit),b=int(r,0,a);
+    return q(level,category,`${a} - ${b}`,String(a-b),difficulty,seed);
+  }
+  if(category==="multiplication"){
+    const a=int(r,2,maxFactor),b=int(r,2,maxFactor);
+    return q(level,category,`${a} × ${b}`,String(a*b),difficulty,seed);
+  }
+  const divisor=int(r,2,maxFactor),quotient=int(r,2,maxFactor);
+  return q(level,category,`${divisor*quotient} ÷ ${divisor}`,String(quotient),difficulty,seed);
+};
