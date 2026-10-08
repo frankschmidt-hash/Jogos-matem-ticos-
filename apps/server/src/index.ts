@@ -172,44 +172,39 @@ const scheduleRaceRound=(code:string)=>{
 const emitNumberState=(code:string)=>{
   const room=numberRooms.getRoom(code);
   if(!room) return;
-  io.to("number:"+code).emit("number:room-state",numberRooms.publicSnapshot(code));
+  // Cada aluno recebe somente a própria conta; o placar permanece compartilhado.
+  for(const member of room.members){
+    const socketId=sessionSockets.get(member.sessionId);
+    if(socketId) io.to(socketId).emit("number:room-state",numberRooms.publicSnapshot(code,member.sessionId));
+  }
 };
 
 const scheduleNumberRound=(code:string)=>{
   const room=numberRooms.getRoom(code);
-  const deadline=room?.race?.roundDeadlineAt;
+  const deadline=room?.race?.matchDeadlineAt;
   if(!room || room.status!=="playing" || deadline===null || deadline===undefined) return;
   const old=numberRaceTimers.get(code);
   if(old) clearTimeout(old);
 
-  const delay=Math.max(0,deadline-Date.now()+25);
+  // Avança NPCs a cada 6s, com término exato em 05:00 para todos os alunos.
+  const delay=Math.max(0,Math.min(6000,deadline-Date.now()+25));
   const timer=setTimeout(()=>{
     try{
-      const resolved=numberRooms.finalizeRound(code,Date.now());
-      emitNumberState(code);
-      if(resolved.status==="playing" && resolved.race?.phase==="round-resolution"){
-        const next=setTimeout(()=>{
-          try{
-            numberRooms.openNextRound(code,Date.now());
-            emitNumberState(code);
-            scheduleNumberRound(code);
-          }catch(error){
-            app.log.error({err:error,code},"Falha ao abrir próxima rodada da Corrida Numérica");
-          }
-        },450);
-        numberRaceTimers.set(code,next);
-      }else{
+      if(Date.now()>=deadline){
+        numberRooms.finalizeRound(code,Date.now());
         numberRaceTimers.delete(code);
+      }else{
+        numberRooms.updateNpcProgress(code,Date.now());
       }
+      emitNumberState(code);
+      if(numberRooms.getRoom(code)?.status==="playing") scheduleNumberRound(code);
     }catch(error){
-      app.log.error({err:error,code},"Falha ao finalizar rodada da Corrida Numérica");
+      app.log.error({err:error,code},"Falha na Corrida Numérica de cinco minutos");
       numberRaceTimers.delete(code);
     }
   },delay);
   numberRaceTimers.set(code,timer);
 };
-
-
 
 const emitPropertyRooms=()=>io.emit("property:rooms",propertyRooms.listWaiting());
 const emitPropertyState=(code:string)=>{
@@ -476,7 +471,7 @@ io.on("connection", socket => {
       socket.data.numberCode=room.code;
       socket.data.sessionId=session.sessionId;
       void socket.join("number:"+room.code);
-      ack?.({ok:true,room:numberRooms.publicSnapshot(room.code)});
+      ack?.({ok:true,room:numberRooms.publicSnapshot(room.code,session.sessionId)});
     }catch(error){
       ack?.({ok:false,error:errorMessage(error)});
     }
@@ -497,7 +492,7 @@ io.on("connection", socket => {
       socket.data.sessionId=session.sessionId;
       void socket.join("number:"+room.code);
       emitNumberState(room.code);
-      ack?.({ok:true,room:numberRooms.publicSnapshot(room.code)});
+      ack?.({ok:true,room:numberRooms.publicSnapshot(room.code,session.sessionId)});
     }catch(error){
       ack?.({ok:false,error:errorMessage(error)});
     }
@@ -513,7 +508,7 @@ io.on("connection", socket => {
       socket.data.numberCode=room.code;
       socket.data.sessionId=session.sessionId;
       void socket.join("number:"+room.code);
-      ack?.({ok:true,room:numberRooms.publicSnapshot(room.code)});
+      ack?.({ok:true,room:numberRooms.publicSnapshot(room.code,session.sessionId)});
       emitNumberState(room.code);
     }catch(error){
       ack?.({ok:false,error:errorMessage(error)});
@@ -528,7 +523,7 @@ io.on("connection", socket => {
       const room=numberRooms.startRoom(parsed.data.code.toUpperCase(),session.sessionId);
       emitNumberState(room.code);
       scheduleNumberRound(room.code);
-      ack?.({ok:true,room:numberRooms.publicSnapshot(room.code)});
+      ack?.({ok:true,room:numberRooms.publicSnapshot(room.code,session.sessionId)});
     }catch(error){
       ack?.({ok:false,error:errorMessage(error)});
     }
@@ -539,12 +534,18 @@ io.on("connection", socket => {
     if(!parsed.success) return ack?.({ok:false,error:"Resposta inválida."});
     try{
       const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
+      const before=numberRooms.getRoom(parsed.data.code.toUpperCase())?.race?.racers.find(r=>r.id===session.sessionId);
+      const correctBefore=before?.correctAnswers??0;
+      const errorBefore=before?.errors??0;
       const room=numberRooms.submitAnswer(
         parsed.data.code.toUpperCase(),session.sessionId,parsed.data.questionId,
         parsed.data.answer,parsed.data.clientSubmissionId
       );
+      const after=room.race?.racers.find(r=>r.id===session.sessionId);
       emitNumberState(room.code);
-      ack?.({ok:true,room:numberRooms.publicSnapshot(room.code)});
+      ack?.({ok:true,room:numberRooms.publicSnapshot(room.code,session.sessionId),
+        answerCorrect:(after?.correctAnswers??0)>correctBefore,
+        answerRecorded:(after?.correctAnswers??0)>correctBefore || (after?.errors??0)>errorBefore});
     }catch(error){
       ack?.({ok:false,error:errorMessage(error)});
     }
@@ -559,7 +560,7 @@ io.on("connection", socket => {
       const room=numberRooms.leaveRoom(parsed.data.code.toUpperCase(),session.sessionId);
       void socket.leave("number:"+parsed.data.code.toUpperCase());
       if(room) emitNumberState(room.code);
-      ack?.({ok:true,room:room?numberRooms.publicSnapshot(room.code):null});
+      ack?.({ok:true,room:room?numberRooms.publicSnapshot(room.code,session.sessionId):null});
     }catch(error){
       ack?.({ok:false,error:errorMessage(error)});
     }
@@ -571,7 +572,7 @@ io.on("connection", socket => {
     try{
       const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
       numberRooms.reconnect(parsed.data.code.toUpperCase(),session.sessionId);
-      ack?.({ok:true,room:numberRooms.publicSnapshot(parsed.data.code.toUpperCase())});
+      ack?.({ok:true,room:numberRooms.publicSnapshot(parsed.data.code.toUpperCase(),session.sessionId)});
     }catch(error){
       ack?.({ok:false,error:errorMessage(error)});
     }
