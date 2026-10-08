@@ -3,15 +3,24 @@
   "private": true,
   "version": "0.1.0",
   "packageManager": "npm@10.9.2",
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "npm run dev -w @jogos/server & npm run dev -w @jogos/web",
     "build": "npm run build -ws --if-present",
     "test": "npm run test -ws --if-present",
-    "typecheck": "npm run typecheck -ws --if-present"
+    "typecheck": "npm run typecheck -ws --if-present",
+    "start": "npm run start -w @jogos/server",
+    "release:check": "npm run typecheck && npm test && npm run build && node scripts/release-audit.mjs"
   },
   "devDependencies": {
     "typescript": "^5.8.3",
-    "vitest": "^3.2.4"
+    "vitest": "^4.1.11",
+    "vite": "7.3.7"
+  },
+  "overrides": {
+    "vite": "7.3.7"
   }
 }

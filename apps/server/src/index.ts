@@ -1,5 +1,8 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import helmet from "@fastify/helmet";
+import fastifyStatic from "@fastify/static";
+import { fileURLToPath } from "node:url";
 import { Server } from "socket.io";
 import {
   claimNicknameSchema, crazyAnswerSchema, crazyBombAnswerSchema, crazyBombSchema,
@@ -15,9 +18,29 @@ import { FootballRoomManager } from "./football-room-manager";
 import { roomInfrastructure } from "./room-infrastructure";
 import { pruneMissingTimers } from "./timer-registry";
 
-const app = Fastify({ logger: true, bodyLimit: 16_384 });
+const app = Fastify({ logger: true, bodyLimit: 16_384, trustProxy:true });
 const allowedOrigins=(process.env.WEB_ORIGIN ?? "http://localhost:5173").split(",").map(x=>x.trim()).filter(Boolean);
 await app.register(cors, { origin: allowedOrigins, methods:["GET","POST"] });
+await app.register(helmet,{
+  contentSecurityPolicy:{
+    directives:{
+      defaultSrc:["'self'"],
+      baseUri:["'self'"],
+      objectSrc:["'none'"],
+      frameAncestors:["'none'"],
+      imgSrc:["'self'","data:"],
+      scriptSrc:["'self'"],
+      styleSrc:["'self'","'unsafe-inline'"],
+      connectSrc:["'self'","ws:","wss:"]
+    }
+  }
+});
+
+const serveWeb=process.env.SERVE_WEB==="true";
+if(serveWeb){
+  const webRoot=fileURLToPath(new URL("../../web/dist",import.meta.url));
+  await app.register(fastifyStatic,{root:webRoot,prefix:"/"});
+}
 
 const manager = new SessionManager(
   Number(process.env.SESSION_RECONNECT_GRACE_MS ?? 30_000),
@@ -32,8 +55,15 @@ app.get("/health", async () => ({ ok:true, service:"jogos-matematicos-server" })
 app.post("/api/session/claim", async (request, reply) => {
   const parsed = claimNicknameSchema.safeParse(request.body);
   if (!parsed.success) return reply.code(400).send({ok:false,error:"Dados de entrada inválidos."});
-  try { return {ok:true, session:manager.claim(parsed.data.nickname, parsed.data.gradeLevel)}; }
-  catch (error) { return reply.code(409).send({ok:false,error:error instanceof Error?error.message:"Não foi possível entrar."}); }
+  try {
+    roomInfrastructure.assertActionRate("session-claim",request.ip,Date.now(),20,60_000);
+    return {ok:true, session:manager.claim(parsed.data.nickname, parsed.data.gradeLevel)};
+  }
+  catch (error) {
+    const message=error instanceof Error?error.message:"Não foi possível entrar.";
+    const status=/Muitas ações/i.test(message)?429:409;
+    return reply.code(status).send({ok:false,error:message});
+  }
 });
 
 app.post("/api/session/heartbeat", async (request, reply) => {
@@ -665,6 +695,15 @@ setInterval(() => {
   pruneMissingTimers(footballKickTimers,code=>Boolean(footballRooms.getRoom(code)),timer=>clearTimeout(timer));
   roomInfrastructure.cleanup();
 }, 15_000).unref();
+
+if(serveWeb){
+  app.setNotFoundHandler((request,reply)=>{
+    if(request.method==="GET" && request.headers.accept?.includes("text/html")){
+      return reply.type("text/html; charset=utf-8").sendFile("index.html");
+    }
+    return reply.code(404).send({ok:false,error:"Rota não encontrada."});
+  });
+}
 
 const port=Number(process.env.PORT ?? 3001);
 await app.listen({port,host:"0.0.0.0"});
