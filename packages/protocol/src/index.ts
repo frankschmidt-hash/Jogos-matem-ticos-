@@ -73,18 +73,20 @@ export const numberAnswerSchema=numberRoomActionSchema.extend({
 });
 
 
+const footballPinSchema=z.string().regex(/^\d{3}$/);
 export const footballCreateRoomSchema=heartbeatSchema.extend({
-  password:roomPasswordSchema,
+  password:footballPinSchema,
   gradeLevel:gradeLevelSchema
 });
 export const footballJoinRoomSchema=heartbeatSchema.extend({
   code:roomCodeSchema,
-  password:roomPasswordSchema
+  password:footballPinSchema
 });
 export const footballRoomActionSchema=heartbeatSchema.extend({
   code:roomCodeSchema
 });
 export const footballAnswerSchema=footballRoomActionSchema.extend({
+  target:z.number().int().min(0).max(8),
   questionId:z.string().min(3).max(160),
   answer:z.string().min(1).max(64),
   clientSubmissionId:clientSubmissionIdSchema
