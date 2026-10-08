@@ -4,7 +4,7 @@ import { crazyBombSchema, numberAnswerSchema } from "@jogos/protocol";
 import { CrazyRaceRoomManager } from "./crazy-race-room-manager";
 import { FootballRoomManager } from "./football-room-manager";
 import { NumberRaceRoomManager } from "./number-race-room-manager";
-import { NETWORK_GRACE_MS, RECONNECT_GRACE_MS, ROOM_TTL_MS, RoomInfrastructure } from "./room-infrastructure";
+import { RECONNECT_GRACE_MS, ROOM_TTL_MS, RoomInfrastructure } from "./room-infrastructure";
 import { SessionManager } from "./session-manager";
 
 const crazyHost={sessionId:"crazy-host-01",nickname:"Host",gradeLevel:6 as const,connected:true};
@@ -66,22 +66,19 @@ describe("Prompt 06 multiplayer consolidado",()=>{
     expect(room.race?.racers.length).toBe(before);
   });
 
-  it("aceita pequena tolerância de rede, mas rejeita resposta realmente atrasada",()=>{
+  it("relógio de cinco minutos rejeita envio após o fim para todos",()=>{
     const manager=new NumberRaceRoomManager(new RoomInfrastructure());
     const room=manager.createRoom(numberHost,"1234",6,0);
     manager.startRoom(room.code,numberHost.sessionId,1000);
     const q=manager.publicSnapshot(room.code).question!;
-    expect(()=>manager.submitAnswer(
-      room.code,numberHost.sessionId,q.id,"0","grace-submit-01",q.deadlineAt!+NETWORK_GRACE_MS
-    )).not.toThrow();
+    expect(q.deadlineAt).toBe(301000);
+    expect(()=>manager.submitAnswer(room.code,numberHost.sessionId,q.id,"0","early-submit-01",300999)).not.toThrow();
 
     const other=new NumberRaceRoomManager(new RoomInfrastructure());
     const room2=other.createRoom({...numberHost,sessionId:"number-host-02"},"1234",6,0);
     other.startRoom(room2.code,"number-host-02",1000);
     const q2=other.publicSnapshot(room2.code).question!;
-    expect(()=>other.submitAnswer(
-      room2.code,"number-host-02",q2.id,"0","late-submit-01",q2.deadlineAt!+NETWORK_GRACE_MS+1
-    )).toThrow(/tempo/i);
+    expect(()=>other.submitAnswer(room2.code,"number-host-02",q2.id,"0","late-submit-01",301001)).toThrow(/tempo/i);
   });
 
   it("mensagem de resposta duplicada é idempotente",()=>{
