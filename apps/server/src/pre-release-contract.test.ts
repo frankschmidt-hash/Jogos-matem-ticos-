@@ -28,8 +28,8 @@ describe("Prompt 08 pre-release contracts",()=>{
 
   it("mantém feedback de rodada legível antes de reiniciar",()=>{
     expect(web("src/games/CrazyRace.tsx")).toContain('},1600);');
-    // Corrida Numérica: 10s de conta + transição curta de 450ms, sem bloquear a próxima questão.
-    expect(web("src/games/NumberRace.tsx")).toContain('},450);');
+    // Corrida Numérica: questões imediatas durante os cinco minutos.
+    expect(web("src/games/NumberRace.tsx")).toContain("questionNumber.current+=1");
     expect(web("src/games/MathFootball.tsx")).toContain('},2600);');
   });
 
@@ -56,7 +56,7 @@ describe("Prompt 08 pre-release contracts",()=>{
     expect(crazy).toContain("Resposta correta da rodada:");
     expect(crazy).toContain("Bomba matemática — resposta correta:");
     expect(number).toContain("Resposta correta:");
-    expect(number).toContain("Resposta correta da rodada:");
+    expect(number).toContain("Errou. Continue na próxima conta.");
     expect(football).toContain("Resposta correta:");
   });
 

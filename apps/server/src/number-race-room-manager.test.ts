@@ -62,7 +62,8 @@ describe("NumberRaceRoomManager",()=>{
     const room=manager.createRoom(host,"1234",6,0);
     manager.startRoom(room.code,host.sessionId,1000);
     const snap=manager.publicSnapshot(room.code);
-    expect(snap.question?.deadlineAt).toBe(11000);
+    expect(snap.question?.deadlineAt).toBe(301000);
+    expect(snap.race?.matchDeadlineAt).toBe(301000);
     expect(snap.question?.expression.length).toBeGreaterThan(0);
   });
 
@@ -71,7 +72,7 @@ describe("NumberRaceRoomManager",()=>{
     const room=manager.createRoom(host,"1234",6,0);
     manager.startRoom(room.code,host.sessionId,1000);
     const q=manager.publicSnapshot(room.code).question!;
-    expect(()=>manager.submitAnswer(room.code,host.sessionId,q.id,"0","submit-0001",12000)).toThrow(/tempo/i);
+    expect(()=>manager.submitAnswer(room.code,host.sessionId,q.id,"0","submit-0001",301001)).toThrow(/tempo/i);
   });
 
   it("clientSubmissionId repetido é idempotente",()=>{
@@ -93,17 +94,46 @@ describe("NumberRaceRoomManager",()=>{
     expect(room.members[0]!.connected).toBe(true);
   });
 
-  it("finaliza, libera correção somente depois do deadline e abre próxima rodada",()=>{
+  it("questões particulares avançam imediatamente, sem aguardar outro jogador",()=>{
+    const manager=new NumberRaceRoomManager();
+    const room=manager.createRoom(host,"1234",5,0);
+    manager.joinRoom(room.code,"1234",guest(1),2);
+    manager.startRoom(room.code,host.sessionId,1000);
+    const first=manager.publicSnapshot(room.code,host.sessionId).question!;
+    const guestFirst=manager.publicSnapshot(room.code,guest(1).sessionId).question!;
+    expect(guestFirst.id).not.toBe(first.id);
+    const expected=room.questions[host.sessionId]!.correctAnswer;
+    manager.submitAnswer(room.code,host.sessionId,first.id,expected,"correct-one",2000);
+    const second=manager.publicSnapshot(room.code,host.sessionId).question!;
+    expect(second.id).not.toBe(first.id);
+    expect(manager.publicSnapshot(room.code,guest(1).sessionId).question!.id).toBe(guestFirst.id);
+    expect(room.race?.racers.find(r=>r.id===host.sessionId)?.correctAnswers).toBe(1);
+    expect(room.race?.racers.find(r=>r.id===host.sessionId)?.progress).toBe(100);
+    manager.submitAnswer(room.code,host.sessionId,second.id,"-99999","incorrect-two",3000);
+    expect(room.race?.racers.find(r=>r.id===host.sessionId)?.progress).toBe(100);
+    expect(room.race?.racers.find(r=>r.id===host.sessionId)?.errors).toBe(1);
+  });
+
+  it("NPCs competem sem bloquear o cronômetro",()=>{
     const manager=new NumberRaceRoomManager();
     const room=manager.createRoom(host,"1234",5,0);
     manager.startRoom(room.code,host.sessionId,1000);
-    expect(manager.publicSnapshot(room.code).lastCorrectAnswer).toBeNull();
-    manager.finalizeRound(room.code,11000);
-    expect(room.race?.phase).toBe("round-resolution");
-    expect(manager.publicSnapshot(room.code).lastCorrectAnswer).toBeTruthy();
-    manager.openNextRound(room.code,12000);
-    expect(room.race?.round).toBe(2);
-    expect(room.race?.roundDeadlineAt).toBe(22000);
-    expect(manager.publicSnapshot(room.code).lastCorrectAnswer).toBeNull();
+    manager.updateNpcProgress(room.code,7000);
+    const npc=room.race?.racers.filter(r=>r.kind==="npc")??[];
+    expect(npc.every(r=>r.correctAnswers+r.errors===1)).toBe(true);
+    expect(room.race?.matchDeadlineAt).toBe(301000);
   });
+
+  it("finaliza somente após 5 minutos, sem começar novas rodadas",()=>{
+    const manager=new NumberRaceRoomManager();
+    const room=manager.createRoom(host,"1234",5,0);
+    manager.startRoom(room.code,host.sessionId,1000);
+    expect(()=>manager.finalizeRound(room.code,300999)).toThrow(/ainda não terminou/i);
+    manager.finalizeRound(room.code,301000);
+    expect(room.race?.phase).toBe("finished");
+    expect(room.status).toBe("finished");
+    expect(manager.publicSnapshot(room.code).question).toBeNull();
+    expect(()=>manager.openNextRound(room.code,302000)).toThrow(/individuais/i);
+  });
+
 });

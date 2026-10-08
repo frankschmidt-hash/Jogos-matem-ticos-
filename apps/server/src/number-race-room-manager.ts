@@ -4,7 +4,7 @@ import {
   type RoomLifecycleState, type StoredPassword
 } from "./room-infrastructure";
 import {
-  createNumberRace, resolveRound, startRound, submitAnswer, submitNpcAnswers,
+  createNumberRace, startTimedRace, answerTimedRace, finishTimedRace, tickTimedNpcs,
   type NumberRaceState
 } from "@jogos/number-race";
 import { generateQuestion, validateAnswer, type GradeLevel, type MathQuestion } from "@jogos/math-engine";
@@ -22,7 +22,10 @@ export type NumberRoom=LifecycleCarrier & {
   carChoices:Record<string,NumberCarChoice>;
   status:"waiting"|"playing"|"finished";
   race:NumberRaceState|null;
-  question:MathQuestion|null;
+  question:MathQuestion|null; // compatibilidade com auditorias administrativas
+  questions:Record<string,MathQuestion>;
+  questionStartedAt:Record<string,number>;
+  questionNumbers:Record<string,number>;
   lastCorrectAnswer:string|null;
   createdAt:number;
   updatedAt:number;
@@ -51,8 +54,8 @@ export type PublicNumberRoom={
   updatedAt:number;
 };
 
-function difficultyForRound(round:number):1|2|3{
-  return round<4?1:round<8?2:3;
+function difficultyForRound(_round:number):1|2|3{
+  return 1; // contas curtas, sem enunciados extensos
 }
 
 export class NumberRaceRoomManager{
@@ -67,7 +70,9 @@ export class NumberRaceRoomManager{
     const member=this.infra.createMember(host,now);
     const room:NumberRoom={
       code,password:this.infra.createPassword(password),hostSessionId:member.sessionId,gradeLevel,
-      members:[member],carChoices:carChoice?{[member.sessionId]:carChoice}:{},status:"waiting",race:null,question:null,lastCorrectAnswer:null,
+      members:[member],carChoices:carChoice?{[member.sessionId]:carChoice}:{},
+       questions:{},questionStartedAt:{},questionNumbers:{},
+       status:"waiting",race:null,question:null,lastCorrectAnswer:null,
       lifecycleState:"ready",lifecycleHistory:["ready"],createdAt:now,updatedAt:now
     };
     this.rooms.set(code,room);
@@ -153,24 +158,24 @@ export class NumberRaceRoomManager{
     if(humans.length<1) throw new Error("Nenhum jogador conectado.");
 
     this.infra.transition(room,"countdown");
-    room.race=createNumberRace(humans.map(m=>({id:m.sessionId,name:m.nickname})));
+    room.race=startTimedRace(createNumberRace(humans.map(m=>({id:m.sessionId,name:m.nickname}))),now);
     room.status="playing";
     this.infra.transition(room,"playing");
     room.updatedAt=now;
-    this.openRound(room,now);
+    for(const member of humans) this.makeNextQuestion(room,member.sessionId,now);
+    room.question=room.questions[room.hostSessionId]??null;
     return room;
   }
 
-  private openRound(room:NumberRoom,now:number):void{
-    if(!room.race||room.race.phase==="finished") return;
-    room.race=startRound(room.race,now);
-    room.race=submitNpcAnswers(room.race);
-    room.lastCorrectAnswer=null;
-    room.question=generateQuestion(room.gradeLevel,{
-      difficulty:difficultyForRound(room.race.round),
-      seed:"number:"+room.code+":round:"+room.race.round
+  /** Questões individuais: cada aluno continua no próprio ritmo, sem esperar os demais. */
+  private makeNextQuestion(room:NumberRoom,sessionId:string,now:number):void{
+    const count=(room.questionNumbers[sessionId]??0)+1;
+    room.questionNumbers[sessionId]=count;
+    room.questions[sessionId]=generateQuestion(room.gradeLevel,{
+      difficulty:difficultyForRound(count),
+      seed:"number:"+room.code+":"+sessionId+":question:"+count
     });
-    room.updatedAt=now;
+    room.questionStartedAt[sessionId]=now;
   }
 
   submitAnswer(
@@ -178,48 +183,52 @@ export class NumberRaceRoomManager{
     clientSubmissionId:string,now=Date.now()
   ):NumberRoom{
     const room=this.mustPlaying(code);
-    if(!room.race||!room.question||room.race.roundStartedAt===null||room.race.roundDeadlineAt===null){
-      throw new Error("Rodada indisponível.");
-    }
-    if(room.question.id!==questionId) throw new Error("Questão não pertence à rodada atual.");
-    this.infra.assertActionRate("number-answer:"+room.code,sessionId,now);
+    if(!room.race||room.race.matchDeadlineAt==null) throw new Error("Corrida indisponível.");
+    // Nenhuma resposta conta após 05:00, mesmo sob latência ou reconexão.
+    if(now>room.race.matchDeadlineAt) throw new Error("O tempo da corrida terminou.");
     if(this.infra.isReplay("number-answer:"+room.code+":"+questionId,sessionId,clientSubmissionId,now)) return room;
-    if(now>room.race.roundDeadlineAt+NETWORK_GRACE_MS) throw new Error("O tempo da rodada terminou.");
-
-    const acceptedAt=Math.min(now,room.race.roundDeadlineAt);
-    const correct=validateAnswer(room.question,answer);
-    room.race=submitAnswer(room.race,sessionId,correct,acceptedAt-room.race.roundStartedAt,acceptedAt);
+    const question=room.questions[sessionId];
+    if(!question||question.id!==questionId) throw new Error("Questão não pertence à rodada atual.");
+    this.infra.assertActionRate("number-answer:"+room.code,sessionId,now);
+    const correct=validateAnswer(question,answer);
+    const elapsed=Math.max(0,now-(room.questionStartedAt[sessionId]??now));
+    room.race=answerTimedRace(room.race,sessionId,correct,elapsed,now);
+    room.race.submissions[sessionId]={racerId:sessionId,correct,responseMs:elapsed,submittedAt:now};
+    this.makeNextQuestion(room,sessionId,now);
+    room.question=room.questions[room.hostSessionId]??null;
     room.updatedAt=now;
+    return room;
+  }
+
+  /** Um pulso de movimentação dos NPCs, independente da resposta dos alunos. */
+  updateNpcProgress(code:string,now=Date.now()):NumberRoom{
+    const room=this.mustPlaying(code);
+    if(room.race && room.race.matchDeadlineAt!=null && now<room.race.matchDeadlineAt){
+      room.race=tickTimedNpcs(room.race,now);
+      room.updatedAt=now;
+    }
     return room;
   }
 
   finalizeRound(code:string,now=Date.now()):NumberRoom{
     const room=this.mustPlaying(code);
-    if(!room.race||room.race.roundDeadlineAt===null) throw new Error("Rodada indisponível.");
-    room.race=resolveRound(room.race,Math.max(now,room.race.roundDeadlineAt));
-    room.lastCorrectAnswer=room.question?.correctAnswer ?? null;
+    if(!room.race||room.race.matchDeadlineAt==null) throw new Error("Corrida indisponível.");
+    room.race=finishTimedRace(room.race,now);
+    room.lastCorrectAnswer=null;
     room.question=null;
+    room.questions={};
+    room.status="finished";
     room.updatedAt=now;
-    if(room.race.phase==="finished"){
-      room.status="finished";
-      this.infra.transition(room,"finished");
-    }else{
-      this.infra.transition(room,"round-resolution");
-    }
+    this.infra.transition(room,"finished");
     return room;
   }
 
-  openNextRound(code:string,now=Date.now()):NumberRoom{
-    const room=this.mustRoom(code);
-    if(room.status!=="playing"||!room.race||room.race.phase!=="round-resolution"){
-      throw new Error("A próxima rodada ainda não pode começar.");
-    }
-    this.infra.transition(room,"playing");
-    this.openRound(room,now);
-    return room;
+  /** Não há troca de rodada coletiva no desafio contínuo. */
+  openNextRound(_code:string,_now=Date.now()):NumberRoom{
+    throw new Error("As questões agora são individuais, sem rodadas coletivas.");
   }
 
-  publicSnapshot(code:string):PublicNumberRoom{
+  publicSnapshot(code:string,viewerSessionId?:string):PublicNumberRoom{
     const room=this.mustRoom(code);
     const race=room.race?{
       racers:room.race.racers,
@@ -227,12 +236,14 @@ export class NumberRaceRoomManager{
       phase:room.race.phase,
       roundStartedAt:room.race.roundStartedAt,
       roundDeadlineAt:room.race.roundDeadlineAt,
+      matchStartedAt:room.race.matchStartedAt,
+      matchDeadlineAt:room.race.matchDeadlineAt,
       winnerId:room.race.winnerId,
       tieBreaker:room.race.tieBreaker,
       finishLine:room.race.finishLine,
       log:room.race.log,
       nextLogId:room.race.nextLogId,
-      answeredIds:Object.keys(room.race.submissions)
+      answeredIds:[]
     }:null;
 
     return {
@@ -246,13 +257,14 @@ export class NumberRaceRoomManager{
       capacity:this.infra.capacity(room.members,6),
       serverNow:Date.now(),
       race,
-      question:room.question&&room.race?{
-        id:room.question.id,
-        expression:room.question.expression,
-        gradeLevel:room.question.gradeLevel,
-        difficulty:room.question.difficulty,
-        deadlineAt:room.race.roundDeadlineAt,
-        startedAt:room.race.roundStartedAt
+      question:room.race && room.race.phase==="round-open" &&
+        room.questions[viewerSessionId??room.hostSessionId]?{
+        id:room.questions[viewerSessionId??room.hostSessionId]!.id,
+        expression:room.questions[viewerSessionId??room.hostSessionId]!.expression,
+        gradeLevel:room.questions[viewerSessionId??room.hostSessionId]!.gradeLevel,
+        difficulty:room.questions[viewerSessionId??room.hostSessionId]!.difficulty,
+        deadlineAt:room.race.matchDeadlineAt??null,
+        startedAt:room.race.matchStartedAt??null
       }:null,
       lastCorrectAnswer:room.race?.phase==="round-resolution"||room.status==="finished"
         ? room.lastCorrectAnswer
