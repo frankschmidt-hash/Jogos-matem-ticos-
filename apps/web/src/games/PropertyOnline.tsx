@@ -40,6 +40,8 @@ export function PropertyOnline({session,onExit}:{session:ClientSession;onExit:()
   const [rolling,setRolling]=useState(false);
   const [actionError,setActionError]=useState("");
   const questionRef=useRef<string|null>(null);
+  const rollTimer=useRef<number|null>(null);
+  useEffect(()=>()=>{if(rollTimer.current!==null)window.clearTimeout(rollTimer.current);},[]);
 
   const apply=(response:Reply)=>{
     setBusy(false);
@@ -96,7 +98,10 @@ export function PropertyOnline({session,onExit}:{session:ClientSession;onExit:()
     if(action==="roll"){setRolling(true);playSound("dice");}
     setActionError("");
     socket.emit("property:action",{...auth(session),code:room.code,action,...extra},(reply:Reply)=>{
-      setRolling(false);
+      if(action==="roll"&&reply.ok){
+        if(rollTimer.current!==null)window.clearTimeout(rollTimer.current);
+        rollTimer.current=window.setTimeout(()=>{setRolling(false);rollTimer.current=null;},650);
+      }else setRolling(false);
       if(!reply.ok){setBusy(false);setActionError(reply.error??"Não foi possível realizar a ação.");return;}
       apply(reply);
       if(action==="answer")setAnswer("");
@@ -244,7 +249,7 @@ export function PropertyOnline({session,onExit}:{session:ClientSession;onExit:()
         onSell={index=>act("sell",{spaceIndex:index})} error={actionError}/>}
       <section className="property-log"><h2>Últimas ações</h2><ol>{game.log.map(item=><li key={item.id}>{item.message}</li>)}</ol></section>
     </div>
-    <MathQuestionModal open={Boolean(myTurn&&game.phase==="awaiting-answer"&&room.question)}
+    <MathQuestionModal open={Boolean(myTurn&&!rolling&&game.phase==="awaiting-answer"&&room.question)}
       expression={room.question?.expression??""}>
       <form className="math-answer-form" onSubmit={submit}>
         <label htmlFor="property-online-answer">Sua resposta</label>
