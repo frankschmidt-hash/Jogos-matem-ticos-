@@ -103,7 +103,7 @@ describe("Corrida Maluca: contas curtas e diretas",()=>{
           const seed="race-"+grade+"-"+difficulty+"-"+i;
           const question=generateRaceQuestion(grade,{difficulty,seed});
           expect(question.expression).toMatch(/^\d+ [+\-×÷] \d+$/);
-          const [left,operator,right]=question.expression.split(" ");
+          const [left,operator="",right]=question.expression.split(" ");
           const a=Number(left),b=Number(right);
           operations.add(operator);
           const result=operator==="+"?a+b:operator==="-"?a-b:operator==="×"?a*b:a/b;
