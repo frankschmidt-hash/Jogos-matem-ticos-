@@ -363,40 +363,24 @@ export class CrazyRaceRoomManager{
 
   finalizeRound(code:string,now=Date.now()):CrazyRoom{
     const room=this.mustPlaying(code);
-    if(!room.race||room.race.roundDeadlineAt===null) throw new Error("Rodada indisponível.");
-    room.race=resolveNpcTrackBombs(resolveRound(room.race,Math.max(now,room.race.roundDeadlineAt)));
-    for(const racer of room.race.racers){
-      if(racer.kind!=="human"||racer.pendingTrackBomb===null||room.trackQuestions[racer.id]) continue;
-      room.trackQuestions[racer.id]=generateRaceQuestion(room.gradeLevel,{
-        difficulty:difficultyForRound(room.race.round),
-        seed:"crazy:"+room.code+":track:"+racer.id+":"+racer.pendingTrackBomb+":"+room.race.round
-      });
-    }
-    room.lastCorrectAnswer=room.question?.correctAnswer ?? null;
+    if(!room.race||room.race.matchDeadlineAt==null) throw new Error("Corrida indisponível.");
+    room.race=finishTimedRace(room.race,now);
+    room.status="finished";
     room.question=null;
+    room.questions={};
+    room.trackQuestions={};
     room.bombQuestions={};
     room.bombActionResults.clear();
     room.updatedAt=now;
-    if(room.race.phase==="finished"){
-      room.status="finished";
-      this.infra.transition(room,"finished");
-    }else{
-      this.infra.transition(room,"round-resolution");
-    }
+    this.infra.transition(room,"finished");
     return room;
   }
 
-  openNextRound(code:string,now=Date.now()):CrazyRoom{
-    const room=this.mustRoom(code);
-    if(room.status!=="playing"||!room.race||room.race.phase!=="round-resolution"){
-      throw new Error("A próxima rodada ainda não pode começar.");
-    }
-    this.infra.transition(room,"playing");
-    this.openRound(room,now);
-    return room;
+  openNextRound(_code:string,_now=Date.now()):CrazyRoom{
+    throw new Error("Corrida de cinco minutos não possui rodadas intermediárias.");
   }
 
-  publicSnapshot(code:string):PublicCrazyRoom{
+  publicSnapshot(code:string,sessionId?:string):PublicCrazyRoom{
     const room=this.mustRoom(code);
     const race=room.race?{
       racers:room.race.racers,
@@ -404,6 +388,8 @@ export class CrazyRaceRoomManager{
       phase:room.race.phase,
       roundStartedAt:room.race.roundStartedAt,
       roundDeadlineAt:room.race.roundDeadlineAt,
+      matchStartedAt:room.race.matchStartedAt,
+      matchDeadlineAt:room.race.matchDeadlineAt,
       winnerId:room.race.winnerId,
       tieBreaker:room.race.tieBreaker,
       finishLine:room.race.finishLine,
@@ -423,17 +409,15 @@ export class CrazyRaceRoomManager{
       capacity:this.infra.capacity(room.members,6),
       serverNow:Date.now(),
       race,
-      question:room.question&&room.race?{
-        id:room.question.id,
-        expression:room.question.expression,
-        gradeLevel:room.question.gradeLevel,
-        difficulty:room.question.difficulty,
-        deadlineAt:room.race.roundDeadlineAt,
-        startedAt:room.race.roundStartedAt
+      question:sessionId&&room.race&&room.questions[sessionId]?{
+        id:room.questions[sessionId]!.id,
+        expression:room.questions[sessionId]!.expression,
+        gradeLevel:room.questions[sessionId]!.gradeLevel,
+        difficulty:room.questions[sessionId]!.difficulty,
+        deadlineAt:racerDeadline(room.race,sessionId),
+        startedAt:room.questionStartedAt[sessionId]??null
       }:null,
-      lastCorrectAnswer:room.race?.phase==="round-resolution"||room.status==="finished"
-        ? room.lastCorrectAnswer
-        : null,
+      lastCorrectAnswer:null,
       updatedAt:room.updatedAt
     };
   }
