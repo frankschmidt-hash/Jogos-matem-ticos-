@@ -105,7 +105,7 @@ describe("Futebol Matemático",()=>{
     expect(s.finishReason).toBe("abandonment");
   });
   it("salva canto escolhido e defesa segue a bola apenas quando há erro",()=>{
-    let match=startKick(createPenaltyMatch(players),0,null);
+    let match=startKick(base(),0,null);
     match=submitKick(match,"a",true,1000,"answer",8);
     expect(match.lastKick?.target).toBe(8);
     expect(match.lastKick?.keeperTarget).not.toBe(8);
