@@ -217,6 +217,7 @@ const emitPropertyState=(code:string)=>{
   if(room) io.to("property:"+code).emit("property:room-state",propertyRooms.publicSnapshot(code));
 };
 
+const emitFootballRooms=()=>io.emit("football:rooms-changed");
 const emitFootballState=(code:string)=>{
   const room=footballRooms.getRoom(code);
   if(!room) return;
@@ -367,7 +368,7 @@ io.on("connection", socket => {
       const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
       const room=crazyRooms.submitAnswer(
         parsed.data.code.toUpperCase(),session.sessionId,parsed.data.questionId,
-        parsed.data.answer,parsed.data.clientSubmissionId
+        parsed.data.answer,parsed.data.clientSubmissionId,Date.now(),parsed.data.target
       );
       emitCrazyState(room.code);
       ack?.({ok:true,room:crazyRooms.publicSnapshot(room.code)});
@@ -676,6 +677,15 @@ io.on("connection", socket => {
     }catch(error){ack?.({ok:false,error:errorMessage(error)});}
   });
 
+  socket.on("football:list-rooms",(payload:unknown,ack?:Ack)=>{
+    const parsed=heartbeatSchema.safeParse(payload);
+    if(!parsed.success) return ack?.({ok:false,error:"Sessão inválida."});
+    try{
+      manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
+      ack?.({ok:true,rooms:footballRooms.listWaiting()});
+    }catch(error){ack?.({ok:false,error:errorMessage(error)});}
+  });
+
   socket.on("football:create-room",(payload:unknown,ack?:Ack)=>{
     const parsed=footballCreateRoomSchema.safeParse(payload);
     if(!parsed.success) return ack?.({ok:false,error:"Dados da sala inválidos."});
@@ -690,6 +700,7 @@ io.on("connection", socket => {
       socket.data.sessionId=session.sessionId;
       void socket.join("football:"+room.code);
       ack?.({ok:true,room:footballRooms.publicSnapshot(room.code)});
+      emitFootballRooms();
     }catch(error){
       ack?.({ok:false,error:errorMessage(error)});
     }
@@ -709,6 +720,7 @@ io.on("connection", socket => {
       socket.data.sessionId=session.sessionId;
       void socket.join("football:"+room.code);
       emitFootballState(room.code);
+      emitFootballRooms();
       ack?.({ok:true,room:footballRooms.publicSnapshot(room.code)});
     }catch(error){
       ack?.({ok:false,error:errorMessage(error)});
@@ -740,6 +752,7 @@ io.on("connection", socket => {
       const room=footballRooms.startRoom(parsed.data.code.toUpperCase(),session.sessionId);
       emitFootballState(room.code);
       scheduleFootballKick(room.code);
+      emitFootballRooms();
       ack?.({ok:true,room:footballRooms.publicSnapshot(room.code)});
     }catch(error){
       ack?.({ok:false,error:errorMessage(error)});
@@ -807,6 +820,7 @@ io.on("connection", socket => {
         footballKickTimers.delete(room.code);
         emitFootballState(room.code);
       }
+      emitFootballRooms();
       ack?.({ok:true,room:room?footballRooms.publicSnapshot(room.code):null});
     }catch(error){
       ack?.({ok:false,error:errorMessage(error)});
