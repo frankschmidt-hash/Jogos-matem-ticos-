@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 export type CarChoice={modelId:string;color:string};
 type CarModel={id:string;name:string;body:string;roof:string;windows:string;spoiler?:string};
@@ -55,22 +55,49 @@ export function opponentCar(id:string):CarChoice{
 
 export function NumberVehicle({modelId,color}:{modelId:string;color:string}){
   const model=carModelFor(modelId);
-  return <svg className="number-vehicle-svg" viewBox="0 0 150 82" role="img" aria-label={"Carro "+model.name} focusable="false">
-    <ellipse cx="77" cy="68" rx="68" ry="8" fill="#05111c" opacity=".25"/>
-    <path d={model.body} fill={color} stroke="#142637" strokeWidth="2.5" strokeLinejoin="round"/>
-    <path d={model.roof} fill={color} stroke="#142637" strokeWidth="2.5" strokeLinejoin="round"/>
-    <path d={model.windows} fill="#9ad4e5" stroke="#213c4d" strokeWidth="2" strokeLinejoin="round"/>
-    <path d="M17 44 Q71 39 131 44" fill="none" stroke="#fff" strokeWidth="3" opacity=".38" strokeLinecap="round"/>
-    <path d="M26 49 H128" stroke="#172839" strokeWidth="2.2" opacity=".45" strokeLinecap="round"/>
-    {model.spoiler&&<path d={model.spoiler} fill="none" stroke="#253242" strokeWidth="5" strokeLinejoin="round"/>}
-    <path d="M135 44 L142 46 L142 50 L135 49Z" fill="#fff4c0"/>
-    <path d="M8 45 L13 44 L13 50 L8 50Z" fill="#e34545"/>
+  const uid=useId().replaceAll(":","");
+  const paint="paint"+uid,roof="roof"+uid,glass="glass"+uid,wheel="wheel"+uid;
+  return <svg className="number-vehicle-svg" viewBox="0 0 150 82" role="img" aria-label={"Carro "+model.name+" na cor escolhida"} focusable="false">
+    <defs>
+      <linearGradient id={paint} x1="0" y1="0" x2=".25" y2="1">
+        <stop offset="0" stopColor="#ffffff" stopOpacity=".55"/>
+        <stop offset=".18" stopColor={color}/>
+        <stop offset=".53" stopColor={color}/>
+        <stop offset=".76" stopColor="#122739" stopOpacity=".57"/>
+        <stop offset="1" stopColor={color}/>
+      </linearGradient>
+      <linearGradient id={roof} x1="0" y1="0" x2=".75" y2="1">
+        <stop offset="0" stopColor="#ffffff" stopOpacity=".54"/>
+        <stop offset=".2" stopColor={color}/>
+        <stop offset="1" stopColor="#122435" stopOpacity=".77"/>
+      </linearGradient>
+      <linearGradient id={glass} x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stopColor="#e8fbff"/>
+        <stop offset=".25" stopColor="#9bd3e1"/>
+        <stop offset=".65" stopColor="#376d86"/>
+        <stop offset="1" stopColor="#192f42"/>
+      </linearGradient>
+      <radialGradient id={wheel}><stop offset="0" stopColor="#f8fcff"/><stop offset=".58" stopColor="#8ea4b2"/><stop offset="1" stopColor="#33495b"/></radialGradient>
+    </defs>
+    <ellipse cx="75" cy="69" rx="66" ry="7" fill="#06111d" opacity=".31"/>
+    <path d={model.body} fill={`url(#${paint})`} stroke="#142433" strokeWidth="2.6" strokeLinejoin="round"/>
+    <path d={model.roof} fill={`url(#${roof})`} stroke="#162738" strokeWidth="2.4" strokeLinejoin="round"/>
+    <path d={model.windows} fill={`url(#${glass})`} stroke="#273d50" strokeWidth="2" strokeLinejoin="round"/>
+    <path d="M19 43 C40 38 96 39 133 45" fill="none" stroke="#f9ffff" strokeWidth="2.4" opacity=".67" strokeLinecap="round"/>
+    <path d="M16 49 Q79 46 135 49" fill="none" stroke="#142b3b" strokeWidth="3" opacity=".61"/>
+    <path d="M17 54 Q74 58 138 53" fill="none" stroke="#101b28" strokeWidth="3" opacity=".8"/>
+    <path d="M128 40 L138 43 L141 47 L137 51 L132 50Z" fill="#f7f3c5" stroke="#a9b7a4" strokeWidth=".7"/>
+    <path d="M8 43 L14 43 L15 49 L8 48Z" fill="#de4140" stroke="#90272c" strokeWidth=".9"/>
+    <path d="M138 48 L145 52 L142 57 L136 56Z" fill="#243745" stroke="#06111b" strokeWidth="1.2"/>
+    {model.spoiler&&<path d={model.spoiler} fill="none" stroke="#263746" strokeWidth="4" strokeLinejoin="round"/>}
     {[36,115].map(x=><g key={x}>
-      <circle cx={x} cy="58" r="13" fill="#17212e" stroke="#111721" strokeWidth="2"/>
-      <circle cx={x} cy="58" r="8.5" fill="#aebfc9" stroke="#405363" strokeWidth="2"/>
-      <circle cx={x} cy="58" r="3.6" fill="#d7e4e9"/>
-      {[0,90].map(deg=><path key={deg} d="M-6 0 H6" transform={`translate(${x} 58) rotate(${deg})`} stroke="#647e8d" strokeWidth="2"/> )}
+      <circle cx={x} cy="58" r="13.3" fill="#0d141f" stroke="#030913" strokeWidth="2.1"/>
+      <circle cx={x} cy="58" r="9.8" fill="#2c3641" stroke="#798895" strokeWidth="1"/>
+      <circle cx={x} cy="58" r="7.9" fill={`url(#${wheel})`}/>
+      {[0,60,120].map(deg=><path key={deg} d="M-6 0 H6" transform={`translate(${x} 58) rotate(${deg})`} stroke="#526878" strokeWidth="1.8" strokeLinecap="round"/>)}
+      <circle cx={x} cy="58" r="2.9" fill="#ebf5f8" stroke="#879eaa" strokeWidth=".7"/>
     </g>)}
+    <path d="M37 28 L43 26 M93 25 L97 29" stroke="#ffffff" strokeWidth="1.1" opacity=".36"/>
   </svg>;
 }
 
