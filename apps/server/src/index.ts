@@ -196,7 +196,7 @@ const scheduleNumberRound=(code:string)=>{
           }catch(error){
             app.log.error({err:error,code},"Falha ao abrir próxima rodada da Corrida Numérica");
           }
-        },1600);
+        },450);
         numberRaceTimers.set(code,next);
       }else{
         numberRaceTimers.delete(code);
@@ -469,7 +469,8 @@ io.on("connection", socket => {
       const room=numberRooms.createRoom(
         {sessionId:session.sessionId,nickname:session.nickname,connected:true},
         parsed.data.password,
-        parsed.data.gradeLevel
+        parsed.data.gradeLevel,
+        Date.now(),parsed.data.carChoice
       );
       sessionSockets.set(session.sessionId,socket.id);
       socket.data.numberCode=room.code;
@@ -488,7 +489,8 @@ io.on("connection", socket => {
       const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
       const room=numberRooms.joinRoom(
         parsed.data.code.toUpperCase(),parsed.data.password,
-        {sessionId:session.sessionId,nickname:session.nickname,connected:true}
+        {sessionId:session.sessionId,nickname:session.nickname,connected:true},
+        Date.now(),parsed.data.carChoice
       );
       sessionSockets.set(session.sessionId,socket.id);
       socket.data.numberCode=room.code;
@@ -506,7 +508,7 @@ io.on("connection", socket => {
     if(!parsed.success) return ack?.({ok:false,error:"Dados inválidos."});
     try{
       const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
-      const room=numberRooms.reconnect(parsed.data.code.toUpperCase(),session.sessionId);
+      const room=numberRooms.reconnect(parsed.data.code.toUpperCase(),session.sessionId,Date.now(),parsed.data.carChoice);
       sessionSockets.set(session.sessionId,socket.id);
       socket.data.numberCode=room.code;
       socket.data.sessionId=session.sessionId;
