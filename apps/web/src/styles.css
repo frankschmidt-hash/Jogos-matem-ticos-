@@ -317,3 +317,28 @@ html.reduce-motion .dice.rolling{animation:none}
 .property-host-pin>span{font-weight:800}
 .property-host-pin strong{font-size:2rem;letter-spacing:.19em;color:#263c80;font-variant-numeric:tabular-nums}
 .property-host-pin small{flex-basis:100%;font-size:.75rem;color:#5a6786}
+
+/* Hall dos campeões: Top 10 público em quatro jogos */
+.home-rankings{grid-column:1/-1;width:100%;min-width:0;margin-top:12px}
+.rankings-heading{display:flex;justify-content:space-between;align-items:end;flex-wrap:wrap;gap:14px;margin-bottom:19px}
+.rankings-heading h2{font-size:clamp(1.7rem,3vw,2.4rem);margin:4px 0 9px;letter-spacing:-.035em}
+.rankings-heading .muted{margin:0}
+.rankings-refresh{font-size:.77rem;font-weight:750;color:#567063;background:#e6f3eb;padding:7px 11px;border-radius:999px}
+.rankings-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;align-items:stretch}
+.ranking-card{background:#fff;border:1px solid #dfe5ef;border-radius:19px;box-shadow:0 10px 29px rgba(35,48,87,.08);padding:17px;min-width:0}
+.ranking-card h3{margin:0 0 5px;font-size:1.05rem}
+.ranking-card header p{font-size:.78rem;margin:0 0 14px;color:#68768c}
+.ranking-list{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.ranking-list li{display:flex;align-items:center;gap:7px;min-height:37px;padding:7px 3px;border-bottom:1px solid #edf0f5;font-size:.81rem}
+.ranking-list li:last-child{border:0}
+.ranking-list li:nth-child(1){background:#fff8de;border-radius:8px}
+.ranking-list li:nth-child(2){background:#f1f4f9;border-radius:8px}
+.ranking-list li:nth-child(3){background:#f8f0e8;border-radius:8px}
+.ranking-place{flex:0 0 25px;color:#42516b;font-variant-numeric:tabular-nums;font-weight:900}
+.ranking-list strong{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ranking-points{white-space:nowrap;text-align:right;font-weight:900;color:#243b7d;font-variant-numeric:tabular-nums}
+.ranking-points small{display:block;font-weight:550;color:#68768c;font-size:.69rem}
+.rankings-empty{font-size:.86rem;color:#68768c;background:#f4f6fa;border-radius:10px;padding:16px 10px}
+.rankings-warning{color:#814126;font-size:.84rem}
+@media(max-width:1080px){.rankings-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:610px){.rankings-grid{grid-template-columns:1fr}.ranking-card{padding:16px}.rankings-heading{align-items:start}}
