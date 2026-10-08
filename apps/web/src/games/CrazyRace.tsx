@@ -206,164 +206,153 @@ function RaceFinish({
 }
 
 function SoloRace({session,onExit,car}:{session:ClientSession;onExit:()=>void;car:CarSelection}) {
-  const begin=()=>{
-    let race=createRace([{id:session.sessionId,name:session.nickname,...car}]);
-    race=startRound(race,Date.now());
-    race=submitNpcAnswers(race);
-    return race;
-  };
+  const begin=()=>startTimedRace(createRace([{id:session.sessionId,name:session.nickname,...car}]),Date.now());
   const [race,setRace]=useState<RaceState>(begin);
-  const [question,setQuestion]=useState<MathQuestion|null>(()=>generateRaceQuestion(session.gradeLevel,{difficulty:1,seed:"crazy-solo-1-"+session.sessionId}));
+  const [question,setQuestion]=useState<MathQuestion>(()=>generateRaceQuestion(session.gradeLevel,{difficulty:1,seed:"solo-start-"+session.sessionId+"-"+Date.now()}));
   const [answer,setAnswer]=useState("");
   const [feedback,setFeedback]=useState<"correct"|"incorrect"|null>(null);
   const [correctAnswer,setCorrectAnswer]=useState<string|null>(null);
-  const [submitted,setSubmitted]=useState(false);
   const [message,setMessage]=useState("");
   const [trackQuestion,setTrackQuestion]=useState<MathQuestion|null>(null);
   const [trackMessage,setTrackMessage]=useState("");
-  const resolvedRound=useRef(0);
+  const lastNpcPulse=useRef(Date.now());
+  const questionStarted=useRef(Date.now());
+  const questionSerial=useRef(0);
   const now=useNow(race.phase==="round-open");
+  const own=race.racers.find(r=>r.id===session.sessionId);
+  const deadline=race.matchDeadlineAt==null?null:racerDeadline(race,session.sessionId);
+  const active=race.phase==="round-open"&&deadline!=null&&now<deadline;
+  const pendingTrackBomb=own?.pendingTrackBomb??null;
+
+  const makeNextQuestion=(level:number)=>generateRaceQuestion(session.gradeLevel,{
+    difficulty:level>25?3:level>12?2:1,
+    seed:"crazy-solo-"+session.sessionId+"-"+Date.now()+"-"+(++questionSerial.current)
+  });
 
   useEffect(()=>{
-    if(race.phase!=="round-open"||!race.roundDeadlineAt||now<race.roundDeadlineAt||resolvedRound.current===race.round) return;
-    resolvedRound.current=race.round;
-    setRace(current=>resolveNpcTrackBombs(resolveRound(current,Date.now())));
-    setQuestion(null);
-  },[now,race.phase,race.round,race.roundDeadlineAt]);
-
-  useEffect(()=>{
-    if(race.phase!=="round-resolution") return;
-    const timer=window.setTimeout(()=>{
+    const timer=window.setInterval(()=>{
+      const moment=Date.now();
       setRace(current=>{
-        let next=startRound(current,Date.now());
-        next=submitNpcAnswers(next);
-        setQuestion(generateRaceQuestion(session.gradeLevel,{
-          difficulty:next.round<4?1:next.round<8?2:3,
-          seed:"crazy-solo-"+next.round+"-"+session.sessionId
-        }));
-        setSubmitted(false);
-        setFeedback(null);
-        setCorrectAnswer(null);
-        setAnswer("");
-        setMessage("");
+        if(current.phase!=="round-open"||current.matchDeadlineAt==null) return current;
+        if(moment>=current.matchDeadlineAt) return finishTimedRace(current,moment);
+        let next=triggerTimedTrackBombs(current,moment);
+        if(moment-lastNpcPulse.current>=6000){
+          next=tickTimedNpcs(next,moment);
+          lastNpcPulse.current=moment;
+        }
         return next;
       });
-    },1600);
-    return ()=>window.clearTimeout(timer);
-  },[race.phase,session.gradeLevel,session.sessionId]);
+    },500);
+    return ()=>window.clearInterval(timer);
+  },[]);
 
-  const pendingTrackBomb=race.racers.find(r=>r.id===session.sessionId)?.pendingTrackBomb??null;
   useEffect(()=>{
     if(pendingTrackBomb===null){setTrackQuestion(null);return;}
     setTrackQuestion(current=>current??generateRaceQuestion(session.gradeLevel,{
-      difficulty:pendingTrackBomb===TRACK_BOMBS[0]?1:pendingTrackBomb===TRACK_BOMBS[1]?2:3,
-      seed:"crazy-solo-track-"+session.sessionId+"-"+pendingTrackBomb+"-"+race.round
+      difficulty:own?.clearedTrackBombs.length===0?1:own?.clearedTrackBombs.length===1?2:3,
+      seed:"crazy-solo-track-"+session.sessionId+"-"+pendingTrackBomb
     }));
-  },[pendingTrackBomb,session.gradeLevel,session.sessionId,race.round]);
+  },[pendingTrackBomb,session.gradeLevel,session.sessionId,own?.clearedTrackBombs.length]);
 
   const restart=()=>{
     const next=begin();
     setRace(next);
-    setQuestion(generateRaceQuestion(session.gradeLevel,{difficulty:1,seed:"crazy-solo-1-"+session.sessionId+"-"+Date.now()}));
+    setQuestion(makeNextQuestion(1));
     setAnswer("");
     setFeedback(null);
     setCorrectAnswer(null);
-    setSubmitted(false);
     setMessage("");
     setTrackQuestion(null);
     setTrackMessage("");
-    resolvedRound.current=0;
+    lastNpcPulse.current=Date.now();
+    questionStarted.current=Date.now();
   };
-
-  if(race.phase==="finished"){
-    return <main id="main-content" className="crazy-shell"><RaceFinish racers={race.racers} winnerId={race.winnerId} humanId={session.sessionId} onAgain={restart}/></main>;
-  }
 
   const submit=(event:FormEvent)=>{
     event.preventDefault();
-    if(submitted||race.phase!=="round-open"||!question) return;
-    const correct=validateAnswer(question,answer);
-    const responseMs=Math.max(0,Date.now()-(race.roundStartedAt??Date.now()));
+    if(!active||pendingTrackBomb!==null||!answer.trim()) return;
+    const currentQuestion=question;
+    const submittedAt=Date.now();
     try{
-      setRace(current=>submitRoundAnswer(current,session.sessionId,correct,responseMs,Date.now()));
-      playSound(correct?"engine":"incorrect");
+      const correct=validateAnswer(currentQuestion,answer);
+      const next=answerTimedRace(race,session.sessionId,correct,submittedAt-questionStarted.current,submittedAt);
+      setRace(next);
       setFeedback(correct?"correct":"incorrect");
-      setCorrectAnswer(correct?null:question.correctAnswer);
-      setSubmitted(true);
+      setCorrectAnswer(correct?null:currentQuestion.correctAnswer);
+      setQuestion(makeNextQuestion(next.round));
+      setAnswer("");
+      questionStarted.current=submittedAt;
+      playSound(correct?"engine":"incorrect");
+      setMessage("");
     }catch(error){
-      setMessage(error instanceof Error?error.message:"Não foi possível enviar.");
+      setMessage(error instanceof Error?error.message:"Não foi possível registrar.");
     }
   };
 
   const submitTrack=(event:FormEvent)=>{
     event.preventDefault();
-    if(pendingTrackBomb===null||!trackQuestion) return;
+    if(!active||pendingTrackBomb===null||!trackQuestion) return;
     const input=new FormData(event.currentTarget as HTMLFormElement).get("trackAnswer")?.toString()??"";
     const correct=validateAnswer(trackQuestion,input);
-    setRace(current=>resolveTrackBomb(current,session.sessionId,correct));
-    setTrackMessage(correct
-      ?"Bomba neutralizada! Você continua a corrida."
-      :"BOOM! Resposta correta: "+trackQuestion.correctAnswer+". Você voltou ao início!");
+    const next=resolveTimedTrackBomb(race,session.sessionId,correct);
+    setRace(next);
+    setTrackMessage(correct?"Bomba desarmada! Continue acertando contas.":
+      "BOOM! Resposta correta: "+trackQuestion.correctAnswer+". Seu tempo foi reduzido em 10 segundos.");
     setTrackQuestion(null);
     playSound(correct?"engine":"incorrect");
   };
 
   const bomb=(direction:BombDirection)=>{
-    setMessage("");
+    if(!active||pendingTrackBomb!==null) return;
     try{
       const target=bombTarget(race,session.sessionId,direction);
-      playSound("engine");
       let next=useBomb(race,session.sessionId,direction,Date.now());
       if(target?.kind==="npc") next=resolveNpcBombIfNeeded(next,target.id);
       setRace(next);
-    }catch(error){
-      setMessage(error instanceof Error?error.message:"Bomba indisponível.");
-    }
+      playSound("engine");
+      setMessage("");
+    }catch(error){setMessage(error instanceof Error?error.message:"Bomba indisponível.");}
   };
+
+  if(race.phase==="finished"){
+    return <main id="main-content" className="crazy-shell">
+      <RaceFinish racers={race.racers} winnerId={race.winnerId} humanId={session.sessionId} onAgain={restart}/>
+    </main>;
+  }
 
   return <main id="main-content" className="crazy-page">
     <header className="crazy-header">
-      <div><p className="eyebrow">Modo solo · 1 humano + 5 NPCs</p><h1>Corrida Maluca</h1></div>
+      <div><p className="eyebrow">Modo solo · 05:00 · 1 humano + 5 NPCs</p><h1>Corrida Maluca</h1></div>
       <button className="button-ghost" onClick={()=>window.confirm("Sair da corrida atual?")&&onExit()}>Sair</button>
     </header>
-
-    <RaceHud racers={race.racers} round={race.round} finishLine={race.finishLine} humanId={session.sessionId} deadline={race.roundDeadlineAt} now={now}/>
+    <RaceHud racers={race.racers} humanId={session.sessionId} deadline={deadline} now={now}/>
     <Track racers={race.racers} finishLine={race.finishLine} humanId={session.sessionId}/>
-
     <div className="crazy-lower">
       <section className="race-question-card">
-        <span className="eyebrow">20 segundos</span>
-        <h2>{question?.expression ?? "Processando rodada..."}</h2>
-        {race.phase==="round-open"&&question&&pendingTrackBomb===null&&<form onSubmit={submit}>
-          <input
-            aria-label="Resposta da rodada"
-            inputMode="decimal"
-            value={answer}
-            onChange={e=>setAnswer(e.target.value)}
-            disabled={submitted}
-            placeholder="Digite sua resposta"
-          />
-          <button disabled={submitted}>{submitted?"Resposta enviada":"Responder"}</button>
+        <span className="eyebrow">Contas contínuas · 05:00 no total · cada acerto avança o carro</span>
+        <h2>{question.expression}</h2>
+        {active&&pendingTrackBomb===null&&<form onSubmit={submit}>
+          <input aria-label="Resposta da conta" inputMode="decimal" value={answer}
+            onChange={e=>setAnswer(e.target.value)} placeholder="Digite sua resposta" autoFocus/>
+          <button disabled={!answer.trim()}>Responder</button>
         </form>}
+        {!active&&<p className="race-waiting">Seu tempo acabou. Aguardando o cronômetro geral para mostrar o vencedor.</p>}
         {feedback&&<ResultFeedback status={feedback}/>}
         {feedback==="incorrect"&&correctAnswer&&<p className="math-correction">Resposta correta: <strong>{correctAnswer}</strong></p>}
-        {submitted&&<p className="race-waiting">Resposta registrada. O movimento acontece ao terminar os 20 segundos.</p>}
-         {pendingTrackBomb!==null&&<p className="bomb-warning">Bomba no km {pendingTrackBomb}! Resolva o desafio para voltar a acelerar.</p>}
-         {trackMessage&&<p className="race-waiting" role="status">{trackMessage}</p>}
+        {pendingTrackBomb!==null&&active&&<p className="bomb-warning">Bomba surpresa! Resolva para continuar.</p>}
+        {trackMessage&&<p className="race-waiting" role="status">{trackMessage}</p>}
         {message&&<p className="error" role="alert">{message}</p>}
       </section>
-
-      <BombControls race={race} humanId={session.sessionId} onBomb={bomb} disabled={race.phase!=="round-open"||pendingTrackBomb!==null}/>
+      <BombControls race={race} humanId={session.sessionId} onBomb={bomb} disabled={!active||pendingTrackBomb!==null}/>
     </div>
-
-    {pendingTrackBomb!==null&&trackQuestion&&<div className="bomb-overlay" role="dialog" aria-modal="true" aria-label="Desafio da bomba na pista">
+    {active&&pendingTrackBomb!==null&&trackQuestion&&<div className="bomb-overlay" role="dialog" aria-modal="true" aria-label="Desafio da bomba surpresa">
       <section className="bomb-dialog track-bomb-dialog">
-        <img src="/assets/crazy-race/math-bomb.svg" alt="Bomba da pista" />
-        <p className="eyebrow">Bomba {TRACK_BOMBS.indexOf(pendingTrackBomb as 220|440|660)+1} de 3 · {pendingTrackBomb} metros</p>
+        <img src="/assets/crazy-race/math-bomb.svg" alt="Bomba surpresa"/>
+        <p className="eyebrow">Bomba {TIMED_BOMBS.indexOf(pendingTrackBomb as typeof TIMED_BOMBS[number])+1} de 3 · 05:00 de corrida</p>
         <h2>{trackQuestion.expression}</h2>
-        <p>Acertou: continua a corrida. Errou: explosão e volta à largada!</p>
+        <p>Acertou: segue normalmente. Errou: perde 10 segundos do seu relógio!</p>
         <form onSubmit={submitTrack}>
-          <input autoFocus name="trackAnswer" aria-label="Resposta da bomba da pista" inputMode="decimal" required placeholder="Sua resposta"/>
+          <input autoFocus name="trackAnswer" aria-label="Resposta da bomba" inputMode="decimal" required placeholder="Sua resposta"/>
           <button>Desarmar bomba</button>
         </form>
       </section>
