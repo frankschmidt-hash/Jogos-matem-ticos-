@@ -189,7 +189,7 @@ function SoloFootball({
       setAnswer("");
       setFeedback(null);
       setCorrectAnswer(null);
-    },1600);
+    },2600);
     return ()=>window.clearTimeout(timer);
   },[match.phase,timeMs]);
 
@@ -310,7 +310,9 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
     };
   },[socket,session.sessionId,session.reconnectToken]);
 
-  const create=()=>socket.emit("football:create-room",{...authData(),password,gradeLevel:grade},(response:AckResponse)=>apply(response));
+  const create=()=>socket.emit("football:create-room",{...authData(),password,gradeLevel:grade},(response:AckResponse)=>{
+    if(apply(response)&&response.room) sessionStorage.setItem("football-pin:"+response.room.code,password);
+  });
   const join=()=>socket.emit("football:join-room",{...authData(),code:code.trim().toUpperCase(),password},(response:AckResponse)=>apply(response));
   const start=()=>room&&socket.emit("football:start",{...authData(),code:room.code},(response:AckResponse)=>apply(response));
   const rematch=()=>room&&socket.emit("football:rematch",{...authData(),code:room.code},(response:AckResponse)=>apply(response));
@@ -329,6 +331,7 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
       socket.emit("football:leave",{...authData(),code:room.code},()=>{});
     }
     sessionStorage.removeItem(ROOM_KEY);
+    if(room)sessionStorage.removeItem("football-pin:"+room.code);
     socket.disconnect();
     onExit();
   };
@@ -338,8 +341,8 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
       <img src="/assets/math-football/football-emblem.svg" alt="" className="football-logo"/>
       <p className="eyebrow">Duelo online</p><h1>Futebol Matemático</h1>
       {mode==="menu"?<div className="football-online-actions">
-        <button onClick={()=>setMode("create")}>Criar sala</button>
-        <button className="button-secondary" onClick={()=>setMode("join")}>Entrar em sala</button>
+        <button onClick={()=>{setPassword(String(Math.floor(Math.random()*900)+100));setMode("create");}}>Criar sala</button>
+        <button className="button-secondary" onClick={()=>{setPassword("");setMode("join");}}>Entrar em sala</button>
         <button className="button-ghost" onClick={onExit}>Voltar</button>
       </div>:<div className="stack">
         {mode==="create"&&<label>Nível da sala
@@ -360,7 +363,7 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
         <strong>Salas disponíveis</strong>
         {rooms.length===0?<p>Nenhuma sala disponível no momento. Você pode criar uma.</p>:rooms.map(item=><div className="football-room-list-item" key={item.code}>
           <div><strong>{item.hostName}</strong><small style={{display:"block"}}>Sala {item.code} · {item.players}/{item.capacity} jogadores</small></div>
-          <button className="button-secondary" onClick={()=>{setCode(item.code);setMode("join");}}>Selecionar</button>
+          <button className="button-secondary" onClick={()=>{setCode(item.code);setPassword("");setMode("join");}}>Selecionar</button>
         </div>)}
         <button className="button-ghost" onClick={fetchRooms}>Atualizar salas</button>
       </div>}
@@ -373,10 +376,10 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
     return <main id="main-content" className="football-shell"><section className="panel football-room-lobby">
       <p className="eyebrow">Sala privada · 2 jogadores</p>
       <h1>{room.code}</h1>
-      {isHost&&<p>Senha para convidar: <strong className="football-room-pin">{password}</strong></p>}
+      {isHost&&sessionStorage.getItem("football-pin:"+room.code)&&<p>Senha para convidar: <strong className="football-room-pin">{sessionStorage.getItem("football-pin:"+room.code)}</strong></p>}
       <p>Nível: <strong>{room.gradeLevel==="mixed"?"Misto":room.gradeLevel+"º ano"}</strong></p>
       <p><strong>Vagas:</strong> {room.capacity.occupied}/{room.capacity.max} · {room.capacity.available} disponível(is)</p>
-      <div className="football-room-actions"><button className="button-secondary" onClick={()=>void navigator.clipboard?.writeText(room.code)}>Copiar código</button>{isHost&&<button className="button-secondary" onClick={()=>void navigator.clipboard?.writeText(password)}>Copiar senha</button>}</div>
+      <div className="football-room-actions"><button className="button-secondary" onClick={()=>void navigator.clipboard?.writeText(room.code)}>Copiar código</button>{isHost&&sessionStorage.getItem("football-pin:"+room.code)&&<button className="button-secondary" onClick={()=>void navigator.clipboard?.writeText(sessionStorage.getItem("football-pin:"+room.code)??"")}>Copiar senha</button>}</div>
       <div className="football-members">
         {room.members.map(member=><div key={member.sessionId}>
           <span className={member.connected?"online-dot":"online-dot offline"}/>
