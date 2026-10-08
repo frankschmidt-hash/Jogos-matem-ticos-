@@ -66,7 +66,14 @@ async function createJoinStart(prefix,createEvent,joinEvent,startEvent,extraCrea
 
 const crazy=await createJoinStart("Corrida Maluca","crazy:create-room","crazy:join-room","crazy:start");
 assert(crazy.room.race?.racers?.length===6,"Corrida Maluca não iniciou com 6 competidores");
-assert(crazy.room.question.deadlineAt-crazy.room.question.startedAt===20000,"Corrida Maluca sem janela de 20s");
+const crazyWindow=crazy.room.question.deadlineAt-crazy.room.question.startedAt;
+const validCrazyWindows=process.env.DEPLOYED_VERSION_SMOKE==="true"?[300000,20000]:[300000];
+assert(validCrazyWindows.includes(crazyWindow),"Corrida Maluca sem cronômetro de 5 minutos");
+if(crazyWindow===300000){
+  const firstQuestion=crazy.room.question;
+  const response=await ack(host,"crazy:answer",{...auth(a),code:crazy.code,questionId:firstQuestion.id,answer:"0",clientSubmissionId:"crazy-continuous-01"});
+  assert(response?.ok&&response.room?.question?.id!==firstQuestion.id,"Corrida Maluca não gerou próxima conta imediatamente");
+}
 
 const number=await createJoinStart("Corrida Numérica","number:create-room","number:join-room","number:start",{gradeLevel:"mixed"});
 assert(number.room.race?.racers?.length===6,"Corrida Numérica não iniciou com 6 competidores");
