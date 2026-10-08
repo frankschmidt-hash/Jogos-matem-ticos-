@@ -82,9 +82,9 @@ export class CrazyRaceRoomManager{
   constructor(private infra:RoomInfrastructure=roomInfrastructure){}
 
   createRoom(host:CrazyRoomMemberInput,password:string,now=Date.now()):CrazyRoom{
+    if(!/^\d{3}$/.test(password)) throw new Error("O PIN da sala deve conter exatamente 3 dígitos.");
     const code=this.infra.allocateCode("crazy-race");
     const core=this.infra.createMember(host,now);
-    if(!/^\d{3}$/.test(password)) throw new Error("O PIN da sala deve conter exatamente 3 dígitos.");
     const member:CrazyRoomMember={
       ...core,gradeLevel:host.gradeLevel,carModel:host.carModel??"esportivo",carColor:host.carColor??"#3378dc"
     };
