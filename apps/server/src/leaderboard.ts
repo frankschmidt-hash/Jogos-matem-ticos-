@@ -40,8 +40,9 @@ export class LeaderboardStore {
     }
   }
   snapshot():Record<LeaderboardGame,RankEntry[]>{
-    return Object.fromEntries(LEADERBOARD_GAMES.map(game=>[game,this.rankings[game].map(row=>({...row}))]))
-      as Record<LeaderboardGame,RankEntry[]>;
+    return Object.fromEntries(
+      LEADERBOARD_GAMES.map(game=>[game,this.rankings[game].map(row=>({...row}))])
+    ) as Record<LeaderboardGame,RankEntry[]>;
   }
   record(game:LeaderboardGame,nickname:string,score:number,secondary=0,achievedAt=Date.now(),persist=true):boolean{
     if(!LEADERBOARD_GAMES.includes(game)) return false;
