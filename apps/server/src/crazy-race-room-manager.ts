@@ -8,7 +8,7 @@ import {
   resolveTrackBomb, startRound, submitNpcAnswers, submitRoundAnswer, useBomb,
   type BombDirection, type CarModel, type RaceState
 } from "@jogos/crazy-race";
-import { generateQuestion, validateAnswer, type GradeLevel, type MathQuestion } from "@jogos/math-engine";
+import { generateRaceQuestion, validateAnswer, type GradeLevel, type MathQuestion } from "@jogos/math-engine";
 
 export type CrazyRoomMember=CoreRoomMember & {gradeLevel:GradeLevel;carModel:CarModel;carColor:string};
 export type CrazyRoomMemberInput={
@@ -192,7 +192,7 @@ export class CrazyRaceRoomManager{
     room.race=startRound(room.race,now);
     room.race=submitNpcAnswers(room.race);
     room.lastCorrectAnswer=null;
-    room.question=generateQuestion(room.gradeLevel,{
+    room.question=generateRaceQuestion(room.gradeLevel,{
       difficulty:difficultyForRound(room.race.round),
       seed:"crazy:"+room.code+":round:"+room.race.round
     });
@@ -242,7 +242,7 @@ export class CrazyRaceRoomManager{
     if(!challenge) throw new Error("Não foi possível identificar o alvo.");
 
     const target=room.race.racers.find(r=>r.id===challenge.targetId)!;
-    const question=generateQuestion(room.gradeLevel,{
+    const question=generateRaceQuestion(room.gradeLevel,{
       difficulty:difficultyForRound(room.race.round),
       seed:"crazy:"+room.code+":bomb:"+room.race.round+":"+sessionId+":"+challenge.targetId
     });
@@ -328,7 +328,7 @@ export class CrazyRaceRoomManager{
     room.race=resolveNpcTrackBombs(resolveRound(room.race,Math.max(now,room.race.roundDeadlineAt)));
     for(const racer of room.race.racers){
       if(racer.kind!=="human"||racer.pendingTrackBomb===null||room.trackQuestions[racer.id]) continue;
-      room.trackQuestions[racer.id]=generateQuestion(room.gradeLevel,{
+      room.trackQuestions[racer.id]=generateRaceQuestion(room.gradeLevel,{
         difficulty:difficultyForRound(room.race.round),
         seed:"crazy:"+room.code+":track:"+racer.id+":"+racer.pendingTrackBomb+":"+room.race.round
       });
