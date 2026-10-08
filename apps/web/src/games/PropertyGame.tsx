@@ -151,6 +151,7 @@ export function Board({game,lastDie=null,rolling=false}:{game:GameState;lastDie?
     <section className="board-center">
       {landed?<article className="landing-zoom" role="status" aria-live="polite">
         <span className="eyebrow">Casa {landed.index} · {landed.type==="property"?"Propriedade":"Cidade Prisma"}</span>
+        {lastDie!==null&&<span className="landing-die">Último dado: <strong>{lastDie}</strong></span>}
         <div className={"landing-building type-"+landed.type} aria-hidden="true">
           <span className="building-roof"/><span className="building-front"><i/><i/><i/></span>
         </div>
