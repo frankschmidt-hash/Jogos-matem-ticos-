@@ -127,6 +127,13 @@
   .number-wait{padding:4px}
   .number-stat-row{grid-template-columns:1fr 1fr;align-items:start}
 }
+@media(max-width:420px){
+  .number-hud{grid-template-columns:repeat(2,1fr)}
+  .number-hud>div:last-child{grid-column:span 2;display:flex;align-items:center;justify-content:space-between}
+  .number-track{min-height:207px}
+  .number-question form button{font-size:.82rem}
+  .number-car{width:68px;height:40px}
+}
 @media(max-height:640px){
   .number-page{gap:4px;padding-top:4px;padding-bottom:4px}
   .number-header h1{font-size:1.1rem}
