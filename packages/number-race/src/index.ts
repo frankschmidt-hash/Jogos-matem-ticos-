@@ -30,6 +30,8 @@ export type NumberRaceState = {
   phase:RacePhase;
   roundStartedAt:number|null;
   roundDeadlineAt:number|null;
+  matchStartedAt?:number|null;
+  matchDeadlineAt?:number|null;
   submissions:Record<string,RoundSubmission>;
   winnerId:string|null;
   tieBreaker:boolean;
@@ -52,7 +54,9 @@ export type RacerStats={
 };
 
 export const TOTAL_RACERS=6;
-export const ROUND_DURATION_MS=10_000;
+export const ROUND_DURATION_MS=10_000; // legado de rodadas, não usado no modo desafio de 5 minutos
+export const MATCH_DURATION_MS=300_000;
+export const TIMED_ADVANCE=100;
 export const BASE_ADVANCE=100;
 export const MAX_BONUS=20;
 export const FINISH_LINE=900;
@@ -94,6 +98,7 @@ export function ranking(state:NumberRaceState):Racer[]{
   return [...state.racers].sort((a,b)=>
     b.progress-a.progress ||
     b.correctAnswers-a.correctAnswers ||
+    a.errors-b.errors ||
     a.totalCorrectResponseMs-b.totalCorrectResponseMs ||
     a.name.localeCompare(b.name,"pt-BR")
   );
@@ -234,4 +239,65 @@ export function statsFor(state:NumberRaceState,racerId:string):RacerStats{
 export function progressPercent(state:NumberRaceState,racerId:string):number{
   const racer=state.racers.find(r=>r.id===racerId);
   return racer?Math.min(100,Math.round(racer.progress/state.finishLine*100)):0;
+}
+
+
+/** Desafio de tempo: todas as pessoas partem juntas e têm 5 minutos exatos. */
+export function startTimedRace(state:NumberRaceState,now:number):NumberRaceState{
+  if(state.phase!=="waiting") throw new Error("A corrida já começou.");
+  return pushLog({
+    ...state,round:1,phase:"round-open",roundStartedAt:now,
+    roundDeadlineAt:now+MATCH_DURATION_MS,
+    matchStartedAt:now,matchDeadlineAt:now+MATCH_DURATION_MS,
+    finishLine:8000,submissions:{},winnerId:null
+  },"Desafio de 5 minutos iniciado! Cada acerto vale 100 metros.");
+}
+
+/** Cada resposta é aplicada imediatamente; não existe intervalo entre as contas. */
+export function answerTimedRace(
+  state:NumberRaceState,racerId:string,correct:boolean,responseMs:number,now:number
+):NumberRaceState{
+  if(state.phase!=="round-open"||state.matchDeadlineAt==null||now>state.matchDeadlineAt){
+    throw new Error("O tempo da corrida terminou.");
+  }
+  if(!Number.isFinite(responseMs)||responseMs<0) throw new Error("Tempo de resposta inválido.");
+  if(!state.racers.some(r=>r.id===racerId)) throw new Error("Competidor inválido.");
+  const racers=state.racers.map(racer=>{
+    if(racer.id!==racerId) return racer;
+    if(!correct) return {...racer,errors:racer.errors+1,streak:0};
+    const streak=racer.streak+1;
+    return {
+      ...racer,progress:racer.progress+TIMED_ADVANCE,
+      correctAnswers:racer.correctAnswers+1,streak,
+      bestStreak:Math.max(racer.bestStreak,streak),
+      totalCorrectResponseMs:racer.totalCorrectResponseMs+Math.min(MATCH_DURATION_MS,responseMs)
+    };
+  });
+  return {...state,racers};
+}
+
+/** Um turno de NPC a cada pulso de corrida. Não bloqueia os jogadores humanos. */
+export function tickTimedNpcs(state:NumberRaceState,now:number,rng:()=>number=Math.random):NumberRaceState{
+  if(state.phase!=="round-open"||state.matchDeadlineAt==null||now>state.matchDeadlineAt) return state;
+  let next=state;
+  for(const racer of state.racers){
+    if(racer.kind!=="npc") continue;
+    const decision=npcDecision(racer.npcSkill??"intermediate",rng);
+    next=answerTimedRace(next,racer.id,decision.correct,decision.responseMs,now);
+  }
+  return next;
+}
+
+/** Só encerra ao esgotar os 5 minutos, nunca por distância percorrida. */
+export function finishTimedRace(state:NumberRaceState,now:number):NumberRaceState{
+  if(state.phase!=="round-open"||state.matchDeadlineAt==null) throw new Error("Corrida não iniciada.");
+  if(now<state.matchDeadlineAt) throw new Error("A corrida ainda não terminou.");
+  const ordered=ranking(state);
+  const first=ordered[0]!;
+  const second=ordered[1];
+  const tied=second && first.correctAnswers===second.correctAnswers &&
+    first.errors===second.errors && first.totalCorrectResponseMs===second.totalCorrectResponseMs;
+  const winnerId=tied?null:first.id;
+  return pushLog({...state,phase:"finished",winnerId},
+    winnerId?first.name+" venceu com "+first.correctAnswers+" acertos!":"Corrida empatada!");
 }
