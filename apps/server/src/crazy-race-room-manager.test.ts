@@ -5,20 +5,20 @@ const host={sessionId:"host-session",nickname:"Host",gradeLevel:6 as const,conne
 const guest=(n:number)=>({sessionId:"guest-session-"+n,nickname:"Guest "+n,gradeLevel:6 as const,connected:true});
 
 describe("CrazyRaceRoomManager",()=>{
-  it("cria sala protegida e rejeita senha errada",()=>{
+  it("cria sala com PIN de três dígitos e rejeita código errado",()=>{
     const manager=new CrazyRaceRoomManager();
-    const room=manager.createRoom(host,"1234",100);
+    const room=manager.createRoom(host,"123",100);
     expect(room.code).toHaveLength(6);
-    expect(()=>manager.joinRoom(room.code,"xxxx",guest(1),200)).toThrow(/inválidos/i);
-    expect(manager.joinRoom(room.code,"1234",guest(1),200).members).toHaveLength(2);
+    expect(()=>manager.joinRoom(room.code,"999",guest(1),200)).toThrow(/inválidos/i);
+    expect(manager.joinRoom(room.code,"123",guest(1),200).members).toHaveLength(2);
   });
 
   it("aceita até 6 humanos e substitui NPCs no início",()=>{
     const manager=new CrazyRaceRoomManager();
-    const room=manager.createRoom(host,"abcd",0);
-    for(let i=1;i<=5;i++) manager.joinRoom(room.code,"abcd",guest(i),i);
+    const room=manager.createRoom(host,"456",0);
+    for(let i=1;i<=5;i++) manager.joinRoom(room.code,"456",guest(i),i);
     expect(room.members).toHaveLength(6);
-    expect(()=>manager.joinRoom(room.code,"abcd",guest(6),10)).toThrow(/cheia/i);
+    expect(()=>manager.joinRoom(room.code,"456",guest(6),10)).toThrow(/cheia/i);
     manager.startRoom(room.code,host.sessionId,1000);
     expect(room.race?.racers.filter(r=>r.kind==="human")).toHaveLength(6);
     expect(room.race?.racers.filter(r=>r.kind==="npc")).toHaveLength(0);
@@ -26,8 +26,8 @@ describe("CrazyRaceRoomManager",()=>{
 
   it("mantém 6 competidores preenchendo NPCs",()=>{
     const manager=new CrazyRaceRoomManager();
-    const room=manager.createRoom(host,"abcd",0);
-    manager.joinRoom(room.code,"abcd",guest(1),1);
+    const room=manager.createRoom(host,"456",0);
+    manager.joinRoom(room.code,"456",guest(1),1);
     manager.startRoom(room.code,host.sessionId,1000);
     expect(room.race?.racers).toHaveLength(6);
     expect(room.race?.racers.filter(r=>r.kind==="npc")).toHaveLength(4);
@@ -35,7 +35,7 @@ describe("CrazyRaceRoomManager",()=>{
 
   it("questão e deadline são definidos pelo servidor",()=>{
     const manager=new CrazyRaceRoomManager();
-    const room=manager.createRoom(host,"abcd",0);
+    const room=manager.createRoom(host,"456",0);
     manager.startRoom(room.code,host.sessionId,1000);
     const snap=manager.publicSnapshot(room.code);
     expect(snap.question?.expression.length).toBeGreaterThan(0);
@@ -44,7 +44,7 @@ describe("CrazyRaceRoomManager",()=>{
 
   it("rejeita resposta após deadline",()=>{
     const manager=new CrazyRaceRoomManager();
-    const room=manager.createRoom(host,"abcd",0);
+    const room=manager.createRoom(host,"456",0);
     manager.startRoom(room.code,host.sessionId,1000);
     const q=manager.publicSnapshot(room.code).question!;
     expect(()=>manager.submitAnswer(room.code,host.sessionId,q.id,"0","submission-123",22000)).toThrow(/tempo/i);
@@ -52,7 +52,7 @@ describe("CrazyRaceRoomManager",()=>{
 
   it("trata clientSubmissionId repetido de forma idempotente",()=>{
     const manager=new CrazyRaceRoomManager();
-    const room=manager.createRoom(host,"abcd",0);
+    const room=manager.createRoom(host,"456",0);
     manager.startRoom(room.code,host.sessionId,1000);
     const q=manager.publicSnapshot(room.code).question!;
     manager.submitAnswer(room.code,host.sessionId,q.id,"0","submission-123",2000);
@@ -62,7 +62,7 @@ describe("CrazyRaceRoomManager",()=>{
 
   it("reconexão preserva membro e sala",()=>{
     const manager=new CrazyRaceRoomManager();
-    const room=manager.createRoom(host,"abcd",0);
+    const room=manager.createRoom(host,"456",0);
     manager.disconnect(room.code,host.sessionId,100);
     expect(room.members[0]!.connected).toBe(false);
     manager.reconnect(room.code,host.sessionId,200);
@@ -72,14 +72,14 @@ describe("CrazyRaceRoomManager",()=>{
 
   it("somente host inicia a corrida",()=>{
     const manager=new CrazyRaceRoomManager();
-    const room=manager.createRoom(host,"abcd",0);
-    manager.joinRoom(room.code,"abcd",guest(1),1);
+    const room=manager.createRoom(host,"456",0);
+    manager.joinRoom(room.code,"456",guest(1),1);
     expect(()=>manager.startRoom(room.code,guest(1).sessionId,1000)).toThrow(/host/i);
   });
 
   it("finaliza rodada, libera correção somente depois do deadline e abre a próxima",()=>{
     const manager=new CrazyRaceRoomManager();
-    const room=manager.createRoom(host,"abcd",0);
+    const room=manager.createRoom(host,"456",0);
     manager.startRoom(room.code,host.sessionId,1000);
     expect(manager.publicSnapshot(room.code).lastCorrectAnswer).toBeNull();
     manager.finalizeRound(room.code,21000);
@@ -92,8 +92,8 @@ describe("CrazyRaceRoomManager",()=>{
   });
   it("resposta da bomba é idempotente e corrige somente após a tentativa",()=>{
     const manager=new CrazyRaceRoomManager();
-    const room=manager.createRoom(host,"abcd",0);
-    manager.joinRoom(room.code,"abcd",guest(1),1);
+    const room=manager.createRoom(host,"456",0);
+    manager.joinRoom(room.code,"456",guest(1),1);
     manager.startRoom(room.code,host.sessionId,1000);
     room.race!.racers=room.race!.racers.map(r=>r.id===host.sessionId?{...r,bombCharges:1}:r);
     const attack=manager.useBomb(room.code,host.sessionId,"ahead","bomb-action-answer-01",2000);
@@ -107,4 +107,39 @@ describe("CrazyRaceRoomManager",()=>{
     expect(room.race!.bombChallenges[attack.targetId]?.resolved).toBe(true);
   });
 
+});
+
+describe("Novas regras da Corrida Maluca online",()=>{
+  it("lista salas de espera sem expor os PINs e remove após iniciar",()=>{
+    const manager=new CrazyRaceRoomManager();
+    const room=manager.createRoom({...host,carModel:"buggy",carColor:"#ab1234"},"007",100);
+    expect(manager.listWaitingRooms()).toEqual([{
+      code:room.code,hostNickname:host.nickname,occupied:1,max:6,createdAt:100
+    }]);
+    const snapshot=manager.publicSnapshot(room.code);
+    expect(JSON.stringify(snapshot)).not.toContain("007");
+    expect(manager.joinRoom(room.code,"007",guest(1),200).members).toHaveLength(2);
+    manager.startRoom(room.code,host.sessionId,1000);
+    expect(manager.listWaitingRooms()).toHaveLength(0);
+    expect(room.race?.racers.find(r=>r.id===host.sessionId)?.carModel).toBe("buggy");
+  });
+
+  it("gera pergunta surpresa da primeira bomba e aplica explosão no servidor",()=>{
+    const manager=new CrazyRaceRoomManager();
+    const room=manager.createRoom(host,"208",0);
+    manager.startRoom(room.code,host.sessionId,1000);
+    for(let i=0;i<2;i++){
+      const q=room.question!;
+      manager.submitAnswer(room.code,host.sessionId,q.id,q.correctAnswer,"answer-track-"+i,1500+i*22000);
+      manager.finalizeRound(room.code,21000+i*22000);
+      if(i===0) manager.openNextRound(room.code,23000);
+    }
+    const challenge=manager.trackQuestionFor(room.code,host.sessionId);
+    expect(challenge?.checkpoint).toBe(220);
+    expect(challenge?.expression).toBeTruthy();
+    const result=manager.submitTrackBombAnswer(room.code,host.sessionId,challenge!.id,"999999","track-bomb-01",44000);
+    expect(result.correct).toBe(false);
+    expect(room.race?.racers.find(r=>r.id===host.sessionId)?.progress).toBe(0);
+    expect(manager.trackQuestionFor(room.code,host.sessionId)).toBeNull();
+  });
 });
