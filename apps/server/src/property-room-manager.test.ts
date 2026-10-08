@@ -65,7 +65,8 @@ describe("Cidade Prisma — salas multiplayer",()=>{
       action:"answer",questionId:r.question!.id,answer:r.question!.correctAnswer,submissionId:"submit-host-001"
     },550);
     expect(r.lastResolution?.correct).toBe(true);
-    expect(r.game!.players[0]!.position).toBe(r.lastDie);
+    expect(r.game!.players[0]!.position).toBe(r.lastResolution?.position);
+    expect(r.game!.log.some(item=>item.message.includes("avançou "+r.lastDie))).toBe(true);
     expect(r.question).toBeNull();
   });
 
