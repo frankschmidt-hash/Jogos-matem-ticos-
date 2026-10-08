@@ -4,16 +4,19 @@ import {
   type RoomLifecycleState, type StoredPassword
 } from "./room-infrastructure";
 import {
-  createRace, resolveBombAnswer, resolveNpcBombIfNeeded, resolveRound, startRound,
-  submitNpcAnswers, submitRoundAnswer, useBomb, type BombDirection, type RaceState
+  createRace, resolveBombAnswer, resolveNpcBombIfNeeded, resolveNpcTrackBombs, resolveRound,
+  resolveTrackBomb, startRound, submitNpcAnswers, submitRoundAnswer, useBomb,
+  type BombDirection, type CarModel, type RaceState
 } from "@jogos/crazy-race";
 import { generateQuestion, validateAnswer, type GradeLevel, type MathQuestion } from "@jogos/math-engine";
 
-export type CrazyRoomMember=CoreRoomMember & {gradeLevel:GradeLevel};
+export type CrazyRoomMember=CoreRoomMember & {gradeLevel:GradeLevel;carModel:CarModel;carColor:string};
 export type CrazyRoomMemberInput={
   sessionId:string;
   nickname:string;
   gradeLevel:GradeLevel;
+  carModel?:CarModel;
+  carColor?:string;
   connected?:boolean;
 };
 
@@ -30,6 +33,7 @@ export type CrazyRoom=LifecycleCarrier & {
   question:MathQuestion|null;
   lastCorrectAnswer:string|null;
   bombQuestions:Record<string,MathQuestion>;
+  trackQuestions:Record<string,MathQuestion>;
   bombActionResults:Map<string,BombActionResult>;
   createdAt:number;
   updatedAt:number;
@@ -60,6 +64,14 @@ export type PublicCrazyRoom={
   updatedAt:number;
 };
 
+export type CrazyRoomListing={
+  code:string;
+  hostNickname:string;
+  occupied:number;
+  max:number;
+  createdAt:number;
+};
+
 function difficultyForRound(round:number):1|2|3{
   return round<4?1:round<8?2:3;
 }
@@ -72,11 +84,14 @@ export class CrazyRaceRoomManager{
   createRoom(host:CrazyRoomMemberInput,password:string,now=Date.now()):CrazyRoom{
     const code=this.infra.allocateCode("crazy-race");
     const core=this.infra.createMember(host,now);
-    const member:CrazyRoomMember={...core,gradeLevel:host.gradeLevel};
+    if(!/^\d{3}$/.test(password)) throw new Error("O PIN da sala deve conter exatamente 3 dígitos.");
+    const member:CrazyRoomMember={
+      ...core,gradeLevel:host.gradeLevel,carModel:host.carModel??"esportivo",carColor:host.carColor??"#3378dc"
+    };
     const room:CrazyRoom={
-      code,password:this.infra.createPassword(password),hostSessionId:member.sessionId,
+      code,password:this.infra.createPassword("CR-"+password),hostSessionId:member.sessionId,
       gradeLevel:host.gradeLevel,members:[member],status:"waiting",race:null,question:null,
-      lastCorrectAnswer:null,bombQuestions:{},bombActionResults:new Map(),
+      lastCorrectAnswer:null,bombQuestions:{},trackQuestions:{},bombActionResults:new Map(),
       lifecycleState:"ready",lifecycleHistory:["ready"],createdAt:now,updatedAt:now
     };
     this.rooms.set(code,room);
@@ -86,7 +101,8 @@ export class CrazyRaceRoomManager{
   joinRoom(code:string,password:string,input:CrazyRoomMemberInput,now=Date.now()):CrazyRoom{
     const room=this.mustRoom(code);
     if(room.status!=="waiting") throw new Error("A partida já foi iniciada.");
-    this.infra.verifyPassword("crazy-race",room.code,input.sessionId,password,room.password,now);
+    if(!/^\d{3}$/.test(password)) throw new Error("O PIN deve conter exatamente 3 dígitos.");
+    this.infra.verifyPassword("crazy-race",room.code,input.sessionId,"CR-"+password,room.password,now);
     const existing=room.members.find(m=>m.sessionId===input.sessionId);
     if(existing){
       this.infra.reconnectMember(existing,now);
@@ -96,7 +112,9 @@ export class CrazyRaceRoomManager{
     }
     if(this.infra.capacity(room.members,6).available<=0) throw new Error("A sala está cheia.");
     const core=this.infra.createMember(input,now);
-    room.members.push({...core,gradeLevel:input.gradeLevel});
+    room.members.push({
+      ...core,gradeLevel:input.gradeLevel,carModel:input.carModel??"esportivo",carColor:input.carColor??"#3378dc"
+    });
     this.syncWaitingLifecycle(room);
     room.updatedAt=now;
     return room;
@@ -159,7 +177,9 @@ export class CrazyRaceRoomManager{
     if(humans.length<1) throw new Error("Nenhum jogador conectado.");
 
     this.infra.transition(room,"countdown");
-    room.race=createRace(humans.map(m=>({id:m.sessionId,name:m.nickname})));
+    room.race=createRace(humans.map(m=>({
+      id:m.sessionId,name:m.nickname,carModel:m.carModel,carColor:m.carColor
+    })));
     room.status="playing";
     this.infra.transition(room,"playing");
     room.updatedAt=now;
@@ -189,6 +209,8 @@ export class CrazyRaceRoomManager{
       throw new Error("Rodada indisponível.");
     }
     if(room.question.id!==questionId) throw new Error("Questão não pertence à rodada atual.");
+    if(room.race.racers.find(r=>r.id===sessionId)?.pendingTrackBomb!==null)
+      throw new Error("Responda à bomba da pista antes de continuar.");
     this.infra.assertActionRate("crazy-answer:"+room.code,sessionId,now);
     if(this.infra.isReplay("crazy-answer:"+room.code+":"+questionId,sessionId,clientSubmissionId,now)) return room;
     if(now>room.race.roundDeadlineAt+NETWORK_GRACE_MS) throw new Error("O tempo da rodada terminou.");
@@ -260,10 +282,57 @@ export class CrazyRaceRoomManager{
     return {room,correct,correctAnswer};
   }
 
+  submitTrackBombAnswer(
+    code:string,sessionId:string,questionId:string,answer:string,clientSubmissionId:string,now=Date.now()
+  ):{room:CrazyRoom;correct:boolean|null;correctAnswer:string|null}{
+    const room=this.mustPlaying(code);
+    this.infra.assertActionRate("crazy-track:"+room.code,sessionId,now);
+    if(this.infra.isReplay("crazy-track:"+room.code+":"+questionId,sessionId,clientSubmissionId,now)){
+      return {room,correct:null,correctAnswer:null};
+    }
+    if(!room.race) throw new Error("Corrida indisponível.");
+    const question=room.trackQuestions[sessionId];
+    if(!question||question.id!==questionId) throw new Error("Bomba da pista inválida.");
+    const correct=validateAnswer(question,answer);
+    const correctAnswer=question.correctAnswer;
+    room.race=resolveTrackBomb(room.race,sessionId,correct);
+    delete room.trackQuestions[sessionId];
+    room.updatedAt=now;
+    return {room,correct,correctAnswer};
+  }
+
+  trackQuestionFor(code:string,sessionId:string):null|{id:string;expression:string;checkpoint:number}{
+    const room=this.mustRoom(code);
+    const question=room.trackQuestions[sessionId];
+    const checkpoint=room.race?.racers.find(r=>r.id===sessionId)?.pendingTrackBomb;
+    if(!question||checkpoint===null||checkpoint===undefined) return null;
+    return {id:question.id,expression:question.expression,checkpoint};
+  }
+
+  listWaitingRooms():CrazyRoomListing[]{
+    return [...this.rooms.values()]
+      .filter(room=>room.status==="waiting"&&this.infra.capacity(room.members,6).available>0)
+      .sort((a,b)=>b.createdAt-a.createdAt)
+      .slice(0,50)
+      .map(room=>({
+        code:room.code,
+        hostNickname:room.members.find(m=>m.sessionId===room.hostSessionId)?.nickname??"Anfitrião",
+        occupied:room.members.filter(m=>m.presence!=="abandoned").length,
+        max:6,createdAt:room.createdAt
+      }));
+  }
+
   finalizeRound(code:string,now=Date.now()):CrazyRoom{
     const room=this.mustPlaying(code);
     if(!room.race||room.race.roundDeadlineAt===null) throw new Error("Rodada indisponível.");
-    room.race=resolveRound(room.race,Math.max(now,room.race.roundDeadlineAt));
+    room.race=resolveNpcTrackBombs(resolveRound(room.race,Math.max(now,room.race.roundDeadlineAt)));
+    for(const racer of room.race.racers){
+      if(racer.kind!=="human"||racer.pendingTrackBomb===null||room.trackQuestions[racer.id]) continue;
+      room.trackQuestions[racer.id]=generateQuestion(room.gradeLevel,{
+        difficulty:difficultyForRound(room.race.round),
+        seed:"crazy:"+room.code+":track:"+racer.id+":"+racer.pendingTrackBomb+":"+room.race.round
+      });
+    }
     room.lastCorrectAnswer=room.question?.correctAnswer ?? null;
     room.question=null;
     room.bombQuestions={};
