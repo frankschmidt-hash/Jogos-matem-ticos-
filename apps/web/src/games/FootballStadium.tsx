@@ -49,7 +49,7 @@ function Athlete({keeper=false,celebrating=false,disappointed=false}:{
 }
 
 function Spectators(){
-  const fans=Array.from({length:72},(_,i)=>i);
+  const fans=Array.from({length:156},(_,i)=>i);
   return <div className="football-stands" aria-hidden="true">
     <div className="football-stand-tier tier-top">
       {fans.map(i=><i key={i} className={"football-fan "+(i%7===0?"waving":"")} style={{"--shirt": ["#fbd04f","#fae8ac","#15985e","#58a8e6","#f97359"][i%5],"--fan-delay":String((i%11)*-.13)+"s"} as CSSProperties}/>)}
@@ -66,13 +66,13 @@ function Spectators(){
 function targetVariables(target:PenaltyTarget,keeperTarget:PenaltyTarget):CSSProperties{
   const col=target%3,row=Math.floor(target/3);
   const keeperCol=keeperTarget%3,keeperRow=Math.floor(keeperTarget/3);
+  const x=(c:number,left:number,width:number)=>left+(c+.5)*(width/3)+"%";
+  const y=(r:number,top:number,height:number)=>top+(r+.5)*(height/3)+"%";
   return {
-    "--shot-x":(22+(col+.5)*(53/3))+"%",
-    "--shot-y-desktop":(37+(row+.5)*(29/3))+"%",
-    "--shot-y-mobile":(28+(row+.5)*(21/3))+"%",
-    "--keeper-x":(22+(keeperCol+.5)*(53/3))+"%",
-    "--keeper-y-desktop":(37+(keeperRow+.5)*(29/3))+"%",
-    "--keeper-y-mobile":(28+(keeperRow+.5)*(21/3))+"%",
+    "--shot-x-desktop":x(col,21,54), "--shot-y-desktop":y(row,34,32),
+    "--shot-x-mobile":x(col,12,76), "--shot-y-mobile":y(row,27,23),
+    "--keeper-x-desktop":x(keeperCol,21,54), "--keeper-y-desktop":y(keeperRow,34,32),
+    "--keeper-x-mobile":x(keeperCol,12,76), "--keeper-y-mobile":y(keeperRow,27,23),
     "--keeper-turn":keeperCol===0?"-65deg":keeperCol===2?"65deg":"0deg"
   } as CSSProperties;
 }
@@ -93,12 +93,12 @@ export function FootballStadium({
     <div className="football-sky"><div className="football-floodlight left"/><div className="football-floodlight right"/></div>
     <Spectators/>
     <div className="football-pitch">
-      <div className="football-pitch-stripes"/><div className="football-field-arc"/>
+      <div className="football-pitch-stripes"/><div className="football-grass-texture"/><div className="football-field-arc"/>
       <div className="football-penalty-mark"/>
     </div>
     <div className="football-goal-v2" aria-label="Gol dividido em nove setores">
       <div className="football-goal-depth"/>
-      <div className="football-net-v2"/>
+      <div className="football-net-v2"/><div className="football-net-shading"/>
       <div className="football-target-grid">
         {PENALTY_TARGETS.map(n=><button type="button" key={n} disabled={!canAim||resolution}
           onClick={()=>onSelectTarget(n)}
