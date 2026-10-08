@@ -3,10 +3,11 @@ import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import fastifyStatic from "@fastify/static";
 import { fileURLToPath } from "node:url";
+import { randomInt } from "node:crypto";
 import { Server } from "socket.io";
 import {
   claimNicknameSchema, crazyAnswerSchema, crazyBombAnswerSchema, crazyBombSchema,
-  crazyCreateRoomSchema, crazyJoinRoomSchema, crazyRoomActionSchema,
+  crazyCreateRoomSchema, crazyJoinRoomSchema, crazyRoomActionSchema, crazyTrackAnswerSchema,
   numberAnswerSchema, numberCreateRoomSchema, numberJoinRoomSchema, numberRoomActionSchema,
   footballAnswerSchema, footballCreateRoomSchema, footballJoinRoomSchema, footballRoomActionSchema,
   propertyCreateRoomSchema, propertyJoinRoomSchema, propertyRoomActionSchema, propertyGameActionSchema,
@@ -117,6 +118,15 @@ const emitCrazyState=(code:string)=>{
   io.to("crazy:"+code).emit("crazy:room-state",crazyRooms.publicSnapshot(code));
 };
 
+const broadcastCrazyRoomList=()=>io.emit("crazy:rooms-changed");
+const sendTrackQuestions=(code:string)=>{
+  for(const sessionId of crazyRooms.memberIds(code)){
+    const question=crazyRooms.trackQuestionFor(code,sessionId);
+    const socketId=sessionSockets.get(sessionId);
+    if(question&&socketId) io.to(socketId).emit("crazy:track-question",question);
+  }
+};
+
 const sendBombQuestion=(code:string,targetId:string)=>{
   const socketId=sessionSockets.get(targetId);
   const question=crazyRooms.bombQuestionFor(code,targetId);
@@ -135,6 +145,7 @@ const scheduleRaceRound=(code:string)=>{
     try{
       const resolved=crazyRooms.finalizeRound(code,Date.now());
       emitCrazyState(code);
+      sendTrackQuestions(code);
       if(resolved.status==="playing" && resolved.race?.phase==="round-resolution"){
         const next=setTimeout(()=>{
           try{
@@ -266,19 +277,26 @@ io.on("connection", socket => {
     }
   });
 
+  socket.on("crazy:list-rooms",(_payload:unknown,ack?:Ack)=>{
+    ack?.({ok:true,rooms:crazyRooms.listWaitingRooms()});
+  });
+
   socket.on("crazy:create-room",(payload:unknown,ack?:Ack)=>{
     const parsed=crazyCreateRoomSchema.safeParse(payload);
     if(!parsed.success) return ack?.({ok:false,error:"Dados da sala inválidos."});
     try{
       const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
+      const pin=randomInt(0,1000).toString().padStart(3,"0");
       const room=crazyRooms.createRoom({
-        sessionId:session.sessionId,nickname:session.nickname,gradeLevel:session.gradeLevel,connected:true
-      },parsed.data.password);
+        sessionId:session.sessionId,nickname:session.nickname,gradeLevel:session.gradeLevel,
+        carModel:parsed.data.carModel,carColor:parsed.data.carColor,connected:true
+      },pin);
       sessionSockets.set(session.sessionId,socket.id);
       socket.data.crazyCode=room.code;
       socket.data.sessionId=session.sessionId;
       void socket.join("crazy:"+room.code);
-      ack?.({ok:true,room:crazyRooms.publicSnapshot(room.code)});
+      ack?.({ok:true,room:crazyRooms.publicSnapshot(room.code),pin});
+      broadcastCrazyRoomList();
     }catch(error){
       ack?.({ok:false,error:errorMessage(error)});
     }
@@ -289,14 +307,16 @@ io.on("connection", socket => {
     if(!parsed.success) return ack?.({ok:false,error:"Código ou senha inválidos."});
     try{
       const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
-      const room=crazyRooms.joinRoom(parsed.data.code.toUpperCase(),parsed.data.password,{
-        sessionId:session.sessionId,nickname:session.nickname,gradeLevel:session.gradeLevel,connected:true
+      const room=crazyRooms.joinRoom(parsed.data.code.toUpperCase(),parsed.data.pin,{
+        sessionId:session.sessionId,nickname:session.nickname,gradeLevel:session.gradeLevel,
+        carModel:parsed.data.carModel,carColor:parsed.data.carColor,connected:true
       });
       sessionSockets.set(session.sessionId,socket.id);
       socket.data.crazyCode=room.code;
       socket.data.sessionId=session.sessionId;
       void socket.join("crazy:"+room.code);
       emitCrazyState(room.code);
+      broadcastCrazyRoomList();
       ack?.({ok:true,room:crazyRooms.publicSnapshot(room.code)});
     }catch(error){
       ack?.({ok:false,error:errorMessage(error)});
@@ -316,7 +336,8 @@ io.on("connection", socket => {
       ack?.({
         ok:true,
         room:crazyRooms.publicSnapshot(room.code),
-        bombQuestion:crazyRooms.bombQuestionFor(room.code,session.sessionId)
+        bombQuestion:crazyRooms.bombQuestionFor(room.code,session.sessionId),
+        trackQuestion:crazyRooms.trackQuestionFor(room.code,session.sessionId)
       });
       emitCrazyState(room.code);
     }catch(error){
@@ -332,6 +353,7 @@ io.on("connection", socket => {
       const room=crazyRooms.startRoom(parsed.data.code.toUpperCase(),session.sessionId);
       emitCrazyState(room.code);
       scheduleRaceRound(room.code);
+      broadcastCrazyRoomList();
       ack?.({ok:true,room:crazyRooms.publicSnapshot(room.code)});
     }catch(error){
       ack?.({ok:false,error:errorMessage(error)});
@@ -391,6 +413,21 @@ io.on("connection", socket => {
   });
 
 
+  socket.on("crazy:track-answer",(payload:unknown,ack?:Ack)=>{
+    const parsed=crazyTrackAnswerSchema.safeParse(payload);
+    if(!parsed.success) return ack?.({ok:false,error:"Resposta da bomba da pista inválida."});
+    try{
+      const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
+      const result=crazyRooms.submitTrackBombAnswer(
+        parsed.data.code.toUpperCase(),session.sessionId,parsed.data.questionId,
+        parsed.data.answer,parsed.data.clientSubmissionId
+      );
+      emitCrazyState(result.room.code);
+      ack?.({ok:true,room:crazyRooms.publicSnapshot(result.room.code),
+        trackCorrect:result.correct,trackCorrection:result.correct===false?result.correctAnswer:null});
+    }catch(error){ack?.({ok:false,error:errorMessage(error)});}
+  });
+
   socket.on("crazy:leave",(payload:unknown,ack?:Ack)=>{
     const parsed=crazyRoomActionSchema.safeParse(payload);
     if(!parsed.success) return ack?.({ok:false,error:"Dados inválidos."});
@@ -399,6 +436,7 @@ io.on("connection", socket => {
       const room=crazyRooms.leaveRoom(parsed.data.code.toUpperCase(),session.sessionId);
       void socket.leave("crazy:"+parsed.data.code.toUpperCase());
       if(room) emitCrazyState(room.code);
+      broadcastCrazyRoomList();
       ack?.({ok:true,room:room?crazyRooms.publicSnapshot(room.code):null});
     }catch(error){
       ack?.({ok:false,error:errorMessage(error)});
@@ -414,7 +452,8 @@ io.on("connection", socket => {
       ack?.({
         ok:true,
         room:crazyRooms.publicSnapshot(parsed.data.code.toUpperCase()),
-        bombQuestion:crazyRooms.bombQuestionFor(parsed.data.code.toUpperCase(),session.sessionId)
+        bombQuestion:crazyRooms.bombQuestionFor(parsed.data.code.toUpperCase(),session.sessionId),
+        trackQuestion:crazyRooms.trackQuestionFor(parsed.data.code.toUpperCase(),session.sessionId)
       });
     }catch(error){
       ack?.({ok:false,error:errorMessage(error)});
