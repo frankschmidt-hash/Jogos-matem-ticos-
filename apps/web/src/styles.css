@@ -207,15 +207,15 @@ button:disabled{opacity:.45;cursor:not-allowed}
 html.reduce-motion .dice.rolling{animation:none}
 
 /* Cidade Prisma — tabuleiro integral na janela e experiência de salas */
-.property-page{width:100%;max-width:1720px;min-width:0;padding:12px clamp(10px,1.2vw,22px) 38px}
-.property-header{margin-bottom:10px;min-height:72px}
+.property-page{width:100%;max-width:1720px;min-width:0;padding:7px clamp(10px,1.2vw,22px) 32px}
+.property-header{margin-bottom:6px;min-height:54px}
 .property-header h1{font-size:clamp(1.4rem,2vw,2rem);line-height:1.1}
 .property-layout{grid-template-columns:minmax(170px,220px) minmax(0,1fr) minmax(185px,235px);gap:12px;align-items:start}
 .property-layout>*{min-width:0}
 .property-scoreboard,.property-actions{padding:clamp(8px,1vw,16px)}
 .property-scoreboard h2,.property-actions h2{font-size:1.2rem}
-.property-board-wrap{width:min(100%,calc(100dvh - 155px),810px);max-width:100%;min-width:0;overflow:hidden;scrollbar-gutter:auto;touch-action:manipulation;justify-self:center;padding:5px;box-sizing:border-box}
-.property-board{width:100%;min-width:0;aspect-ratio:1/1;gap:2px;border-width:4px;padding:3px;box-sizing:border-box;grid-template-columns:repeat(10,minmax(0,1fr));grid-template-rows:repeat(10,minmax(0,1fr))}
+.property-board-wrap{width:min(100%,calc(100dvh - 88px),980px);max-width:100%;max-height:none;min-width:0;overflow:hidden;scrollbar-gutter:auto;touch-action:manipulation;justify-self:center;padding:5px;box-sizing:border-box}
+.property-board{position:relative;width:100%;min-width:0;aspect-ratio:1/1;gap:2px;border-width:4px;padding:3px;box-sizing:border-box;grid-template-columns:repeat(10,minmax(0,1fr));grid-template-rows:repeat(10,minmax(0,1fr))}
 .board-space{padding:clamp(1px,.25vw,4px);font-size:clamp(.37rem,.62vw,.67rem);line-height:1.02;cursor:pointer;overflow:hidden}
 .board-space strong{overflow-wrap:anywhere;line-height:1.06}
 .board-space small{font-size:clamp(.33rem,.5vw,.58rem);line-height:1.05;margin-top:2px}
@@ -231,8 +231,11 @@ html.reduce-motion .dice.rolling{animation:none}
 .board-dice.rolling{animation:dice-roll .55s ease-in-out}
 .board-token{display:none}
 .token-stack{right:2px;bottom:1px;gap:1px;max-width:100%;width:100%;flex-wrap:wrap;justify-content:flex-end;align-items:flex-end;overflow:visible;pointer-events:none}
-.pawn-position{display:flex;flex-direction:column;align-items:center;width:clamp(15px,2.1vw,30px);min-width:0;filter:drop-shadow(0 2px 2px #0004)}
-.pawn-name{font-size:clamp(5px,.46vw,8px);font-weight:800;color:#1a2b57;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;background:#ffffffe6;padding:0 1px;border-radius:3px}
+.pawn-position{position:relative;display:flex;align-items:center;justify-content:center;width:clamp(12px,1.2vw,19px);height:23px;min-width:0;filter:drop-shadow(0 2px 2px #0004)}
+.pawn-position .prisma-pawn{transform:scale(.73);transform-origin:center bottom}
+.pawn-identity-layer{position:absolute;inset:0;z-index:7;pointer-events:none;overflow:visible}
+.pawn-identity-layer svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.pawn-identity-name{position:absolute;transform:translate(-50%,-50%);padding:3px 7px;max-width:29%;overflow:hidden;text-overflow:ellipsis;background:rgba(255,255,255,.97);border:1.5px solid;border-radius:10px;box-shadow:0 2px 8px rgba(20,34,73,.17);font-size:clamp(10px,1vw,15px);font-weight:900;line-height:1.2;white-space:nowrap;text-align:center}
 .prisma-pawn{--pawn-color:#315bc2;position:relative;display:inline-block;width:21px;height:28px;flex:none;filter:drop-shadow(1px 2px 1px #25335975)}
 .prisma-pawn.human{--pawn-color:#2f55bf;background:transparent}
 .prisma-pawn.npc-a{--pawn-color:#d76b32;background:transparent}
@@ -273,11 +276,11 @@ html.reduce-motion .dice.rolling{animation:none}
 @media(max-width:1120px){
   .property-layout{grid-template-columns:minmax(155px,190px) minmax(0,1fr)}
   .property-actions{grid-column:1/-1;position:static;display:block}
-  .property-board-wrap{width:min(100%,calc(100dvh - 135px),760px)}
+  .property-board-wrap{width:min(100%,calc(100dvh - 88px),900px)}
 }
 @media(max-width:800px){
   .property-layout{display:flex;flex-direction:column;align-items:stretch}
-  .property-board-wrap{order:0;align-self:center;width:min(100%,calc(100dvh - 120px),700px)}
+  .property-board-wrap{order:0;align-self:center;width:min(100%,calc(100dvh - 88px),760px)}
   .property-actions{order:1;margin:0}
   .property-scoreboard{order:2;margin:0}
   .property-header{align-items:center}
@@ -287,13 +290,13 @@ html.reduce-motion .dice.rolling{animation:none}
 }
 @media(max-width:560px){
   .property-page{padding:8px 7px 22px}
-  .property-board-wrap{width:100%;max-height:none;padding:3px}
+  .property-board-wrap{width:min(100%,calc(100dvh - 88px));max-height:none;padding:3px}
   .property-board{min-width:0;gap:1px;border-width:3px;padding:1px}
   .board-space{border-radius:2px;border-top-width:3px;padding:1px}
   .board-space strong{line-height:1}
-  .pawn-position{width:13px}
-  .prisma-pawn{transform:scale(.65);transform-origin:bottom center;margin-top:-7px}
-  .pawn-name{font-size:5px}
+  .pawn-position{width:12px;height:17px}
+  .pawn-position .prisma-pawn{transform:scale(.55);transform-origin:center bottom}
+  .pawn-identity-name{font-size:clamp(8px,2.2vw,11px);padding:2px 4px;border-radius:7px}
   .board-center{padding:4px}
   .board-center h2{font-size:clamp(.75rem,3vw,1rem)}
   .board-center p{font-size:.64rem}
