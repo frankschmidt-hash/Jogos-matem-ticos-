@@ -2,6 +2,10 @@ export type RacerKind = "human" | "npc";
 export type NpcSkill = "beginner" | "intermediate" | "advanced";
 export type RacePhase = "waiting" | "round-open" | "round-resolution" | "finished";
 export type BombDirection = "ahead" | "behind";
+export const CAR_MODELS=["esportivo","sedan","hatch","suv","picape","buggy","formula","classico","jipe","van"] as const;
+export type CarModel=typeof CAR_MODELS[number];
+export type CarSelection={carModel:CarModel;carColor:string};
+export const DEFAULT_CAR:CarSelection={carModel:"esportivo",carColor:"#3378dc"};
 
 export type Racer = {
   id:string;
@@ -15,6 +19,10 @@ export type Racer = {
   bombCooldownUntilRound:number;
   protectedUntilRound:number;
   blockedRound:number | null;
+  carModel:CarModel;
+  carColor:string;
+  clearedTrackBombs:number[];
+  pendingTrackBomb:number|null;
 };
 
 export type RoundSubmission = {
@@ -50,7 +58,7 @@ export type RaceState = {
   nextLogId:number;
 };
 
-export type RaceHuman = {id:string; name:string};
+export type RaceHuman = {id:string; name:string; carModel?:CarModel; carColor?:string};
 
 export const TOTAL_RACERS=6;
 export const ROUND_DURATION_MS=20_000;
@@ -59,6 +67,8 @@ export const BASE_ADVANCE=110;
 export const FINISH_LINE=880;
 export const MAX_BOMB_CHARGES=2;
 export const CHECKPOINTS=[220,440,660] as const;
+export const TRACK_BOMBS=CHECKPOINTS;
+const NPC_CAR_COLORS=["#e55835","#29a784","#e2a328","#904fe3","#e54a82"];
 
 const NPC_NAMES=["Vega","Turbo","Pixel","Nébula","Raio","Órbita"] as const;
 const NPC_SKILLS:NpcSkill[]=["beginner","intermediate","advanced","intermediate","advanced","beginner"];
@@ -72,7 +82,9 @@ export function createRace(humans:RaceHuman[],finishLine=FINISH_LINE):RaceState 
   if(humans.length<1 || humans.length>TOTAL_RACERS) throw new Error("A corrida precisa de 1 a 6 jogadores humanos.");
   const humanRacers:Racer[]=humans.map(h=>({
     id:h.id,name:h.name,kind:"human",progress:0,correctAnswers:0,totalCorrectResponseMs:0,
-    bombCharges:0,bombCooldownUntilRound:0,protectedUntilRound:0,blockedRound:null
+    bombCharges:0,bombCooldownUntilRound:0,protectedUntilRound:0,blockedRound:null,
+    carModel:h.carModel??DEFAULT_CAR.carModel,carColor:h.carColor??DEFAULT_CAR.carColor,
+    clearedTrackBombs:[],pendingTrackBomb:null
   }));
   const npcs:Racer[]=[];
   for(let i=humans.length;i<TOTAL_RACERS;i++){
@@ -83,7 +95,9 @@ export function createRace(humans:RaceHuman[],finishLine=FINISH_LINE):RaceState 
       kind:"npc",
       npcSkill:NPC_SKILLS[npcIndex] ?? "intermediate",
       progress:0,correctAnswers:0,totalCorrectResponseMs:0,
-      bombCharges:0,bombCooldownUntilRound:0,protectedUntilRound:0,blockedRound:null
+      bombCharges:0,bombCooldownUntilRound:0,protectedUntilRound:0,blockedRound:null,
+      carModel:CAR_MODELS[(npcIndex+1)%CAR_MODELS.length]!,carColor:NPC_CAR_COLORS[npcIndex%NPC_CAR_COLORS.length]!,
+      clearedTrackBombs:[],pendingTrackBomb:null
     });
   }
   return {
@@ -144,6 +158,7 @@ export function submitRoundAnswer(
   }
   const racer=state.racers.find(r=>r.id===racerId);
   if(!racer) throw new Error("Competidor inválido.");
+  if(racer.pendingTrackBomb!==null) throw new Error("Resolva primeiro a bomba da pista.");
   if(state.submissions[racerId]) throw new Error("Resposta já enviada nesta rodada.");
 
   const timedOut=submittedAt>state.roundDeadlineAt;
@@ -174,7 +189,7 @@ export function submitNpcAnswers(state:RaceState,rng:()=>number=Math.random):Rac
   if(state.phase!=="round-open" || state.roundStartedAt===null) return state;
   let next=state;
   for(const racer of state.racers){
-    if(racer.kind!=="npc" || next.submissions[racer.id]) continue;
+    if(racer.kind!=="npc" || racer.pendingTrackBomb!==null || next.submissions[racer.id]) continue;
     const decision=npcDecision(racer.npcSkill ?? "intermediate",rng);
     next=submitRoundAnswer(
       next,racer.id,decision.correct,decision.responseMs,state.roundStartedAt+decision.responseMs
@@ -270,6 +285,31 @@ export function resolveNpcBombIfNeeded(state:RaceState,targetId:string,rng:()=>n
   return resolveBombAnswer(state,targetId,decision.correct,challenge.createdAt+decision.responseMs);
 }
 
+export function resolveTrackBomb(state:RaceState,racerId:string,correct:boolean):RaceState {
+  const racer=state.racers.find(r=>r.id===racerId);
+  if(!racer||racer.pendingTrackBomb===null) throw new Error("Não há bomba da pista pendente.");
+  const checkpoint=racer.pendingTrackBomb;
+  const racers=state.racers.map(r=>r.id!==racerId?r:{
+    ...r,
+    progress:correct?r.progress:0,
+    pendingTrackBomb:null,
+    clearedTrackBombs:correct?[...r.clearedTrackBombs,checkpoint]:[]
+  });
+  return pushLog({...state,racers},correct
+    ?racer.name+" desarmou a bomba do km "+checkpoint+" e pode continuar."
+    :"BOOM! "+racer.name+" errou a bomba do km "+checkpoint+" e voltou ao início.");
+}
+
+export function resolveNpcTrackBombs(state:RaceState,rng:()=>number=Math.random):RaceState {
+  let next=state;
+  for(const racer of state.racers){
+    if(racer.kind!=="npc" || racer.pendingTrackBomb===null) continue;
+    const decision=npcDecision(racer.npcSkill??"intermediate",rng);
+    next=resolveTrackBomb(next,racer.id,decision.correct);
+  }
+  return next;
+}
+
 function checkpointReward(before:number,after:number):number {
   return CHECKPOINTS.filter(point=>before<point && after>=point).length;
 }
@@ -286,16 +326,20 @@ function applyRoundMovement(state:RaceState):RaceState {
 
   racers=racers.map(racer=>{
     const submission=state.submissions[racer.id];
-    if(!submission || !submission.correct || racer.blockedRound===state.round) return racer;
+    if(!submission || !submission.correct || racer.blockedRound===state.round || racer.pendingTrackBomb!==null) return racer;
 
     const before=racer.progress;
     const after=Math.min(state.finishLine+BASE_ADVANCE,racer.progress+BASE_ADVANCE);
     const newCorrect=racer.correctAnswers+1;
     const checkpointCharges=checkpointReward(before,after);
     const comboCharge=newCorrect%3===0?1:0;
+    const reachedBomb=CHECKPOINTS.find(point=>
+      point<state.finishLine && point>before && point<=after && !racer.clearedTrackBombs.includes(point)
+    )??null;
     return {
       ...racer,
-      progress:after,
+      progress:reachedBomb??after,
+      pendingTrackBomb:reachedBomb,
       correctAnswers:newCorrect,
       totalCorrectResponseMs:racer.totalCorrectResponseMs+submission.responseMs,
       bombCharges:Math.min(MAX_BOMB_CHARGES,racer.bombCharges+checkpointCharges+comboCharge)
