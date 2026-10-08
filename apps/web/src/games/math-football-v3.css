@@ -137,3 +137,9 @@ html.reduce-motion .football-stadium-v2.is-goal .football-ball-v2,
 html.reduce-motion .football-stadium-v2.is-save .football-ball-v2,
 html.reduce-motion .football-stadium-v2.is-goal .football-goalkeeper-v2,
 html.reduce-motion .football-stadium-v2.is-save .football-goalkeeper-v2{animation:none!important}
+
+/* Arte da bola: arquivo vetorial incorporado ao jogo. */
+.football-stadium-v2 .football-ball-v2{
+  background:url("/assets/math-football/ball-premium.svg") center / contain no-repeat;
+  border:none;overflow:visible;filter:drop-shadow(1px 7px 4px #081f16c9)}
+.football-stadium-v2 .football-ball-v2::before,.football-stadium-v2 .football-ball-v2::after{content:none}
