@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type CSSProperties } from "react";
 import { io, type Socket } from "socket.io-client";
 import {
-  bombTarget, createRace, positionOf, progressPercent, resolveNpcBombIfNeeded,
-  resolveRound, startRound, submitNpcAnswers, submitRoundAnswer, useBomb,
-  type BombDirection, type Racer, type RaceState
+  bombTarget, CAR_MODELS, TRACK_BOMBS, createRace, positionOf, progressPercent,
+  resolveNpcBombIfNeeded, resolveNpcTrackBombs, resolveRound, resolveTrackBomb,
+  startRound, submitNpcAnswers, submitRoundAnswer, useBomb,
+  type BombDirection, type CarModel, type CarSelection, type Racer, type RaceState
 } from "@jogos/crazy-race";
 import { generateQuestion, validateAnswer, type MathQuestion } from "@jogos/math-engine";
 import { HelpRules, ResultFeedback } from "@jogos/ui";
@@ -32,9 +33,26 @@ type OnlineRoom = {
 };
 
 type BombQuestion = {id:string;expression:string;deadlineAt:number};
-type AckResponse = {ok:boolean;room?:OnlineRoom;error?:string;targetId?:string;bombQuestion?:BombQuestion|null;bombCorrection?:string|null};
+type TrackQuestion={id:string;expression:string;checkpoint:number};
+type RoomListing={code:string;hostNickname:string;occupied:number;max:number;createdAt:number};
+type AckResponse = {
+  ok:boolean;room?:OnlineRoom;rooms?:RoomListing[];pin?:string;error?:string;targetId?:string;
+  bombQuestion?:BombQuestion|null;bombCorrection?:string|null;
+  trackQuestion?:TrackQuestion|null;trackCorrect?:boolean|null;trackCorrection?:string|null
+};
 
 const ROOM_KEY="crazy-race-room-code";
+const ROOM_PIN_KEY="crazy-race-room-private-pin";
+const CAR_LABELS:Record<CarModel,string>={
+  esportivo:"Esportivo",sedan:"Sedã",hatch:"Hatch",suv:"SUV",picape:"Picape",
+  buggy:"Buggy",formula:"Fórmula",classico:"Clássico",jipe:"Jipe",van:"Van"
+};
+const PALETTE=[
+  {name:"Azul",hex:"#3378dc"},{name:"Vermelho",hex:"#e54842"},
+  {name:"Verde",hex:"#21a47a"},{name:"Amarelo",hex:"#edb22a"},
+  {name:"Roxo",hex:"#8b56d7"},{name:"Preto",hex:"#303847"},
+  {name:"Branco",hex:"#e5e9ef"},{name:"Laranja",hex:"#ec752f"}
+];
 
 const auth=(session:ClientSession)=>({
   sessionId:session.sessionId,
@@ -69,31 +87,55 @@ function orderedRacers(racers:Racer[]):Racer[] {
   );
 }
 
+function Vehicle({model,color,name,isPlayer=false}:{model:CarModel;color:string;name:string;isPlayer?:boolean}){
+  return <div className={["race-car","car-model-"+model,isPlayer?"player-car":""].filter(Boolean).join(" ")}
+    style={{"--car-paint":color} as CSSProperties} aria-label={CAR_LABELS[model]+" de "+name} title={name}>
+    <span className="car-body"><span className="car-door"/><span className="car-headlight"/></span>
+    <span className="car-roof"><span className="car-window rear-window"/><span className="car-window front-window"/></span>
+    <span className="car-wheel rear-wheel"/><span className="car-wheel front-wheel"/>
+  </div>;
+}
+
+function CarPicker({choice,onChange}:{choice:CarSelection;onChange:(value:CarSelection)=>void}){
+  return <section className="car-picker" aria-label="Escolha seu carro">
+    <div className="car-picker-title"><h2>Minha garagem</h2><p>Escolha o modelo e a cor do carro que você usará.</p></div>
+    <div className="car-preview"><Vehicle model={choice.carModel} color={choice.carColor} name="Seu carro" isPlayer/></div>
+    <div className="car-models">{CAR_MODELS.map(model=><button key={model}
+      className={choice.carModel===model?"selected":""}
+      aria-pressed={choice.carModel===model}
+      onClick={()=>onChange({...choice,carModel:model})}>{CAR_LABELS[model]}</button>)}</div>
+    <div className="car-colors" role="group" aria-label="Cor do carro">{PALETTE.map(color=><button
+      key={color.hex} title={color.name} aria-label={"Cor "+color.name}
+      aria-pressed={choice.carColor===color.hex}
+      className={choice.carColor===color.hex?"selected":""}
+      style={{backgroundColor:color.hex}} onClick={()=>onChange({...choice,carColor:color.hex})}/>)}</div>
+  </section>;
+}
+
 function Track({racers,finishLine,humanId}:{racers:Racer[];finishLine:number;humanId:string}) {
   const ordered=orderedRacers(racers);
-  return <section className="crazy-track" aria-label="Pista da Corrida Maluca">
+  return <section className="crazy-track" aria-label="Pista da Corrida Maluca com três bombas de percurso">
+    <div className="roadside roadside-top" aria-hidden="true">{Array.from({length:11},(_,i)=><img
+      key={i} src={i%3===0?"/assets/crazy-race/roadside-cone.svg":"/assets/crazy-race/roadside-tree.svg"} alt=""/>)}</div>
     <div className="track-finish" aria-hidden="true"/>
-    {[220,440,660].map((point,index)=><div
-      key={point}
-      className="track-checkpoint"
-      style={{left:(point/finishLine*100)+"%"}}
-      aria-hidden="true"
-    ><span>{index+1}</span></div>)}
+    {TRACK_BOMBS.filter(point=>point<finishLine).map((point,index)=><div
+      key={point} className="track-checkpoint" style={{left:(point/finishLine*100)+"%"}}
+      title={"Bomba "+(index+1)+" - "+point+" metros"} aria-hidden="true">
+      <img src="/assets/crazy-race/math-bomb.svg" alt=""/><span>{index+1}</span>
+    </div>)}
     {ordered.map((racer,index)=>{
-      const pct=Math.min(100,(racer.progress/finishLine)*100);
+      const pct=Math.max(0,Math.min(100,racer.progress/finishLine*100));
       return <div className="race-lane" key={racer.id}>
         <span className="lane-rank">{index+1}º</span>
-        <div
-          className={["race-car",racer.id===humanId?"player-car":"",racer.kind==="npc"?"npc-car":""].filter(Boolean).join(" ")}
-          style={{left:"calc("+pct+"% - 34px)"}}
-          title={racer.name}
-        >
-          <span className="car-window"/>
-          <strong>{racer.name.slice(0,2).toUpperCase()}</strong>
+        <div className="car-position" style={{left:"calc((100% - 90px) * "+(pct/100)+")"}}>
+          <Vehicle model={racer.carModel??"esportivo"} color={racer.carColor??"#3378dc"}
+            name={racer.name} isPlayer={racer.id===humanId}/>
         </div>
-        <span className="lane-name">{racer.name}</span>
+        <span className="lane-name">{racer.name}{racer.pendingTrackBomb!==null?" · Bomba!":""}</span>
       </div>;
     })}
+    <div className="roadside roadside-bottom" aria-hidden="true">{Array.from({length:11},(_,i)=><img
+      key={i} src={i%4===0?"/assets/crazy-race/roadside-cone.svg":"/assets/crazy-race/roadside-tree.svg"} alt=""/>)}</div>
   </section>;
 }
 
@@ -107,7 +149,8 @@ function RaceHud({
     <div><span>Rodada</span><strong>{round}</strong></div>
     <div><span>Progresso</span><strong>{human?Math.min(100,Math.round(human.progress/finishLine*100)):0}%</strong></div>
     <div className={secondsLeft(deadline,now)<=5?"timer-danger":""}><span>Tempo</span><strong>{secondsLeft(deadline,now)}s</strong></div>
-    <div><span>Bombas</span><strong>{human?.bombCharges ?? 0}</strong></div>
+    <div><span>Bombas da pista</span><strong>{human?.clearedTrackBombs.length??0} / {TRACK_BOMBS.filter(p=>p<finishLine).length}</strong></div>
+    <div><span>Ataques</span><strong>{human?.bombCharges ?? 0}</strong></div>
   </div>;
 }
 
