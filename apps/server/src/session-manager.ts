@@ -46,7 +46,10 @@ export const hasOffensiveNickname=(nickname:string):boolean=>{
   const words=normal.split(/[ _-]+/).filter(Boolean);
   const forms=[foldForModeration(nickname),...words.map(foldForModeration)];
   // Identifica letras intencionalmente repetidas (ex.: poorrra).
-  const variants=forms.flatMap(word=>[word,word.replace(/([a-z])\1+/g,"$1")]);
+  const variants=forms.flatMap(word=>[word,
+    word.replace(/([a-z])\1{2,}/g,"$1$1"),
+    word.replace(/([a-z])\1+/g,"$1")
+  ]);
   return variants.some(value=>
     [...FORBIDDEN_WORDS].some(word=>value.includes(word.replace(/ /g,""))) ||
     SHORT_FORBIDDEN.has(value) ||
