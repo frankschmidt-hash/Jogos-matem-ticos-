@@ -16,7 +16,7 @@ type RoomRace=Omit<NumberRaceState,"submissions"> & {answeredIds:string[]};
 type NumberRoom={
   code:string;
   hostSessionId:string;
-  gradeLevel:5|6|7|"mixed";
+  gradeLevel:5|6|7|8|9|"mixed";
   members:Array<{sessionId:string;nickname:string;connected:boolean;presence:"connected"|"reconnecting"|"disconnected"|"abandoned"}>;
   status:"waiting"|"playing"|"finished";
   lifecycleState:"waiting"|"ready"|"countdown"|"playing"|"round-resolution"|"finished"|"closed";
@@ -267,7 +267,7 @@ function OnlineNumberRace({session,onExit,carChoice}:{session:ClientSession;onEx
   const [mode,setMode]=useState<"menu"|"create"|"join">("menu");
   const [password,setPassword]=useState("");
   const [code,setCode]=useState("");
-  const [grade,setGrade]=useState<5|6|7|"mixed">(session.gradeLevel);
+  const [grade,setGrade]=useState<5|6|7|8|9|"mixed">(session.gradeLevel);
   const [answer,setAnswer]=useState("");
   const [error,setError]=useState("");
   const [submitting,setSubmitting]=useState(false);
@@ -354,8 +354,8 @@ function OnlineNumberRace({session,onExit,carChoice}:{session:ClientSession;onEx
         </div>}
         {mode!=="menu"&&<div className="stack">
           {mode==="create"&&<label>Nível da sala
-            <select value={grade} onChange={e=>setGrade(e.target.value==="mixed"?"mixed":Number(e.target.value) as 5|6|7)}>
-              <option value={5}>5º ano</option><option value={6}>6º ano</option><option value={7}>7º ano</option><option value="mixed">Misto</option>
+            <select value={grade} onChange={e=>setGrade(e.target.value==="mixed"?"mixed":Number(e.target.value) as 5|6|7|8|9)}>
+              <option value={5}>5º ano</option><option value={6}>6º ano</option><option value={7}>7º ano</option><option value={8}>8º ano</option><option value={9}>9º ano</option><option value="mixed">Misto — 5º ao 9º</option>
             </select>
           </label>}
           {mode==="join"&&<label>Código da sala<input value={code} onChange={e=>setCode(e.target.value.toUpperCase())} maxLength={6}/></label>}

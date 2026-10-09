@@ -35,12 +35,17 @@ for(const route of ["/","/lobby","/game/property-math","/game/crazy-race","/game
   assert(response.headers.get("content-security-policy"),route+" sem CSP");
 }
 
-const first=await post("/api/session/claim",{nickname:"ReleaseA"+unique,gradeLevel:5});
+const first=await post("/api/session/claim",{nickname:"ReleaseA"+unique,gradeLevel:8});
 assert(first.response.ok&&first.data.session,"falha ao criar sessão A");
 const duplicate=await post("/api/session/claim",{nickname:" releasea"+unique+" ",gradeLevel:6});
 assert(duplicate.response.status===409,"nickname duplicado não foi rejeitado");
-const second=await post("/api/session/claim",{nickname:"ReleaseB"+unique,gradeLevel:6});
+const second=await post("/api/session/claim",{nickname:"ReleaseB"+unique,gradeLevel:9});
 assert(second.response.ok&&second.data.session,"falha ao criar sessão B");
+// Em smoke de versão publicada antiga não exigir ainda os novos anos.
+if(process.env.DEPLOYED_VERSION_SMOKE!=="true"){
+  assert(first.data.session.gradeLevel===8,"5º a 9º: sessão de 8º ano não persistiu");
+  assert(second.data.session.gradeLevel===9,"5º a 9º: sessão de 9º ano não persistiu");
+}
 
 const a=first.data.session,b=second.data.session;
 const host=await connect();
@@ -92,9 +97,13 @@ guest=await connect();
 const reconnected=await ack(guest,"number:reconnect-room",{...auth(b),code:number.code});
 assert(reconnected?.ok&&reconnected.room?.code===number.code,"reconexão da Corrida Numérica falhou");
 
-const football=await createJoinStart("Futebol Matemático","football:create-room","football:join-room","football:start",{gradeLevel:6});
+const football=await createJoinStart("Futebol Matemático","football:create-room","football:join-room","football:start",{gradeLevel:9});
 assert(football.room.members?.length===2,"Futebol não iniciou PvP com dois humanos");
 assert(football.room.question.deadlineAt!==null,"Futebol online sem deadline");
+if(process.env.DEPLOYED_VERSION_SMOKE!=="true"){
+  assert(football.room.gradeLevel===9,"Futebol online não preservou 9º ano");
+  assert(number.room.gradeLevel==="mixed","Corrida Numérica não preservou modo misto");
+}
 
 host.close();
 guest.close();

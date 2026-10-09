@@ -1,6 +1,6 @@
 export type GameId = "property-math" | "crazy-race" | "number-race" | "math-football";
 export type ConnectionState = "connected" | "reconnecting" | "disconnected";
-export type GradeSelection = 5 | 6 | 7 | "mixed";
+export type GradeSelection = 5 | 6 | 7 | 8 | 9 | "mixed";
 
 export type PublicPlayer = {
   sessionId: string;

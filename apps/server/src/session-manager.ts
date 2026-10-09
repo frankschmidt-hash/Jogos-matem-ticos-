@@ -1,4 +1,4 @@
-export type GradeSelection = 5 | 6 | 7 | "mixed";
+export type GradeSelection = 5 | 6 | 7 | 8 | 9 | "mixed";
 export type ConnectionState = "connected" | "reconnecting" | "disconnected";
 
 export type PlayerSession = {

@@ -15,7 +15,7 @@ type PropertyRoom={
   status:"waiting"|"playing"|"finished";
   mode:MatchMode;
   shortRounds:number;
-  gradeLevel:5|6|7|"mixed";
+  gradeLevel:5|6|7|8|9|"mixed";
   game:GameState|null;
   question:{id:string;expression:string}|null;
   lastResolution:{playerId:string;correct:boolean;correctAnswer:string|null;position:number;at:number}|null;
