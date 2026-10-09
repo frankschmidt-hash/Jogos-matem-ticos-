@@ -35,11 +35,11 @@ for(const route of ["/","/lobby","/game/property-math","/game/crazy-race","/game
   assert(response.headers.get("content-security-policy"),route+" sem CSP");
 }
 
-const first=await post("/api/session/claim",{nickname:"ReleaseA"+unique,gradeLevel:8});
+const first=await post("/api/session/claim",{nickname:"ReleaseA"+unique,gradeLevel:process.env.DEPLOYED_VERSION_SMOKE==="true"?5:8});
 assert(first.response.ok&&first.data.session,"falha ao criar sessão A");
 const duplicate=await post("/api/session/claim",{nickname:" releasea"+unique+" ",gradeLevel:6});
 assert(duplicate.response.status===409,"nickname duplicado não foi rejeitado");
-const second=await post("/api/session/claim",{nickname:"ReleaseB"+unique,gradeLevel:9});
+const second=await post("/api/session/claim",{nickname:"ReleaseB"+unique,gradeLevel:process.env.DEPLOYED_VERSION_SMOKE==="true"?6:9});
 assert(second.response.ok&&second.data.session,"falha ao criar sessão B");
 // Em smoke de versão publicada antiga não exigir ainda os novos anos.
 if(process.env.DEPLOYED_VERSION_SMOKE!=="true"){
@@ -97,7 +97,7 @@ guest=await connect();
 const reconnected=await ack(guest,"number:reconnect-room",{...auth(b),code:number.code});
 assert(reconnected?.ok&&reconnected.room?.code===number.code,"reconexão da Corrida Numérica falhou");
 
-const football=await createJoinStart("Futebol Matemático","football:create-room","football:join-room","football:start",{gradeLevel:9});
+const football=await createJoinStart("Futebol Matemático","football:create-room","football:join-room","football:start",{gradeLevel:process.env.DEPLOYED_VERSION_SMOKE==="true"?6:9});
 assert(football.room.members?.length===2,"Futebol não iniciou PvP com dois humanos");
 assert(football.room.question.deadlineAt!==null,"Futebol online sem deadline");
 if(process.env.DEPLOYED_VERSION_SMOKE!=="true"){
