@@ -1,5 +1,6 @@
-export type GradeLevel = 5 | 6 | 7 | "mixed";
-export type ConcreteGradeLevel = 5 | 6 | 7;
+export type ConcreteGradeLevel = 5 | 6 | 7 | 8 | 9;
+export type GradeLevel = ConcreteGradeLevel | "mixed";
+export const GRADE_LEVELS = [5, 6, 7, 8, 9] as const satisfies readonly ConcreteGradeLevel[];
 export type Difficulty = 1 | 2 | 3;
 
 export type MathQuestion = {
@@ -103,7 +104,7 @@ const q = (gradeLevel: ConcreteGradeLevel, category: string, expression: string,
  * Contrato de TODOS os quatro jogos, incluindo bombas e partidas online.
  * Somente uma conta; adição/subtração <= 3 algarismos;
  * multiplicação/divisão <= 2 algarismos em CADA operando;
- * potência com base <= 2 algarismos e expoente de 1 algarismo;
+ * potência com base <= 2 algarismos e expoente SEMPRE igual a 2;
  * radicando <= 3 algarismos com raiz inteira.
  */
 export const satisfiesSimpleOperations = (
@@ -122,11 +123,8 @@ export const satisfiesSimpleOperations = (
     const a=Number(m[1]),b=Number(m[2]);
     return b!==0&&a%b===0&&a/b===answer;
   }
-  m=/^(\d{1,2})([²³⁴])$/.exec(question.expression);
-  if(m){
-    const exponent=m[2]==="²"?2:m[2]==="³"?3:4;
-    return Number(m[1])**exponent===answer;
-  }
+  m=/^(\d{1,2})²$/.exec(question.expression);
+  if(m) return Number(m[1])**2===answer;
   m=/^(√|∛)(\d{1,3})$/.exec(question.expression);
   if(m){
     const value=m[1]==="√"?Math.sqrt(Number(m[2])):Math.cbrt(Number(m[2]));
@@ -152,17 +150,27 @@ const GRADE_LIMITS:Record<ConcreteGradeLevel,Record<Difficulty,Limits>>={
     1:{additive:200,factor:20,divisor:20,quotient:20,powerBase:12,squareRoot:20,cubeRoot:5},
     2:{additive:650,factor:60,divisor:30,quotient:30,powerBase:22,squareRoot:31,cubeRoot:8},
     3:{additive:999,factor:99,divisor:33,quotient:49,powerBase:40,squareRoot:31,cubeRoot:9}
+  },
+  8:{
+    1:{additive:300,factor:25,divisor:22,quotient:28,powerBase:20,squareRoot:24,cubeRoot:6},
+    2:{additive:750,factor:65,divisor:33,quotient:42,powerBase:45,squareRoot:31,cubeRoot:8},
+    3:{additive:999,factor:89,divisor:44,quotient:65,powerBase:70,squareRoot:31,cubeRoot:9}
+  },
+  9:{
+    1:{additive:400,factor:35,divisor:27,quotient:35,powerBase:25,squareRoot:29,cubeRoot:7},
+    2:{additive:850,factor:75,divisor:40,quotient:55,powerBase:70,squareRoot:31,cubeRoot:9},
+    3:{additive:999,factor:99,divisor:49,quotient:75,powerBase:99,squareRoot:31,cubeRoot:9}
   }
 };
 const OPERATIONS:readonly Operation[]=[
   "addition","subtraction","multiplication","exact-division","exponentiation","radication"
 ];
 
-/** Ano 5/6/7 ou sorteio por questão no modo misto. */
+/** Ano 5º a 9º ou sorteio entre os cinco anos por questão no modo misto. */
 export const generateQuestion=(grade:GradeLevel,options:{difficulty?:Difficulty;seed?:string}={}):MathQuestion=>{
   const difficulty=options.difficulty??1,seed=options.seed;
   const r=seed?seededRandom(seed):Math.random;
-  const level:ConcreteGradeLevel=grade==="mixed"?pick(r,[5,6,7] as const):grade;
+  const level:ConcreteGradeLevel=grade==="mixed"?pick(r,GRADE_LEVELS):grade;
   const limits=GRADE_LIMITS[level][difficulty],category=pick(r,OPERATIONS);
   if(category==="addition"){
     const a=int(r,1,limits.additive),b=int(r,1,limits.additive);
@@ -182,10 +190,8 @@ export const generateQuestion=(grade:GradeLevel,options:{difficulty?:Difficulty;
     return q(level,category,String(divisor*quotient)+" ÷ "+String(divisor),String(quotient),difficulty,seed);
   }
   if(category==="exponentiation"){
-    const exp=level===5?2:level===6?pick(r,[2,3] as const):pick(r,[2,3,4] as const);
-    const baseLimit=exp===2?limits.powerBase:exp===3?Math.min(9,limits.powerBase):Math.min(5,limits.powerBase);
-    const base=int(r,2,baseLimit),superScript=exp===2?"²":exp===3?"³":"⁴";
-    return q(level,category,String(base)+superScript,String(base**exp),difficulty,seed);
+    const base=int(r,2,limits.powerBase);
+    return q(level,category,String(base)+"²",String(base**2),difficulty,seed);
   }
   const cubic=limits.cubeRoot>0&&r()<0.35;
   const value=int(r,2,cubic?limits.cubeRoot:limits.squareRoot);

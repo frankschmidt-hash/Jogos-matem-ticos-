@@ -26,7 +26,7 @@ type RoomQuestion={
 type FootballRoom={
   code:string;
   hostSessionId:string;
-  gradeLevel:5|6|7|"mixed";
+  gradeLevel:5|6|7|8|9|"mixed";
   members:Array<{sessionId:string;nickname:string;connected:boolean;presence:"connected"|"reconnecting"|"disconnected"|"abandoned"}>;
   status:"waiting"|"playing"|"finished";
   lifecycleState:"waiting"|"ready"|"countdown"|"playing"|"round-resolution"|"finished"|"closed";
@@ -252,7 +252,7 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
   const [mode,setMode]=useState<"menu"|"create"|"join">("menu");
   const [password,setPassword]=useState(()=>String(Math.floor(Math.random()*900)+100));
   const [code,setCode]=useState("");
-  const [grade,setGrade]=useState<5|6|7|"mixed">(session.gradeLevel);
+  const [grade,setGrade]=useState<5|6|7|8|9|"mixed">(session.gradeLevel);
   const [answer,setAnswer]=useState("");
   const [target,setTarget]=useState<PenaltyTarget>(4);
   const [finalReady,setFinalReady]=useState(false);
@@ -353,8 +353,8 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
         <button className="button-ghost" onClick={onExit}>Voltar</button>
       </div>:<div className="stack">
         {mode==="create"&&<label>Nível da sala
-          <select value={grade} onChange={e=>setGrade(e.target.value==="mixed"?"mixed":Number(e.target.value) as 5|6|7)}>
-            <option value={5}>5º ano</option><option value={6}>6º ano</option><option value={7}>7º ano</option><option value="mixed">Misto</option>
+          <select value={grade} onChange={e=>setGrade(e.target.value==="mixed"?"mixed":Number(e.target.value) as 5|6|7|8|9)}>
+            <option value={5}>5º ano</option><option value={6}>6º ano</option><option value={7}>7º ano</option><option value={8}>8º ano</option><option value={9}>9º ano</option><option value="mixed">Misto — 5º ao 9º</option>
           </select>
         </label>}
         {mode==="join"&&<label>Código da sala<input value={code} onChange={e=>setCode(e.target.value.toUpperCase())} maxLength={6} placeholder="Selecione uma sala na lista"/></label>}

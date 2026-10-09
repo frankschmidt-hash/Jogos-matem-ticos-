@@ -21,8 +21,8 @@ type RoomRace = Omit<RaceState,"submissions"|"bombChallenges"> & {
 type OnlineRoom = {
   code:string;
   hostSessionId:string;
-  gradeLevel:5|6|7|"mixed";
-  members:Array<{sessionId:string;nickname:string;gradeLevel:5|6|7|"mixed";carModel:CarModel;carColor:string;connected:boolean;presence:"connected"|"reconnecting"|"disconnected"|"abandoned"}>;
+  gradeLevel:5|6|7|8|9|"mixed";
+  members:Array<{sessionId:string;nickname:string;gradeLevel:5|6|7|8|9|"mixed";carModel:CarModel;carColor:string;connected:boolean;presence:"connected"|"reconnecting"|"disconnected"|"abandoned"}>;
   status:"waiting"|"playing"|"finished";
   lifecycleState:"waiting"|"ready"|"countdown"|"playing"|"round-resolution"|"finished"|"closed";
   capacity:{max:number;occupied:number;available:number};

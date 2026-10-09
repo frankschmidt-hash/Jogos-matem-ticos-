@@ -2,7 +2,7 @@ export type ClientSession = {
   sessionId:string;
   reconnectToken:string;
   nickname:string;
-  gradeLevel:5|6|7|"mixed";
+  gradeLevel:5|6|7|8|9|"mixed";
   connectionState:string;
   createdAt:number;
   lastSeenAt:number
@@ -62,7 +62,7 @@ export async function recordSoloResult(session:ClientSession,gameId:LeaderboardG
   if(!response.ok) throw new Error("Não foi possível registrar a pontuação.");
 }
 
-export async function claimSession(nickname:string,gradeLevel:5|6|7|"mixed") {
+export async function claimSession(nickname:string,gradeLevel:5|6|7|8|9|"mixed") {
   return postSession("/api/session/claim",{nickname,gradeLevel});
 }
 

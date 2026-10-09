@@ -17,7 +17,7 @@ export type PropertyRoom = {
   status:"waiting"|"playing"|"finished";
   mode:MatchMode;
   shortRounds:number;
-  gradeLevel:5|6|7|"mixed";
+  gradeLevel:5|6|7|8|9|"mixed";
   game:GameState|null;
   question:MathQuestion|null;
   lastResolution:{playerId:string;correct:boolean;correctAnswer:string|null;position:number;at:number}|null;
@@ -39,7 +39,7 @@ export class PropertyRoomManager {
   private rooms=new Map<string,PropertyRoom>();
   constructor(private infra:RoomInfrastructure=roomInfrastructure){}
 
-  createRoom(host:MemberInput,pin:string,gradeLevel:5|6|7|"mixed",mode:MatchMode,shortRounds:number,now=Date.now()):PropertyRoom{
+  createRoom(host:MemberInput,pin:string,gradeLevel:5|6|7|8|9|"mixed",mode:MatchMode,shortRounds:number,now=Date.now()):PropertyRoom{
     if(!PIN_PATTERN.test(pin)) throw new Error("A senha deve conter exatamente 3 números.");
     this.infra.assertActionRate("property-create",host.sessionId,now,3,60_000);
     if([...this.rooms.values()].some(r=>r.hostSessionId===host.sessionId&&r.status!=="finished")) throw new Error("Você já criou uma sala ativa.");

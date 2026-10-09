@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SOLO_KICK_MS, ONLINE_KICK_MS } from "@jogos/math-football";
+import { gradeLevelSchema } from "@jogos/protocol";
 
 const web=(relative:string)=>readFileSync(
   fileURLToPath(new URL("../../web/"+relative,import.meta.url)),
@@ -11,6 +12,23 @@ const server=(relative:string)=>readFileSync(
   fileURLToPath(new URL("./"+relative,import.meta.url)),
   "utf8"
 );
+
+describe("Seletor escolar 5º ao 9º + misto em todos os jogos",()=>{
+  it("aceita somente os anos de 5 a 9 e o misto em sessões e salas",()=>{
+    for(const grade of [5,6,7,8,9,"mixed"] as const)expect(gradeLevelSchema.safeParse(grade).success).toBe(true);
+    for(const invalid of [4,10,"5","8","9",null,"all"])expect(gradeLevelSchema.safeParse(invalid).success).toBe(false);
+  });
+  it("expõe 5º a 9º e misto tanto no portal quanto na criação de salas",()=>{
+    for(const path of ["src/App.tsx","src/games/NumberRace.tsx","src/games/MathFootball.tsx"]){
+      const source=web(path);
+      for(const grade of [5,6,7,8,9]){
+        expect(source).toContain("<option value={"+grade+"}>"+grade+"º ano</option>");
+      }
+      expect(source).toContain('<option value="mixed">Misto');
+    }
+    expect(web("src/App.tsx")).toContain("5º ao 9º ano");
+  });
+});
 
 describe("Prompt 08 pre-release contracts",()=>{
   it("usa padrões de aula curtos sem remover opções pedagógicas",()=>{

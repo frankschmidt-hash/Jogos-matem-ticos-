@@ -64,7 +64,7 @@ function HomeRankings(){
 function Home({onSession}:{onSession:(s:ClientSession)=>void}) {
   const nav=useNavigate();
   const [nickname,setNickname]=useState("");
-  const [grade,setGrade]=useState<5|6|7|"mixed">(5);
+  const [grade,setGrade]=useState<5|6|7|8|9|"mixed">(5);
   const [error,setError]=useState("");
   const [loading,setLoading]=useState(false);
 
@@ -86,7 +86,7 @@ function Home({onSession}:{onSession:(s:ClientSession)=>void}) {
   return <main className="portal-home" id="main-content">
     <section className="portal-intro" aria-labelledby="portal-title">
       <div className="portal-copy">
-        <span className="portal-badge">5º ao 7º ano · sem cadastro</span>
+        <span className="portal-badge">5º ao 9º ano · sem cadastro</span>
         <p className="eyebrow">Aprender jogando</p>
         <h1 id="portal-title">Matemática em movimento</h1>
         <p className="portal-lead">
@@ -123,11 +123,13 @@ function Home({onSession}:{onSession:(s:ClientSession)=>void}) {
           <small id="nickname-help">2 a 20 caracteres. Palavras ofensivas ou obscenas não são permitidas.</small>
         </label>
         <label htmlFor="grade">Nível das contas
-          <select id="grade" value={grade} onChange={e=>setGrade(e.target.value==="mixed"?"mixed":Number(e.target.value) as 5|6|7)}>
+          <select id="grade" value={grade} onChange={e=>setGrade(e.target.value==="mixed"?"mixed":Number(e.target.value) as 5|6|7|8|9)}>
             <option value={5}>5º ano</option>
             <option value={6}>6º ano</option>
             <option value={7}>7º ano</option>
-            <option value="mixed">Misto — 5º ao 7º</option>
+            <option value={8}>8º ano</option>
+            <option value={9}>9º ano</option>
+            <option value="mixed">Misto — 5º ao 9º</option>
           </select>
         </label>
         {error&&<p className="error" role="alert"><span aria-hidden="true">!</span> {error}</p>}

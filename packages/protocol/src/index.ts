@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const gradeLevelSchema = z.union([z.literal(5), z.literal(6), z.literal(7), z.literal("mixed")]);
+export const gradeLevelSchema = z.union([z.literal(5), z.literal(6), z.literal(7), z.literal(8), z.literal(9), z.literal("mixed")]);
 export const roomCodeSchema=z.string().trim().length(6).regex(/^[A-Za-z2-9]{6}$/);
 export const roomPasswordSchema=z.string().min(4).max(32);
 export const clientSubmissionIdSchema=z.string().min(8).max(120);
