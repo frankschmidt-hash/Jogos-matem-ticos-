@@ -30,6 +30,19 @@ describe("Seletor escolar 5º ao 9º + misto em todos os jogos",()=>{
   });
 });
 
+describe("Segurança dos rankings publicados",()=>{
+  it("o smoke remoto não pode escrever sessões ou criar salas",()=>{
+    const script=readFileSync(fileURLToPath(new URL("../../../scripts/smoke-e2e.mjs",import.meta.url)),"utf8");
+    const guard=script.indexOf('if(process.env.DEPLOYED_VERSION_SMOKE==="true"){');
+    const exit=script.indexOf("process.exit(0);",guard);
+    const firstWrite=script.indexOf('await post("/api/session/claim"');
+    expect(guard).toBeGreaterThan(0);
+    expect(exit).toBeGreaterThan(guard);
+    expect(firstWrite).toBeGreaterThan(exit);
+    expect(script.slice(guard,exit)).not.toMatch(/post\\(|socket\\.emit\\(|ack\\(/);
+  });
+});
+
 describe("Prompt 08 pre-release contracts",()=>{
   it("usa padrões de aula curtos sem remover opções pedagógicas",()=>{
     const property=web("src/games/PropertyGame.tsx");
