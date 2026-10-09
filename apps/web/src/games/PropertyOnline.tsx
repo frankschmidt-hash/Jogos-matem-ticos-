@@ -26,7 +26,7 @@ const ROOM_KEY="property-prisma-online-room";
 const auth=(session:ClientSession)=>({sessionId:session.sessionId,reconnectToken:session.reconnectToken});
 
 export function PropertyOnline({session,onExit}:{session:ClientSession;onExit:()=>void}) {
-  const socket=useMemo<Socket>(()=>io(apiBase,{transports:["websocket"],autoConnect:true}),[]);
+  const socket=useMemo<Socket>(()=>io(apiBase,{transports:["polling","websocket"],autoConnect:true}),[]);
   const [room,setRoom]=useState<PropertyRoom|null>(null);
   const [rooms,setRooms]=useState<RoomSummary[]>([]);
   const [view,setView]=useState<"list"|"create"|"join">("list");
