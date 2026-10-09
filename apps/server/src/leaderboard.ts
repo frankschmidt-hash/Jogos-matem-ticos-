@@ -8,6 +8,10 @@ export type RankEntry = { nickname:string; score:number; secondary:number; achie
 export const SCORE_LIMITS:Record<LeaderboardGame,number> = {
   "property-math":10_000_000,"crazy-race":3_000,"number-race":3_000,"math-football":1_000
 };
+/** Nicknames criados exclusivamente pelos antigos testes automáticos de release. */
+export const isAutomatedSmokeNickname=(nickname:string):boolean=>
+  /^Release[AB][a-z0-9]{6}$/i.test(nickname);
+
 const empty=():Record<LeaderboardGame,RankEntry[]>=>({
   "property-math":[],"crazy-race":[],"number-race":[],"math-football":[]
 });
@@ -22,6 +26,7 @@ export class LeaderboardStore {
   private rankings=empty();
   constructor(private readonly filePath:string|null=leaderboardFilePath()){
     if(!filePath) return;
+    let legacyTestRows=false;
     try{
       const saved=JSON.parse(readFileSync(filePath,"utf8")) as Record<string,unknown>;
       for(const game of LEADERBOARD_GAMES){
@@ -30,10 +35,13 @@ export class LeaderboardStore {
         for(const item of rows){
           if(!item||typeof item!=="object") continue;
           const row=item as Partial<RankEntry>;
-          if(typeof row.nickname==="string")
+          if(typeof row.nickname==="string"){
+            if(row.score===0||isAutomatedSmokeNickname(row.nickname)) legacyTestRows=true;
             this.record(game,row.nickname,row.score as number,row.secondary as number,row.achievedAt as number,false);
+          }
         }
       }
+      if(legacyTestRows) this.persist();
     }catch(error){
       if((error as NodeJS.ErrnoException).code!=="ENOENT")
         console.warn("Arquivo de ranking anterior indisponível ou inválido",error);
@@ -47,7 +55,7 @@ export class LeaderboardStore {
   record(game:LeaderboardGame,nickname:string,score:number,secondary=0,achievedAt=Date.now(),persist=true):boolean{
     if(!LEADERBOARD_GAMES.includes(game)) return false;
     const name=validateNickname(nickname);
-    if(!name.ok||!Number.isSafeInteger(score)||score<0||score>SCORE_LIMITS[game]||
+    if(!name.ok||isAutomatedSmokeNickname(name.clean)||!Number.isSafeInteger(score)||score<=0||score>SCORE_LIMITS[game]||
       !Number.isSafeInteger(secondary)||Math.abs(secondary)>10_000_000||
       !Number.isSafeInteger(achievedAt)||achievedAt<0) return false;
     const current=this.rankings[game].find(row=>normalizeNickname(row.nickname)===name.normalized);
@@ -57,14 +65,17 @@ export class LeaderboardStore {
     next.push(candidate);
     next.sort(compare);
     this.rankings[game]=next.slice(0,10);
-    if(persist&&this.filePath){
-      try{
-        mkdirSync(dirname(this.filePath),{recursive:true});
-        const temp=this.filePath+"."+process.pid+".tmp";
-        writeFileSync(temp,JSON.stringify(this.rankings),"utf8");
-        renameSync(temp,this.filePath);
-      }catch(error){console.error("Falha ao salvar rankings",error);}
-    }
+    if(persist) this.persist();
     return true;
+  }
+
+  private persist():void{
+    if(!this.filePath) return;
+    try{
+      mkdirSync(dirname(this.filePath),{recursive:true});
+      const temp=this.filePath+"."+process.pid+".tmp";
+      writeFileSync(temp,JSON.stringify(this.rankings),"utf8");
+      renameSync(temp,this.filePath);
+    }catch(error){console.error("Falha ao salvar rankings",error);}
   }
 }
