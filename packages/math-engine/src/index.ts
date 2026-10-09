@@ -16,19 +16,6 @@ export type MathQuestion = {
 
 type Random = () => number;
 
-const gcd = (a: number, b: number): number => {
-  a = Math.abs(a); b = Math.abs(b);
-  while (b) [a, b] = [b, a % b];
-  return a || 1;
-};
-
-const fraction = (num: number, den: number): string => {
-  if (den === 0) throw new Error("Denominador não pode ser zero");
-  if (den < 0) { num *= -1; den *= -1; }
-  const d = gcd(num, den);
-  return `${num / d}/${den / d}`;
-};
-
 export const normalizeNumericInput = (value: string): string =>
   value.trim().replace(/\s+/g, "").replace(",", ".");
 
@@ -78,11 +65,7 @@ export const seededRandom = (seed: string): Random => {
 const int = (r: Random, min: number, max: number) => Math.floor(r() * (max - min + 1)) + min;
 const pick = <T>(r: Random, items: readonly T[]): T => items[int(r, 0, items.length - 1)]!;
 
-/**
- * Regra pedagógica dos quatro jogos: somente expressões com × ou ÷
- * precisam utilizar operandos inteiros e produzir respostas inteiras.
- * Somas/subtrações com decimais e frações permanecem permitidas.
- */
+/** Verificação adicional: divisão e multiplicação com inteiros. */
 export const satisfiesIntegerMultiplicationAndDivision = (
   question: Pick<MathQuestion, "expression" | "correctAnswer">
 ): boolean => {
@@ -109,140 +92,107 @@ const q = (gradeLevel: ConcreteGradeLevel, category: string, expression: string,
     id: `${gradeLevel}-${category}-${seed ?? crypto.randomUUID()}`,
     gradeLevel, category, expression, correctAnswer, acceptedAnswers, difficulty, generatedAt: Date.now(), seed
   };
-  if (!satisfiesIntegerMultiplicationAndDivision(question)) {
-    throw new Error("Multiplicação e divisão devem usar números inteiros e ter resultado inteiro.");
+  if (!satisfiesIntegerMultiplicationAndDivision(question) || !satisfiesSimpleOperations(question)) {
+    throw new Error("A questão deve ser somente uma conta das seis operações, dentro dos limites por algarismo.");
   }
   return question;
 };
 
-/** Divisão exata por construção, em todos os anos e modos (inclusive desafios de bomba). */
-const exactDivision = (r: Random, gradeLevel: ConcreteGradeLevel, difficulty: Difficulty, seed?: string, factorLimit?: number): MathQuestion => {
-  const divisorLimit = factorLimit ?? (gradeLevel === 5 ? (difficulty === 3 ? 20 : 12)
-    : gradeLevel === 6 ? (difficulty === 1 ? 12 : difficulty === 2 ? 16 : 20)
-    : (difficulty === 1 ? 14 : difficulty === 2 ? 20 : 25));
-  const quotientLimit = factorLimit ?? (gradeLevel === 5 ? (difficulty === 1 ? 10 : 20) : divisorLimit);
-  const divisor = int(r, 2, divisorLimit), quotient = int(r, 2, quotientLimit);
-  return q(gradeLevel, "exact-division", `${divisor * quotient} ÷ ${divisor}`, String(quotient), difficulty, seed);
+
+/**
+ * Contrato de TODOS os quatro jogos, incluindo bombas e partidas online.
+ * Somente uma conta; adição/subtração <= 3 algarismos;
+ * multiplicação/divisão <= 2 algarismos em CADA operando;
+ * potência com base <= 2 algarismos e expoente de 1 algarismo;
+ * radicando <= 3 algarismos com raiz inteira.
+ */
+export const satisfiesSimpleOperations = (
+  question: Pick<MathQuestion, "expression" | "correctAnswer">
+): boolean => {
+  const answer=Number(question.correctAnswer);
+  if(!Number.isSafeInteger(answer)||String(answer)!==question.correctAnswer) return false;
+  let m=/^(\d{1,3}) \+ (\d{1,3})$/.exec(question.expression);
+  if(m) return Number(m[1])+Number(m[2])===answer;
+  m=/^(\d{1,3}) - (\d{1,3})$/.exec(question.expression);
+  if(m) return Number(m[1])-Number(m[2])===answer;
+  m=/^(\d{1,2}) × (\d{1,2})$/.exec(question.expression);
+  if(m) return Number(m[1])*Number(m[2])===answer;
+  m=/^(\d{1,2}) ÷ (\d{1,2})$/.exec(question.expression);
+  if(m){
+    const a=Number(m[1]),b=Number(m[2]);
+    return b!==0&&a%b===0&&a/b===answer;
+  }
+  m=/^(\d{1,2})([²³⁴])$/.exec(question.expression);
+  if(m){
+    const exponent=m[2]==="²"?2:m[2]==="³"?3:4;
+    return Number(m[1])**exponent===answer;
+  }
+  m=/^(√|∛)(\d{1,3})$/.exec(question.expression);
+  if(m){
+    const value=m[1]==="√"?Math.sqrt(Number(m[2])):Math.cbrt(Number(m[2]));
+    return Number.isInteger(value)&&value===answer;
+  }
+  return false;
 };
 
-const grade5 = (r: Random, difficulty: Difficulty, seed?: string): MathQuestion => {
-  const category = pick(r, ["addition", "subtraction", "multiplication", "exact-division", "decimal"] as const);
-  const max = difficulty === 1 ? 50 : difficulty === 2 ? 200 : 1000;
-  if (category === "addition") { const a=int(r,1,max), b=int(r,1,max); return q(5,category,`${a} + ${b}`,String(a+b),difficulty,seed); }
-  if (category === "subtraction") { const a=int(r,10,max), b=int(r,0,a); return q(5,category,`${a} - ${b}`,String(a-b),difficulty,seed); }
-  if (category === "multiplication") {
-    const lim=difficulty===1?10:difficulty===2?12:20; const a=int(r,2,lim), b=int(r,2,lim);
-    return q(5,category,`${a} × ${b}`,String(a*b),difficulty,seed);
+type Operation="addition"|"subtraction"|"multiplication"|"exact-division"|"exponentiation"|"radication";
+type Limits={additive:number;factor:number;divisor:number;quotient:number;powerBase:number;squareRoot:number;cubeRoot:number};
+const GRADE_LIMITS:Record<ConcreteGradeLevel,Record<Difficulty,Limits>>={
+  5:{
+    1:{additive:40,factor:9,divisor:8,quotient:9,powerBase:6,squareRoot:10,cubeRoot:0},
+    2:{additive:200,factor:12,divisor:12,quotient:12,powerBase:12,squareRoot:15,cubeRoot:0},
+    3:{additive:999,factor:19,divisor:19,quotient:19,powerBase:20,squareRoot:25,cubeRoot:0}
+  },
+  6:{
+    1:{additive:120,factor:12,divisor:12,quotient:12,powerBase:8,squareRoot:15,cubeRoot:4},
+    2:{additive:450,factor:25,divisor:20,quotient:20,powerBase:14,squareRoot:25,cubeRoot:6},
+    3:{additive:999,factor:50,divisor:30,quotient:30,powerBase:25,squareRoot:31,cubeRoot:9}
+  },
+  7:{
+    1:{additive:200,factor:20,divisor:20,quotient:20,powerBase:12,squareRoot:20,cubeRoot:5},
+    2:{additive:650,factor:60,divisor:30,quotient:30,powerBase:22,squareRoot:31,cubeRoot:8},
+    3:{additive:999,factor:99,divisor:33,quotient:49,powerBase:40,squareRoot:31,cubeRoot:9}
   }
-  if (category === "exact-division") return exactDivision(r, 5, difficulty, seed);
-  const decimalMax=difficulty===1?49:difficulty===2?99:199;
-  const a=int(r,1,decimalMax)/10, b=int(r,1,decimalMax)/10;
-  const answer=(a+b).toFixed(1).replace(/\.0$/,"");
-  return q(5,category,`${a.toFixed(1).replace('.', ',')} + ${b.toFixed(1).replace('.', ',')}`,answer,difficulty,seed,[answer.replace('.', ',')]);
 };
+const OPERATIONS:readonly Operation[]=[
+  "addition","subtraction","multiplication","exact-division","exponentiation","radication"
+];
 
-const grade6 = (r: Random, difficulty: Difficulty, seed?: string): MathQuestion => {
-  const category = pick(r, ["four-operations", "integer", "decimal", "fraction", "percentage", "expression", "exact-division"] as const);
-  if (category === "exact-division") return exactDivision(r, 6, difficulty, seed);
-  if (category === "fraction") {
-    const denominators=difficulty===1?[2,3,4,5,6]:difficulty===2?[2,3,4,5,6,8,10]:[3,4,5,6,8,9,10,12];
-    const den = pick(r,denominators); const a=int(r,1,den-1), b=int(r,1,den-1);
-    return q(6,category,`${a}/${den} + ${b}/${den}`,fraction(a+b,den),difficulty,seed);
-  }
-  if (category === "percentage") {
-    const percentages=difficulty===1?[10,20,25,50]:difficulty===2?[5,10,15,20,25,30,40,50]:[5,10,15,20,25,30,35,40,45,50];
-    const bases=difficulty===1?[20,40,60,80,100]:difficulty===2?[40,60,80,100,120,160,200]:[80,100,120,160,200,240,300,400];
-    const pct=pick(r,percentages), base=pick(r,bases);
-    return q(6,category,`${pct}% de ${base}`,String(base*pct/100),difficulty,seed);
-  }
-  if (category === "integer") {
-    const limit=difficulty===1?10:difficulty===2?25:50;
-    const a=int(r,-limit,limit), b=int(r,-limit,limit);
-    return q(6,category,`${a} + (${b})`,String(a+b),difficulty,seed);
-  }
-  if (category === "decimal") {
-    const maxA=difficulty===1?200:difficulty===2?500:1000;
-    const maxB=difficulty===1?100:difficulty===2?250:500;
-    const a=int(r,10,maxA)/10, b=int(r,1,maxB)/10; const result=a-b; const ans=Number(result.toFixed(1)).toString();
-    return q(6,category,`${a.toFixed(1).replace('.', ',')} - ${b.toFixed(1).replace('.', ',')}`,ans,difficulty,seed,[ans.replace('.', ',')]);
-  }
-  if (category === "expression") {
-    const aMax=difficulty===1?12:difficulty===2?20:35, bMax=difficulty===1?8:difficulty===2?12:18, cMax=difficulty===1?6:difficulty===2?10:15;
-    const a=int(r,2,aMax), b=int(r,2,bMax), c=int(r,2,cMax);
-    return q(6,category,`${a} + ${b} × ${c}`,String(a+b*c),difficulty,seed);
-  }
-  const aMax=difficulty===1?25:difficulty===2?50:80, bMax=difficulty===1?12:difficulty===2?20:30;
-  const a=int(r,2,aMax), b=int(r,2,bMax); return q(6,category,`${a} × ${b}`,String(a*b),difficulty,seed);
-};
-
-const grade7 = (r: Random, difficulty: Difficulty, seed?: string): MathQuestion => {
-  const category = pick(r, ["signed", "rational", "fraction", "decimal", "percentage", "ratio", "expression", "exact-division"] as const);
-  if (category === "exact-division") return exactDivision(r, 7, difficulty, seed);
-  if (category === "fraction") {
-    const denominators=difficulty===1?[2,3,4,5,6]:difficulty===2?[2,3,4,5,6,8,10]:[3,4,5,6,8,9,10,12];
-    const d1=pick(r,denominators), d2=pick(r,denominators); const a=int(r,1,d1), b=int(r,1,d2);
-    return q(7,category,`${a}/${d1} + ${b}/${d2}`,fraction(a*d2+b*d1,d1*d2),difficulty,seed);
-  }
-  if (category === "percentage") {
-    const percentages=difficulty===1?[10,20,25,50]:difficulty===2?[10,15,20,25,30,40,50]:[5,10,15,20,25,30,35,40,45,50];
-    const bases=difficulty===1?[40,60,80,100,120]:difficulty===2?[60,80,100,120,160,200,240]:[100,120,160,200,240,300,400];
-    const pct=pick(r,percentages), base=pick(r,bases);
-    return q(7,category,`${pct}% de ${base}`,String(base*pct/100),difficulty,seed);
-  }
-  if (category === "ratio") {
-    const factor=int(r,2,difficulty===1?5:difficulty===2?8:12);
-    const maxTerm=difficulty===1?6:difficulty===2?10:14;
-    const a=int(r,2,maxTerm), b=int(r,2,maxTerm);
-    return q(7,category,`A razão ${a}:${b} foi ampliada para ${a*factor}:${b*factor}. Por qual fator os dois termos foram multiplicados?`,String(factor),difficulty,seed);
-  }
-  if (category === "signed") {
-    const limit=difficulty===1?20:difficulty===2?40:80;
-    const a=int(r,-limit,limit), b=int(r,-limit,limit);
-    return q(7,category,`${a} - (${b})`,String(a-b),difficulty,seed);
-  }
-  if (category === "decimal" || category === "rational") {
-    const aLimit=difficulty===1?100:difficulty===2?200:500, bLimit=difficulty===1?60:difficulty===2?120:300;
-    const a=int(r,-aLimit,aLimit)/10, b=int(r,-bLimit,bLimit)/10; const result=a+b; const ans=Number(result.toFixed(1)).toString();
-    return q(7,category,`${a.toFixed(1).replace('.', ',')} + (${b.toFixed(1).replace('.', ',')})`,ans,difficulty,seed,[ans.replace('.', ',')]);
-  }
-  const aMax=difficulty===1?10:difficulty===2?15:22, bMax=difficulty===1?8:difficulty===2?12:18, cLimit=difficulty===1?6:difficulty===2?10:15;
-  const a=int(r,2,aMax), b=int(r,2,bMax), c=int(r,-cLimit,cLimit);
-  return q(7,category,`${a} × (${b} + ${c})`,String(a*(b+c)),difficulty,seed);
-};
-
-export const generateQuestion = (grade: GradeLevel, options: {difficulty?: Difficulty; seed?: string} = {}): MathQuestion => {
-  const difficulty = options.difficulty ?? 1;
-  const seed = options.seed;
-  const r = seed ? seededRandom(seed) : Math.random;
-  const concrete: ConcreteGradeLevel = grade === "mixed" ? pick(r,[5,6,7] as const) : grade;
-  if (concrete === 5) return grade5(r,difficulty,seed);
-  if (concrete === 6) return grade6(r,difficulty,seed);
-  return grade7(r,difficulty,seed);
-};
-
-/** Contas diretas da Corrida Maluca: apenas +, -, × e ÷, sem problemas escritos. */
-export const generateRaceQuestion = (
-  grade: GradeLevel, options: {difficulty?: Difficulty; seed?: string} = {}
-): MathQuestion => {
-  const difficulty=options.difficulty??1;
-  const seed=options.seed;
+/** Ano 5/6/7 ou sorteio por questão no modo misto. */
+export const generateQuestion=(grade:GradeLevel,options:{difficulty?:Difficulty;seed?:string}={}):MathQuestion=>{
+  const difficulty=options.difficulty??1,seed=options.seed;
   const r=seed?seededRandom(seed):Math.random;
   const level:ConcreteGradeLevel=grade==="mixed"?pick(r,[5,6,7] as const):grade;
-  const category=pick(r,["addition","subtraction","multiplication","exact-division"] as const);
-  const base=level===5?25:level===6?40:60;
-  const limit=base+(difficulty-1)*20;
-  const maxFactor=Math.min(12,(level===5?8:level===6?9:10)+(difficulty-1)*2);
+  const limits=GRADE_LIMITS[level][difficulty],category=pick(r,OPERATIONS);
   if(category==="addition"){
-    const a=int(r,1,limit),b=int(r,1,limit);
-    return q(level,category,`${a} + ${b}`,String(a+b),difficulty,seed);
+    const a=int(r,1,limits.additive),b=int(r,1,limits.additive);
+    return q(level,category,String(a)+" + "+String(b),String(a+b),difficulty,seed);
   }
   if(category==="subtraction"){
-    const a=int(r,2,limit),b=int(r,1,a);
-    return q(level,category,`${a} - ${b}`,String(a-b),difficulty,seed);
+    const a=int(r,2,limits.additive),b=int(r,0,a);
+    return q(level,category,String(a)+" - "+String(b),String(a-b),difficulty,seed);
   }
   if(category==="multiplication"){
-    const a=int(r,2,maxFactor),b=int(r,2,maxFactor);
-    return q(level,category,`${a} × ${b}`,String(a*b),difficulty,seed);
+    const a=int(r,2,limits.factor),b=int(r,2,limits.factor);
+    return q(level,category,String(a)+" × "+String(b),String(a*b),difficulty,seed);
   }
-  return exactDivision(r, level, difficulty, seed, maxFactor);
+  if(category==="exact-division"){
+    const divisor=int(r,2,limits.divisor);
+    const quotient=int(r,1,Math.min(limits.quotient,Math.floor(99/divisor)));
+    return q(level,category,String(divisor*quotient)+" ÷ "+String(divisor),String(quotient),difficulty,seed);
+  }
+  if(category==="exponentiation"){
+    const exp=level===5?2:level===6?pick(r,[2,3] as const):pick(r,[2,3,4] as const);
+    const baseLimit=exp===2?limits.powerBase:exp===3?Math.min(9,limits.powerBase):Math.min(5,limits.powerBase);
+    const base=int(r,2,baseLimit),superScript=exp===2?"²":exp===3?"³":"⁴";
+    return q(level,category,String(base)+superScript,String(base**exp),difficulty,seed);
+  }
+  const cubic=limits.cubeRoot>0&&r()<0.35;
+  const value=int(r,2,cubic?limits.cubeRoot:limits.squareRoot);
+  return q(level,category,(cubic?"∛":"√")+String(cubic?value**3:value**2),String(value),difficulty,seed);
 };
+
+/** Corrida Maluca e bombas: mesma fonte das seis operações dos demais jogos. */
+export const generateRaceQuestion=(
+  grade:GradeLevel,options:{difficulty?:Difficulty;seed?:string}={}
+):MathQuestion=>generateQuestion(grade,options);

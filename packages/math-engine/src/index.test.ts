@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateQuestion, generateRaceQuestion, satisfiesIntegerMultiplicationAndDivision, validateAnswer, type GradeLevel } from "./index";
+import { generateQuestion, generateRaceQuestion, satisfiesIntegerMultiplicationAndDivision, satisfiesSimpleOperations, validateAnswer, type GradeLevel } from "./index";
 
 describe("math engine", () => {
   it("gera questões determinísticas com seed", () => {
@@ -81,43 +81,61 @@ describe("math engine", () => {
     expect(validateAnswer(question,"1/2/3")).toBe(false);
   });
 
-  it("formula razão do 7º ano sem marcador ambíguo",()=>{
-    const ratios=Array.from({length:200},(_,i)=>generateQuestion(7,{seed:`ratio-scan-${i}`,difficulty:2}))
-      .filter(question=>question.category==="ratio");
-    expect(ratios.length).toBeGreaterThan(0);
-    for(const question of ratios){
-      expect(question.expression).toMatch(/Por qual fator/);
-      expect(question.expression).not.toContain("×?");
-      expect(validateAnswer(question,question.correctAnswer)).toBe(true);
+  it("não gera razões, porcentagens, frações nem enunciados longos",()=>{
+    for(let i=0;i<600;i++){
+      const question=generateQuestion(7,{seed:"old-ratio-"+i,difficulty:3});
+      expect(satisfiesSimpleOperations(question)).toBe(true);
+      expect(question.expression).not.toMatch(/razão|fator|por qual|%|de /i);
+      expect(question.expression.length).toBeLessThanOrEqual(9);
     }
   });
 });
 
-
-describe("Corrida Maluca: contas curtas e diretas",()=>{
-  it("usa somente as quatro operações sem enunciados em todos os níveis",()=>{
-    for(const grade of [5,6,7,"mixed"] as const){
-      for(const difficulty of [1,2,3] as const){
-        const operations=new Set<string>();
-        for(let i=0;i<120;i++){
-          const seed="race-"+grade+"-"+difficulty+"-"+i;
-          const question=generateRaceQuestion(grade,{difficulty,seed});
-          expect(question.expression).toMatch(/^\d+ [+\-×÷] \d+$/);
-          const [left,operator="",right]=question.expression.split(" ");
-          const a=Number(left),b=Number(right);
-          operations.add(operator);
-          const result=operator==="+"?a+b:operator==="-"?a-b:operator==="×"?a*b:a/b;
-          expect(Number.isInteger(result)).toBe(true);
-          expect(b).toBeGreaterThan(0);
-          expect(question.correctAnswer).toBe(String(result));
-          expect(validateAnswer(question,question.correctAnswer)).toBe(true);
-          expect(question.difficulty).toBe(difficulty);
-          if(grade!=="mixed") expect(question.gradeLevel).toBe(grade);
-          expect(generateRaceQuestion(grade,{difficulty,seed}).expression).toBe(question.expression);
+describe("Contrato pedagógico: quatro jogos, bombas, séries e dificuldades",()=>{
+  const games=[
+    {name:"Banco Imobiliário",create:generateQuestion},
+    {name:"Corrida Maluca e bombas",create:generateRaceQuestion},
+    {name:"Corrida Numérica",create:generateQuestion},
+    {name:"Futebol Matemático",create:generateQuestion}
+  ] as const;
+  const categories=["addition","subtraction","multiplication","exact-division","exponentiation","radication"];
+  for(const game of games){
+    it(game.name+" gera apenas as seis operações dentro dos limites",()=>{
+      for(const grade of [5,6,7,"mixed"] as const){
+        for(const difficulty of [1,2,3] as const){
+          const seen=new Set<string>(),grades=new Set<number>();
+          for(let i=0;i<250;i++){
+            const seed="six-ops-"+game.name+"-"+grade+"-"+difficulty+"-"+i;
+            const question=game.create(grade,{difficulty,seed});
+            seen.add(question.category);grades.add(question.gradeLevel);
+            expect(question.expression).toMatch(/^(?:\d{1,3} [+-] \d{1,3}|\d{1,2} [×÷] \d{1,2}|\d{1,2}[²³⁴]|[√∛]\d{1,3})$/);
+            expect(question.expression.length).toBeLessThanOrEqual(9);
+            expect(question.correctAnswer).toMatch(/^\d+$/);
+            expect(satisfiesSimpleOperations(question)).toBe(true);
+            expect(validateAnswer(question,question.correctAnswer)).toBe(true);
+            expect(game.create(grade,{difficulty,seed}).expression).toBe(question.expression);
+            expect(question.difficulty).toBe(difficulty);
+            if(grade!=="mixed")expect(question.gradeLevel).toBe(grade);
+          }
+          expect(seen).toEqual(new Set(categories));
+          if(grade==="mixed")expect(grades).toEqual(new Set([5,6,7]));
         }
-        expect(operations).toEqual(new Set(["+","-","×","÷"]));
       }
-    }
+    });
+  }
+  it("barra enunciados, excesso de algarismos e raízes não exatas",()=>{
+    const valid=(expression:string,correctAnswer:string)=>satisfiesSimpleOperations({expression,correctAnswer});
+    for(const [expression,answer] of [
+      ["A razão 13:9 foi ampliada para 52:36. Por qual fator?","4"],
+      ["25% de 100","25"],["1/2 + 1/2","1"],
+      ["100 × 2","200"],["100 ÷ 2","50"],["3 × 100","300"],
+      ["1000 + 1","1001"],["1000 - 1","999"],["100²","10000"],
+      ["√1000","31"],["√10","3"],["∛10","2"],["7 ÷ 2","3"]
+    ] as const) expect(valid(expression,answer)).toBe(false);
+    for(const [expression,answer] of [
+      ["64 ÷ 8","8"],["99 × 99","9801"],["999 + 999","1998"],
+      ["99²","9801"],["√961","31"],["∛729","9"]
+    ] as const)expect(valid(expression,answer)).toBe(true);
   });
 });
 
