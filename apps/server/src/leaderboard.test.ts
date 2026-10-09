@@ -1,7 +1,57 @@
 import { describe, expect, it } from "vitest";
-import { LeaderboardStore, LEADERBOARD_GAMES } from "./leaderboard";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { LeaderboardStore, LEADERBOARD_GAMES, isAutomatedSmokeNickname } from "./leaderboard";
 
 describe("Rankings Top 10 globais",()=>{
+  it("ignora zero pontos e apelidos automáticos de release sem afetar alunos",()=>{
+    const board=new LeaderboardStore(null);
+    for(const game of LEADERBOARD_GAMES){
+      expect(board.record(game,"ReleaseA08csdy",0)).toBe(false);
+      expect(board.record(game,"ReleaseB08csdy",25)).toBe(false);
+      expect(board.record(game,"ALUNO",0)).toBe(false);
+      expect(board.record(game,"Aluno",1)).toBe(true);
+      expect(board.snapshot()[game].map(x=>x.nickname)).toEqual(["Aluno"]);
+    }
+    expect(isAutomatedSmokeNickname("ReleaseA08csdy")).toBe(true);
+    expect(isAutomatedSmokeNickname("ReleaseB08csdy")).toBe(true);
+    expect(isAutomatedSmokeNickname("ReleaseProfessor")).toBe(false);
+    expect(isAutomatedSmokeNickname("Aluno8")).toBe(false);
+  });
+
+  it("limpa histórico antigo de testes sem excluir pontuações reais",()=>{
+    const dir=mkdtempSync(join(tmpdir(),"ranking-safety-"));
+    const file=join(dir,"leaderboards.json");
+    try{
+      const oldData={
+        "property-math":[],
+        "crazy-race":[
+          {nickname:"ReleaseA08csdy",score:0,secondary:0,achievedAt:1},
+          {nickname:"ReleaseB08csdy",score:10,secondary:0,achievedAt:2},
+          {nickname:"Maria",score:18,secondary:-2,achievedAt:3}
+        ],
+        "number-race":[
+          {nickname:"ReleaseA08csdy",score:0,secondary:0,achievedAt:1},
+          {nickname:"Pedro",score:0,secondary:0,achievedAt:2},
+          {nickname:"João",score:12,secondary:-1,achievedAt:3}
+        ],
+        "math-football":[{nickname:"Ana",score:2,secondary:0,achievedAt:5}]
+      };
+      writeFileSync(file,JSON.stringify(oldData),"utf8");
+      const expected={
+        ...oldData,
+        "crazy-race":[oldData["crazy-race"][2]],
+        "number-race":[oldData["number-race"][2]]
+      };
+      expect(new LeaderboardStore(file).snapshot()).toEqual(expected);
+      expect(JSON.parse(readFileSync(file,"utf8"))).toEqual(expected);
+      expect(new LeaderboardStore(file).snapshot()).toEqual(expected);
+    }finally{
+      rmSync(dir,{recursive:true,force:true});
+    }
+  });
+
   it("mostra no máximo 10 pessoas por jogo em ordem de pontuação",()=>{
     const board=new LeaderboardStore(null);
     for(const game of LEADERBOARD_GAMES){
