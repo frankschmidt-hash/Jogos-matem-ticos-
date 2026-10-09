@@ -1,0 +1,18 @@
+import { readFile, stat } from "node:fs/promises";
+import { strict as assert } from "node:assert";
+const path="dist/offline/Jogos-Matematicos-Offline.html";
+const html=await readFile(path,"utf8");
+assert.ok(html.startsWith("<!doctype html>"),"Documento HTML gerado");
+assert.match(html,/<script>[\s\S]*<\/script>/,"Bundle inline obrigatório");
+assert.match(html,/<style>[\s\S]*<\/style>/,"CSS inline obrigatório");
+assert.doesNotMatch(html,/<script[^>]+src=/,"Sem dependências de JS externo");
+assert.doesNotMatch(html,/<link[^>]+stylesheet/,"Sem CSS externo");
+assert.doesNotMatch(html,/\/assets\/[\w/.-]+\.svg/,"Imagens SVG incorporadas");
+assert.match(html,/#\/lobby/,"Links locais em HashRouter");
+assert.match(html,/#\/game\//,"Links dos jogos utilizam HashRouter");
+assert.match(html,/Exportar ranking CSV/,"Exportação pedagógica disponível");
+assert.match(html,/Multiplayer \(somente online\)/,"Multiplayer sinalizado");
+const size=(await stat(path)).size;
+assert.ok(size>150000,"Pacote parece pequeno demais, compilação incompleta");
+assert.ok(size<15000000,"Pacote excessivamente grande para distribuição");
+console.log("Teste do arquivo HTML offline: APROVADO, "+size+" bytes.");

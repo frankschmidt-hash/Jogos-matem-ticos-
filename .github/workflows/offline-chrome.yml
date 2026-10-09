@@ -1,0 +1,47 @@
+name: Build Jogos Offline Chrome
+
+on:
+  push:
+    branches:
+      - feat/jogos-offline-chrome
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'scripts/build-offline.mjs'
+      - 'scripts/test-offline.mjs'
+      - '.github/workflows/offline-chrome.yml'
+  workflow_dispatch:
+
+jobs:
+  offline-chrome:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Use Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps --no-audit --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Bundle offline
+        run: node scripts/build-offline.mjs
+      - name: Validate standalone HTML
+        run: node scripts/test-offline.mjs
+      - name: Package ZIP
+        run: |
+          cd dist/offline
+          zip -9 Jogos-Matematicos-Offline.zip Jogos-Matematicos-Offline.html
+      - name: Upload offline ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: Jogos-Matematicos-Offline
+          path: dist/offline/Jogos-Matematicos-Offline.zip
+          if-no-files-found: error
+          retention-days: 30
