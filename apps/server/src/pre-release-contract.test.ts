@@ -39,7 +39,7 @@ describe("Segurança dos rankings publicados",()=>{
     expect(guard).toBeGreaterThan(0);
     expect(exit).toBeGreaterThan(guard);
     expect(firstWrite).toBeGreaterThan(exit);
-    expect(script.slice(guard,exit)).not.toMatch(/post\\(|socket\\.emit\\(|ack\\(/);
+    expect(script.slice(guard,exit)).not.toMatch(/post\(|socket\.emit\(|ack\(/);
   });
 });
 
