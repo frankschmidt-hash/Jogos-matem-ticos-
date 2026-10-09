@@ -35,6 +35,20 @@ for(const route of ["/","/lobby","/game/property-math","/game/crazy-race","/game
   assert(response.headers.get("content-security-policy"),route+" sem CSP");
 }
 
+// A verificação externa é estritamente de leitura. Não criar usuários nem
+// partidas no servidor real: corridas abertas acabam poluindo o Top 10.
+if(process.env.DEPLOYED_VERSION_SMOKE==="true"){
+  const response=await fetch(base+"/api/leaderboards",{headers:{accept:"application/json"}});
+  assert(response.ok,"Ranking público não respondeu 2xx");
+  const payload=await response.json();
+  assert(payload.ok===true&&payload.rankings,"Ranking público inválido");
+  for(const game of ["property-math","crazy-race","number-race","math-football"]){
+    assert(Array.isArray(payload.rankings[game]),"Ranking ausente: "+game);
+  }
+  console.log("Smoke público somente leitura OK:",base);
+  process.exit(0);
+}
+
 const first=await post("/api/session/claim",{nickname:"ReleaseA"+unique,gradeLevel:process.env.DEPLOYED_VERSION_SMOKE==="true"?5:8});
 assert(first.response.ok&&first.data.session,"falha ao criar sessão A");
 const duplicate=await post("/api/session/claim",{nickname:" releasea"+unique+" ",gradeLevel:6});
