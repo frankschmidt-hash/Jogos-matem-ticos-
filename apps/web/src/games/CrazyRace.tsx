@@ -370,7 +370,7 @@ function SoloRace({session,onExit,car}:{session:ClientSession;onExit:()=>void;ca
 }
 
 function OnlineRace({session,onExit,car}:{session:ClientSession;onExit:()=>void;car:CarSelection}) {
-  const socket=useMemo<Socket>(()=>io(apiBase,{transports:["websocket"],autoConnect:true}),[]);
+  const socket=useMemo<Socket>(()=>io(apiBase,{transports:["polling","websocket"],autoConnect:true}),[]);
   const [room,setRoom]=useState<OnlineRoom|null>(null);
   const [availableRooms,setAvailableRooms]=useState<RoomListing[]>([]);
   const [mode,setMode]=useState<"menu"|"create"|"join">("menu");

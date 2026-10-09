@@ -247,7 +247,7 @@ function SoloFootball({
 }
 
 function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}){
-  const socket=useMemo<Socket>(()=>io(apiBase,{transports:["websocket"],autoConnect:true}),[]);
+  const socket=useMemo<Socket>(()=>io(apiBase,{transports:["polling","websocket"],autoConnect:true}),[]);
   const [room,setRoom]=useState<FootballRoom|null>(null);
   const [mode,setMode]=useState<"menu"|"create"|"join">("menu");
   const [password,setPassword]=useState(()=>String(Math.floor(Math.random()*900)+100));

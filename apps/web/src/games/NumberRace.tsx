@@ -262,7 +262,7 @@ function SoloNumberRace({session,onExit,carChoice}:{session:ClientSession;onExit
 }
 
 function OnlineNumberRace({session,onExit,carChoice}:{session:ClientSession;onExit:()=>void;carChoice:CarChoice}){
-  const socket=useMemo<Socket>(()=>io(apiBase,{transports:["websocket"],autoConnect:true}),[]);
+  const socket=useMemo<Socket>(()=>io(apiBase,{transports:["polling","websocket"],autoConnect:true}),[]);
   const [room,setRoom]=useState<NumberRoom|null>(null);
   const [mode,setMode]=useState<"menu"|"create"|"join">("menu");
   const [password,setPassword]=useState("");
