@@ -462,12 +462,13 @@ html.reduce-motion .dice.rolling{animation:none}
   inset:0;
   z-index:-1;
   pointer-events:none;
+  /* A arte fica viva em toda a faixa; a leitura é protegida localmente. */
   background:linear-gradient(90deg,
-    rgba(251,252,255,.97) 0%,
-    rgba(251,252,255,.92) 28%,
-    rgba(251,252,255,.58) 50%,
-    rgba(251,252,255,.36) 73%,
-    rgba(251,252,255,.68) 100%);
+    rgba(247,249,255,.23) 0%,
+    rgba(247,249,255,.13) 25%,
+    rgba(247,249,255,.04) 50%,
+    rgba(247,249,255,.00) 76%,
+    rgba(247,249,255,.04) 100%);
 }
 .portal-hero-band::after{
   content:"";
@@ -476,11 +477,24 @@ html.reduce-motion .dice.rolling{animation:none}
   z-index:-1;
   pointer-events:none;
   background:
-    radial-gradient(ellipse at 8% 0%,rgba(145,120,255,.13),transparent 45%),
-    radial-gradient(ellipse at 100% 100%,rgba(0,166,171,.10),transparent 42%);
+    radial-gradient(ellipse at 8% 0%,rgba(145,120,255,.04),transparent 45%),
+    radial-gradient(ellipse at 100% 100%,rgba(0,166,171,.04),transparent 42%);
 }
 .portal-intro{display:block;min-width:0;position:static;max-width:850px}
-.portal-copy{position:relative;z-index:1;min-width:0;max-width:820px;padding:9px 0}
+/* Placa semitransparente somente atrás das palavras, sem lavar toda a ilustração. */
+.portal-copy{
+  position:relative;
+  z-index:1;
+  min-width:0;
+  max-width:820px;
+  padding:clamp(15px,1.55vw,23px);
+  border:1px solid rgba(226,232,250,.82);
+  border-radius:23px;
+  background:rgba(255,255,255,.69);
+  backdrop-filter:blur(4px);
+  -webkit-backdrop-filter:blur(4px);
+  box-shadow:0 10px 30px rgba(22,37,79,.13);
+}
 .portal-visual{
   position:absolute;
   inset:0;
@@ -511,7 +525,7 @@ html.reduce-motion .dice.rolling{animation:none}
   border-radius:0;
   object-fit:cover;
   object-position:center 48%;
-  filter:none;
+  filter:saturate(1.20) contrast(1.10) brightness(.98);
   transform:none;
 }
 .portal-copy .eyebrow{color:#4b2a99;letter-spacing:.15em;font-size:.75rem}
@@ -536,14 +550,13 @@ html.reduce-motion .dice.rolling{animation:none}
   line-height:1.02;
   letter-spacing:-.052em;
   text-wrap:balance;
-  text-shadow:0 2px 0 rgba(255,255,255,.9);
+  text-shadow:0 1px 2px rgba(255,255,255,.95);
 }
+/* Texto sólido impede que o degradê recortado suma sobre áreas claras da foto. */
 .portal-title-accent{
-  color:#512db1;
-  background:linear-gradient(110deg,#5929bb 12%,#1a668a 88%);
-  -webkit-background-clip:text;
-  background-clip:text;
-  -webkit-text-fill-color:transparent;
+  color:#5028aa;
+  -webkit-text-fill-color:currentColor;
+  text-shadow:0 1px 1px rgba(255,255,255,.85);
 }
 .portal-lead{
   color:#263c5a;
@@ -632,7 +645,7 @@ html.reduce-motion .dice.rolling{animation:none}
   min-height:48px;
   padding:12px 16px;
   color:#fff;
-  background:linear-gradient(105deg,#5e2fc2,#265bc1);
+  background:linear-gradient(105deg,#6232c4,#2759bb);
   border-bottom:3px solid #312477;
   font-weight:900;
   font-size:1.02rem;
@@ -677,7 +690,7 @@ html.reduce-motion .dice.rolling{animation:none}
     padding:28px;
   }
   .portal-hero-band::before{
-    background:linear-gradient(135deg,rgba(250,251,255,.94),rgba(250,251,255,.76) 62%,rgba(250,251,255,.76));
+    background:linear-gradient(135deg,rgba(250,251,255,.22),rgba(250,251,255,.07) 62%,rgba(250,251,255,.06));
   }
   .portal-intro{max-width:100%}
   .login-panel{width:100%;max-width:650px;margin:0 auto}
@@ -686,12 +699,17 @@ html.reduce-motion .dice.rolling{animation:none}
 @media(max-width:720px){
   .portal-home{padding:12px 12px 90px;gap:16px}
   .portal-hero-band{padding:20px 15px;border-radius:24px;gap:14px}
-  .portal-hero-band::before{background:rgba(250,251,255,.89)}
+  .portal-hero-band::before{background:linear-gradient(180deg,rgba(250,251,255,.25),rgba(250,251,255,.06))}
   .portal-visual{display:block;max-width:none;max-height:none;margin:0}
   .portal-visual img,.portal-visual .portal-hero-art{
     width:100%;height:100%;max-width:none;max-height:none;object-fit:cover;object-position:center center;
   }
-  .portal-copy{padding:0 2px}
+  .portal-copy{
+    padding:16px 13px;
+    background:rgba(255,255,255,.85);
+    backdrop-filter:blur(4px);
+    -webkit-backdrop-filter:blur(4px);
+  }
   .portal-copy h1{font-size:clamp(2.38rem,11.5vw,3.8rem);line-height:1.05}
   .portal-lead{font-size:.98rem;line-height:1.48}
   .portal-points{font-size:.82rem}
