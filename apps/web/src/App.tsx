@@ -100,7 +100,8 @@ function Home({onSession}:{onSession:(s:ClientSession)=>void}) {
         </ul>
       </div>
       <div className="portal-visual" aria-hidden="true">
-        <img src="/assets/portal/math-portal.svg" alt=""/>
+        <img className="portal-hero-art" src="/assets/portal/matematica-em-movimento-hero.webp"
+          alt="" width={960} height={720} loading="eager" decoding="async"/>
       </div>
     </section>
 
