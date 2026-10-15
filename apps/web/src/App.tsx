@@ -101,7 +101,12 @@ function Home({onSession}:{onSession:(s:ClientSession)=>void}) {
       </div>
       <div className="portal-visual" aria-hidden="true">
         <img className="portal-hero-art" src="/assets/portal/matematica-em-movimento-hero.webp"
-          alt="" width={960} height={720} loading="eager" decoding="async"/>
+          alt="" width={960} height={720} loading="eager" decoding="async"
+          onError={event=>{
+            if(!event.currentTarget.src.endsWith("/assets/portal/math-portal.svg")){
+              event.currentTarget.src="/assets/portal/math-portal.svg";
+            }
+          }}/>
       </div>
     </section>
 
