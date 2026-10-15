@@ -84,14 +84,15 @@ function Home({onSession}:{onSession:(s:ClientSession)=>void}) {
   };
 
   return <main className="portal-home" id="main-content">
-    <section className="portal-intro" aria-labelledby="portal-title">
+    <div className="portal-hero-band">
+      <section className="portal-intro" aria-labelledby="portal-title">
       <div className="portal-copy">
         <span className="portal-badge">5º ao 9º ano · sem cadastro</span>
         <p className="eyebrow">Aprender jogando</p>
-        <h1 id="portal-title">Matemática em movimento</h1>
+        <h1 id="portal-title">Matemática em <span className="portal-title-accent">movimento</span></h1>
         <p className="portal-lead">
-          Quatro jogos, desafios curtos e contas adaptadas ao seu nível.
-          Escolha seu nome e entre no portal.
+          Quatro jogos, desafios rápidos e contas do seu nível.
+          Jogue, avance e conquiste seu lugar no ranking!
         </p>
         <ul className="portal-points" aria-label="Recursos do portal">
           <li><span aria-hidden="true">✓</span> partidas solo e multiplayer</li>
@@ -144,6 +145,7 @@ function Home({onSession}:{onSession:(s:ClientSession)=>void}) {
         </button>
       </form>
     </section>
+    </div>
     <HomeRankings/>
   </main>;
 }
