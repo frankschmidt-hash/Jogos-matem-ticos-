@@ -59,7 +59,7 @@ button:disabled{opacity:.5;cursor:not-allowed;filter:none;box-shadow:none;transf
 .portal-points{list-style:none;padding:0;margin:24px 0 0;display:grid;gap:9px;color:#3f4b61}
 .portal-points li{display:flex;align-items:center;gap:9px}
 .portal-points span{width:25px;height:25px;border-radius:50%;display:grid;place-items:center;background:#dbf5ea;color:#106850;font-weight:900}
-.portal-visual img{width:100%;filter:drop-shadow(0 25px 35px rgba(39,49,112,.20));transform:rotate(2deg)}
+.portal-visual img{display:block;width:100%;height:auto;max-width:340px;margin-inline:auto;object-fit:contain;border-radius:18px;filter:drop-shadow(0 15px 20px rgba(39,49,112,.13));transform:none}
 .login-panel{justify-self:end}
 .login-panel h2{font-size:1.8rem;margin:.2rem 0}
 .topbar{display:flex;justify-content:space-between;align-items:center;gap:24px;margin-bottom:30px}
@@ -103,7 +103,7 @@ button:disabled{opacity:.5;cursor:not-allowed;filter:none;box-shadow:none;transf
 .reconnect-loader{display:block;margin:0 auto 18px;width:42px;height:42px;border-width:5px;border-color:#dce4ff;border-top-color:#4055d8}
 @keyframes spin{to{transform:rotate(360deg)}}@keyframes pulse{50%{opacity:.45}}
 @media(max-width:1050px){.portal-home{grid-template-columns:1fr}.login-panel{justify-self:stretch;width:100%;max-width:660px;margin:auto}.portal-intro{max-width:900px;margin:auto}.game-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:720px){.portal-home{padding:58px 16px 100px}.portal-intro{grid-template-columns:1fr}.portal-visual{display:none}.portal-copy h1{font-size:clamp(2.65rem,14vw,4.4rem)}.panel{padding:24px}.page{padding:28px 15px 100px}.topbar{align-items:flex-start;flex-direction:column}.player-summary{width:100%}.game-grid{grid-template-columns:1fr}.game-card{min-height:auto}.game-art{height:130px}.experience-controls{left:10px;right:10px;bottom:10px;justify-content:center}.experience-button{flex:1}.experience-button span:last-child{font-size:.72rem}}
+@media(max-width:720px){.portal-home{padding:58px 16px 100px}.portal-intro{grid-template-columns:1fr}.portal-visual{display:grid;place-items:center;max-height:170px;overflow:hidden}.portal-visual img{width:min(100%,250px);max-height:170px;object-fit:contain}.portal-copy h1{font-size:clamp(2.65rem,14vw,4.4rem)}.panel{padding:24px}.page{padding:28px 15px 100px}.topbar{align-items:flex-start;flex-direction:column}.player-summary{width:100%}.game-grid{grid-template-columns:1fr}.game-card{min-height:auto}.game-art{height:130px}.experience-controls{left:10px;right:10px;bottom:10px;justify-content:center}.experience-button{flex:1}.experience-button span:last-child{font-size:.72rem}}
 @media(max-width:390px){.portal-home{padding-left:12px;padding-right:12px}.panel{padding:20px}.topbar h1{font-size:2.1rem}.experience-button{padding:8px 6px}.game-card{padding:12px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 html.reduce-motion *,html.reduce-motion *::before,html.reduce-motion *::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}
@@ -404,3 +404,24 @@ html.reduce-motion .dice.rolling{animation:none}
   .portal-home{max-width:100%;padding:30px 24px;gap:22px}
   .home-rankings{grid-column:1/-1}
 }
+
+
+/* Acessibilidade visual: capa dos quatro jogos e area de entrada */
+.portal-intro,.portal-copy,.portal-visual{min-width:0}
+.portal-copy{position:relative;z-index:1}
+.portal-copy h1{color:#172033;text-shadow:0 1px 0 #fff}
+.portal-copy .eyebrow{color:#3d4a64}
+.portal-lead,.portal-points{color:#33435d}
+.portal-visual{padding:5px;border:1px solid #d7dfed;border-radius:22px;background:#f9fbff;box-shadow:0 10px 24px rgba(26,43,81,.10);overflow:hidden}
+.portal-visual img{display:block;max-width:100%;height:auto;border-radius:17px;filter:none}
+.login-panel{position:relative;z-index:2;background:#fff;border:2px solid #aebedb;color:#172033;box-shadow:0 18px 40px rgba(22,39,78,.15)}
+.login-panel h2,.login-panel label{color:#172033}
+.login-panel .eyebrow{color:#465674}
+.login-panel .muted,.login-panel label small{color:#485771}
+.login-panel input,.login-panel select{background:#fff;color:#172033;border:1.5px solid #99aac8}
+.login-panel input::placeholder{color:#536079;opacity:1}
+.login-panel select option{background:#fff;color:#172033}
+.login-panel input:focus-visible,.login-panel select:focus-visible{outline:3px solid #ffbf2f;outline-offset:2px;border-color:#3048a4}
+.login-panel .primary-cta{color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.18)}
+.login-panel .primary-cta:disabled{opacity:1;background:#5767a7;color:#fff;cursor:not-allowed;box-shadow:none;filter:none;transform:none}
+@media(max-width:720px){.portal-visual{max-width:330px;margin-inline:auto}.portal-visual img{width:min(100%,250px);max-height:170px;object-fit:contain}}
