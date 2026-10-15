@@ -404,3 +404,24 @@ html.reduce-motion .dice.rolling{animation:none}
   .portal-home{max-width:100%;padding:30px 24px;gap:22px}
   .home-rankings{grid-column:1/-1}
 }
+
+
+/* Acessibilidade visual: capa dos quatro jogos e area de entrada */
+.portal-intro,.portal-copy,.portal-visual{min-width:0}
+.portal-copy{position:relative;z-index:1}
+.portal-copy h1{color:#172033;text-shadow:0 1px 0 #fff}
+.portal-copy .eyebrow{color:#3d4a64}
+.portal-lead,.portal-points{color:#33435d}
+.portal-visual{padding:5px;border:1px solid #d7dfed;border-radius:22px;background:#f9fbff;box-shadow:0 10px 24px rgba(26,43,81,.10);overflow:hidden}
+.portal-visual img{display:block;max-width:100%;height:auto;border-radius:17px;filter:none}
+.login-panel{position:relative;z-index:2;background:#fff;border:2px solid #aebedb;color:#172033;box-shadow:0 18px 40px rgba(22,39,78,.15)}
+.login-panel h2,.login-panel label{color:#172033}
+.login-panel .eyebrow{color:#465674}
+.login-panel .muted,.login-panel label small{color:#485771}
+.login-panel input,.login-panel select{background:#fff;color:#172033;border:1.5px solid #99aac8}
+.login-panel input::placeholder{color:#536079;opacity:1}
+.login-panel select option{background:#fff;color:#172033}
+.login-panel input:focus-visible,.login-panel select:focus-visible{outline:3px solid #ffbf2f;outline-offset:2px;border-color:#3048a4}
+.login-panel .primary-cta{color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.18)}
+.login-panel .primary-cta:disabled{opacity:1;background:#5767a7;color:#fff;cursor:not-allowed;box-shadow:none;filter:none;transform:none}
+@media(max-width:720px){.portal-visual{max-width:330px;margin-inline:auto}.portal-visual img{width:min(100%,250px);max-height:170px;object-fit:contain}}
