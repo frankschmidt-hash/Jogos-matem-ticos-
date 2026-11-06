@@ -75,7 +75,7 @@ button:disabled{opacity:.5;cursor:not-allowed;filter:none;box-shadow:none;transf
 .game-card{padding:14px;display:flex;flex-direction:column;min-height:390px;overflow:hidden;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
 .game-card:hover,.game-card:focus-within{transform:translateY(-5px);box-shadow:0 22px 45px rgba(35,48,87,.16);border-color:#bcc7dd}
 .game-art{height:168px;border-radius:18px;display:grid;place-items:center;position:relative;overflow:hidden;margin-bottom:16px}
-.game-art img{width:112px;height:112px;object-fit:contain;z-index:1;filter:drop-shadow(0 9px 12px rgba(22,31,60,.17))}
+.game-art img{width:100%;height:100%;object-fit:cover;object-position:center;position:absolute;inset:0;z-index:1;display:block;filter:saturate(1.07) contrast(1.03);transition:transform .4s cubic-bezier(.16,.8,.26,1),filter .35s ease}
 .game-art-fallback{position:absolute;font-size:1.25rem;font-weight:950;opacity:.18}
 .theme-prisma .game-art{background:linear-gradient(135deg,#e6e9ff,#fff1cf)}
 .theme-race .game-art{background:linear-gradient(135deg,#d8f4ff,#dff9e9)}
@@ -724,3 +724,13 @@ html.reduce-motion .dice.rolling{animation:none}
   .portal-copy h1{font-size:clamp(2.25rem,10.7vw,3rem)}
   .login-panel{padding:19px 14px}
 }
+
+/* Capas panorâmicas de todos os cinco jogos, derivadas das artes originais.
+   O efeito de aproximação é apenas visual; as capas mantêm proporção 16:9. */
+.game-art{isolation:isolate;background:#dfe7fa}
+.game-art::after{content:"";inset:0;position:absolute;z-index:2;pointer-events:none;background:linear-gradient(180deg,rgba(8,18,41,0) 53%,rgba(8,17,36,.14));box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);border-radius:inherit}
+.game-card:hover .game-art img,.game-card:focus-within .game-art img{transform:scale(1.055);filter:saturate(1.14) contrast(1.055)}
+.game-art-fallback{z-index:0}
+@media(max-width:700px){.game-art{height:clamp(164px,34vw,248px)}}
+@media(prefers-reduced-motion:reduce){.game-card:hover .game-art img,.game-card:focus-within .game-art img{transform:none}.game-art img{transition:none}}
+html.reduce-motion .game-card:hover .game-art img,html.reduce-motion .game-card:focus-within .game-art img{transform:none}
