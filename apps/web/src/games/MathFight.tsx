@@ -4,10 +4,12 @@ import { generateQuestion, validateAnswer, type MathQuestion } from "@jogos/math
 import type { ClientSession } from "../session";
 import { FighterFigure, type FighterPose } from "./FighterFigure";
 import { FightStage, type ArenaImpact } from "./FightStage";
+import { FightHud } from "./FightHud";
 import { createImpactCue, exchangeTotalDuration, IMPACT_EFFECT_MS } from "./fight-impact";
 import { playSound } from "../experience";
 import { planExchange, EXCHANGE_DURATION_MS, RECOVERY_DURATION_MS } from "./fight-choreography";
 import "./math-fight.css";
+import "./math-fight-phase4.css";
 
 type Style = "Boxe" | "Muay Thai" | "Capoeira" | "Karatê" | "Jiu-jítsu" | "Luta de rua";
 type Fighter = { name: string; style: Style; color: string; coins: number; wins: number; losses: number; level: number; xp: number; gloves: number };
@@ -48,6 +50,7 @@ export function MathFight({session}:{session:ClientSession}) {
   const [target,setTarget]=useState<Target>("Tronco");
   const [remaining,setRemaining]=useState(30);
   const [feedback,setFeedback]=useState("Responda corretamente para acertar!");
+  const [feedbackTone,setFeedbackTone]=useState<"neutral"|"correct"|"blocked"|"timeout"|"damage">("neutral");
   const [motion,setMotion]=useState<{player:FighterPose;cpu:FighterPose;caption:string;seq:number}>({
     player:"idle",cpu:"idle",caption:"",seq:0
   });
@@ -93,12 +96,14 @@ export function MathFight({session}:{session:ClientSession}) {
     const q=newQuestion(session.gradeLevel);setQuestion(q);questionRef.current=q;
     deadline.current=Date.now()+duration*1000;setRemaining(duration);
     setFeedback(next==="attack"?"Sua vez: resolva para atacar!":"Defenda-se: resolva para bloquear!");
+    setFeedbackTone("neutral");
     setImpact(null);
     showMotion("idle","idle");
   }
   function finish(victory:boolean) {
     handled.current=true;setResult(victory?"victory":"defeat");setPhase("finished");phaseRef.current="finished";
     setFeedback(victory?"Vitória! Você venceu a luta.":"Fim de luta! Treine e tente novamente.");
+    setFeedbackTone(victory?"correct":"damage");
     setImpact(null);
     showMotion(victory?"victory":"defeat",victory?"defeat":"victory",victory?"VITÓRIA":"FIM DE LUTA");
     setFighter(old=>{
@@ -115,6 +120,7 @@ export function MathFight({session}:{session:ClientSession}) {
     handled.current=true;
     const correct=!timeout&&validateAnswer(questionRef.current,raw);
     const currentTurn=turnRef.current;
+    setFeedbackTone(timeout?"timeout":currentTurn==="attack"?(correct?"correct":"blocked"):(correct?"blocked":"damage"));
     let damage=0;
     let winner:"player"|"cpu"|null=null;
     let nextHp=100;
@@ -213,7 +219,7 @@ export function MathFight({session}:{session:ClientSession}) {
   return <main id="main-content" className="fight-shell">
     <header className="fight-top"><Link className="button button-secondary" to="/lobby">← Voltar aos jogos</Link>
       <div><span className="eyebrow">Quinto jogo · Matemática em Movimento</span><h1>Luta Matemática</h1></div>
-      <strong>{fighter.coins} moedas</strong></header>
+      <div className="fight-top-coins"><small>MOEDAS DE COMBATE</small><strong>{fighter.coins.toLocaleString("pt-BR")} ◈</strong></div></header>
     {phase==="setup"?<section className="fight-setup">
       <div className="fight-panel"><h2>Meu lutador</h2>
         <label>Nome do lutador<input maxLength={20} value={fighter.name} onChange={e=>setFighter(f=>({...f,name:e.target.value}))}/></label>
@@ -250,16 +256,15 @@ export function MathFight({session}:{session:ClientSession}) {
         <p className="muted">Primeira fase: modo solo disponível. Multiplayer e campeonatos ainda não estão implementados.</p>
       </div>
     </section>:<section className="fight-panel fight-battle">
-      <div className="fight-health">
-        <div className={impact?.cue.defender==="player"?(impact.cue.blocked?"fight-health-block":"fight-health-impact"):""}><strong>{fighter.name||session.nickname}</strong><span> {playerHp}/100 HP</span><progress max={100} value={playerHp}/></div>
-        <div className={impact?.cue.defender==="cpu"?(impact.cue.blocked?"fight-health-block":"fight-health-impact"):""}><strong>Desafiante CPU</strong><span> {cpuHp}/100 HP</span><progress max={100} value={cpuHp}/></div>
-      </div>
+      <FightHud playerName={fighter.name||session.nickname} playerHp={playerHp} cpuHp={cpuHp}
+        remaining={remaining} duration={duration} turn={turn} active={phase==="playing"} resolving={handled.current}
+        impact={impact?{defender:impact.cue.defender,blocked:impact.cue.blocked}:null}/>
       <div className="fight-arena">
         <FightStage motion={motion} impact={impact} color={fighter.color}/>
       </div>
       {phase==="playing"?<div className="fight-math">
         <p className="eyebrow">{turn==="attack"?"Seu ataque":"Defesa contra a CPU"}</p>
-        <strong className="fight-timer" aria-live="off">{remaining}s</strong>
+        <div className="fight-prompt-timer"><span>RESPONDA À OPERAÇÃO</span><strong>{handled.current?"Golpe em andamento":`${remaining}s restantes`}</strong></div>
         <div className="math-expression">{question.expression} = ?</div>
         {turn==="attack"&&<fieldset className="fight-targets"><legend>Mira do golpe</legend>
           {(["Cabeça","Tronco","Pernas"] as Target[]).map(t=><label key={t}>
@@ -268,7 +273,7 @@ export function MathFight({session}:{session:ClientSession}) {
           <button disabled={handled.current||!answer.trim()}>Confirmar</button></form>
       </div>:<div className="fight-math"><h2>{result==="victory"?"Vitória!":"Derrota!"}</h2><p>{result==="victory"?"Você ganhou 100 moedas e 100 XP.":"Você ganhou 20 moedas e 30 XP pela participação."}</p>
         <button onClick={start}>Nova luta</button><button className="button-secondary" onClick={backToSetup}>Meu lutador e loja</button></div>}
-      <p className="fight-feedback" role="status">{feedback}</p>
+      <p className={`fight-feedback fight-feedback--${feedbackTone}`} role="status">{feedback}</p>
     </section>}
   </main>;
 }
