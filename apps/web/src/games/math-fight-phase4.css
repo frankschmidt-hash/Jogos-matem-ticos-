@@ -296,3 +296,42 @@ html.reduce-motion .fight-hud-healthbar-fill{transition:none!important}
   .fight-hud-clock--urgent{animation:none!important}
   .fight-hud-healthbar-fill{transition:none!important}
 }
+
+/* Mensagens com leitura de acerto, bloqueio, erro e tempo esgotado. */
+.fight-feedback--correct{color:#d2ffe9;background:#174e41;border-color:#4dbe8d}
+.fight-feedback--blocked{color:#cdeeff;background:#20446b;border-color:#72b9f5}
+.fight-feedback--timeout{color:#ffe7ad;background:#544327;border-color:#daa652}
+.fight-feedback--damage{color:#ffd8d8;background:#542c3a;border-color:#c46a7e}
+.fight-hud-healthbar--critical .fight-hud-healthbar-fill{
+  background:linear-gradient(180deg,#ffbd99,#eb534f 65%,#a7314b);
+  box-shadow:0 0 10px #ee555b99;
+}
+.fight-result{max-width:720px}
+.fight-result-eyebrow{font-size:.68rem;letter-spacing:.21em;font-weight:900;color:#d7c29b}
+.fight-result h2{margin:9px 0 4px;text-shadow:0 2px 0 #614355,0 6px 20px #0007}
+.fight-result--defeat h2{color:#ffb1aa}
+.fight-result p{max-width:470px;margin:8px auto 15px}
+.fight-result-rewards{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+  margin:18px auto 20px;
+  max-width:475px;
+}
+.fight-result-rewards>div{
+  border:1px solid #786f87;
+  border-radius:12px;
+  background:linear-gradient(150deg,#394267,#2a3151);
+  padding:12px;
+  display:grid;
+  gap:4px;
+}
+.fight-result-rewards small{font-size:.65rem;letter-spacing:.12em;color:#d3dced;font-weight:900}
+.fight-result-rewards strong{font-size:clamp(1.3rem,3vw,1.7rem);color:#f5d28c;font-variant-numeric:tabular-nums}
+.fight-result-actions{display:flex;flex-wrap:wrap;gap:9px;justify-content:center}
+.fight-result-actions button{margin:0;flex:1 1 170px;max-width:250px}
+.fight-shell{position:relative;isolation:isolate}
+@media(max-width:700px){
+  .fight-result-rewards{gap:8px}
+  .fight-result-actions button{flex:1 1 100%;max-width:none}
+}
