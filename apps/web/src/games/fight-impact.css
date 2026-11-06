@@ -154,8 +154,8 @@
 }
 .fight-impact-burst--player{left:calc(50% - var(--mf-impact-offset))}
 .fight-impact-burst--head{top:32%}
-.fight-impact-burst--body{top:47%}
-.fight-impact-burst--legs{top:70%}
+.fight-impact-burst--body{top:51%}
+.fight-impact-burst--legs{top:80%}
 .fight-impact-burst--block{--mf-flash:#c1ebff;--mf-rays:#4fa9d6}
 .fight-impact-burst--light{--mf-flash:#fff0a5;--mf-rays:#ffb358}
 .fight-impact-burst--medium{--mf-flash:#ffd18a;--mf-rays:#f77d32}
@@ -259,6 +259,9 @@ html.reduce-motion .fight-impact-label{
   .fight-impact-burst{width:79px}
   .fight-impact-burst--heavy{width:96px}
   .fight-impact-label{top:8%}
+  .fight-impact-burst--head{top:47%}
+  .fight-impact-burst--body{top:63%}
+  .fight-impact-burst--legs{top:84%}
 }
 
 /* A reação dos segmentos internos só começa depois que a luva chega
