@@ -92,3 +92,290 @@ html.reduce-motion .mf-figure .mf-rig-glove{transition:none!important;animation:
   .mf-figure .mf-rig-head,.mf-figure .mf-rig-arm,.mf-figure .mf-rig-forearm,
   .mf-figure .mf-rig-glove{transition:none!important;animation:none!important}
 }
+
+
+/* Fase 2 — as animações usam os pivôs do rig, sem sprite externo.
+   Cada coreografia possui antecipação, ação legível e recuperação.
+   O espelhamento do oponente é independente do deslocamento horizontal. */
+.mf-figure--player{
+  --mf-step:clamp(32px,7vw,80px);
+  --mf-lunge:clamp(76px,17vw,205px);
+  --mf-recoil:-30px;
+  --mf-retreat:-38px;
+}
+.mf-figure--enemy{
+  --mf-step:clamp(-80px,-7vw,-32px);
+  --mf-lunge:clamp(-205px,-17vw,-76px);
+  --mf-recoil:30px;
+  --mf-retreat:38px;
+}
+.mf-figure--pose-idle{
+  animation:mf-footwork 3.6s ease-in-out infinite;
+}
+.mf-figure--pose-step{
+  animation:mf-step-forward 700ms cubic-bezier(.2,.55,.2,1) both;
+}
+.mf-figure--pose-step .mf-rig-arm--front{
+  animation:mf-guard-forward 700ms ease-in-out both;
+}
+.mf-figure--pose-retreat{
+  animation:mf-step-back 360ms ease-out both;
+}
+.mf-figure--pose-retreat .mf-rig-leg--back{
+  animation:mf-step-back-leg 360ms ease-out both;
+}
+.mf-figure--pose-jab{
+  animation:mf-jab-lunge 1080ms cubic-bezier(.17,.78,.27,1) both;
+}
+.mf-figure--pose-jab .mf-rig-arm--front{
+  animation:mf-jab-arm 1080ms cubic-bezier(.22,.72,.24,1) both;
+}
+.mf-figure--pose-jab .mf-rig-forearm--front{
+  animation:mf-jab-forearm 1080ms ease-in-out both;
+}
+.mf-figure--pose-jab .mf-rig-torso{
+  animation:mf-jab-torso 1080ms ease-in-out both;
+}
+.mf-figure--pose-cross{
+  animation:mf-cross-lunge 1080ms cubic-bezier(.22,.66,.24,1) both;
+}
+.mf-figure--pose-cross .mf-rig-arm--back{
+  animation:mf-cross-arm 1080ms cubic-bezier(.2,.7,.25,1) both;
+}
+.mf-figure--pose-cross .mf-rig-forearm--back{
+  animation:mf-cross-forearm 1080ms ease-in-out both;
+}
+.mf-figure--pose-cross .mf-rig-torso{
+  animation:mf-cross-torso 1080ms ease-in-out both;
+}
+.mf-figure--pose-cross .mf-rig-leg--back{
+  animation:mf-cross-drive 1080ms ease-in-out both;
+}
+.mf-figure--pose-kick{
+  animation:mf-kick-lunge 1080ms cubic-bezier(.21,.67,.24,1) both;
+}
+.mf-figure--pose-kick .mf-rig-leg--front{
+  animation:mf-kick-thigh 1080ms ease-in-out both;
+}
+.mf-figure--pose-kick .mf-rig-shin--front{
+  animation:mf-kick-shin 1080ms ease-in-out both;
+}
+.mf-figure--pose-kick .mf-rig-arm--front{
+  animation:mf-kick-counterguard 1080ms ease-in-out both;
+}
+.mf-figure--pose-kick .mf-rig-torso{
+  animation:mf-kick-torso 1080ms ease-in-out both;
+}
+.mf-figure--pose-block{
+  animation:mf-block-recoil 1080ms ease-in-out both;
+}
+.mf-figure--pose-block .mf-rig-arm--front{
+  animation:mf-block-front-arm 1080ms ease-in-out both;
+}
+.mf-figure--pose-block .mf-rig-arm--back{
+  animation:mf-block-back-arm 1080ms ease-in-out both;
+}
+.mf-figure--pose-hit{
+  animation:mf-hit-recoil 1080ms cubic-bezier(.2,.65,.3,1) both;
+}
+.mf-figure--pose-hit .mf-rig-torso{
+  animation:mf-hit-torso 1080ms ease-in-out both;
+}
+.mf-figure--pose-hit .mf-rig-head{
+  animation:mf-hit-head 1080ms ease-in-out both;
+}
+.mf-figure--pose-hit .mf-rig-arm--front{
+  animation:mf-hit-front-arm 1080ms ease-in-out both;
+}
+.mf-figure--pose-victory{
+  animation:mf-victory-hop 1.7s ease-in-out infinite;
+}
+.mf-figure--pose-victory .mf-rig-arm--front{
+  transform:translate(6px,-17px) rotate(-125deg);
+}
+.mf-figure--pose-victory .mf-rig-arm--back{
+  transform:translate(-8px,-10px) rotate(115deg);
+}
+.mf-figure--pose-victory .mf-rig-torso{
+  transform:translate(0,-6px) rotate(4deg);
+}
+.mf-figure--pose-victory .mf-rig-head{
+  transform:translate(0,-7px) rotate(-9deg);
+}
+.mf-figure--pose-defeat{
+  transform-origin:45% 88%;
+  animation:mf-knockdown 950ms cubic-bezier(.31,.58,.48,1) both;
+}
+.mf-figure--pose-defeat .mf-rig-arm--front{
+  transform:rotate(45deg);
+}
+.mf-figure--pose-defeat .mf-rig-arm--back{
+  transform:rotate(-33deg);
+}
+@keyframes mf-footwork{
+  0%,100%{translate:0 0}
+  25%{translate:2px -2px}
+  55%{translate:-2px 0}
+  80%{translate:1px -1px}
+}
+@keyframes mf-step-forward{
+  0%{translate:0 0}
+  35%{translate:var(--mf-step) -7px}
+  60%{translate:var(--mf-step) 0}
+  100%{translate:0 0}
+}
+@keyframes mf-guard-forward{
+  0%,100%{transform:none}
+  40%{transform:translate(16px,-7px) rotate(-12deg)}
+}
+@keyframes mf-step-back{
+  0%{translate:0 0}
+  44%{translate:var(--mf-retreat) -2px}
+  100%{translate:0 0}
+}
+@keyframes mf-step-back-leg{
+  0%,100%{transform:none}
+  45%{transform:translate(-15px,-4px) rotate(9deg)}
+}
+@keyframes mf-jab-lunge{
+  0%{translate:0 0}
+  15%{translate:var(--mf-retreat) 4px}
+  40%,51%{translate:var(--mf-lunge) -9px}
+  66%{translate:var(--mf-step) 0}
+  100%{translate:0 0}
+}
+@keyframes mf-jab-arm{
+  0%,100%{transform:none}
+  20%{transform:translate(-11px,5px) rotate(10deg)}
+  40%,51%{transform:translate(77px,-15px) rotate(-52deg)}
+  75%{transform:translate(12px,0) rotate(-12deg)}
+}
+@keyframes mf-jab-forearm{
+  0%,100%{transform:none}
+  40%,52%{transform:translate(14px,-9px) rotate(-30deg)}
+}
+@keyframes mf-jab-torso{
+  0%,100%{transform:none}
+  36%,52%{transform:translate(13px,-6px) rotate(9deg)}
+}
+@keyframes mf-cross-lunge{
+  0%{translate:0 0}
+  18%{translate:var(--mf-retreat) 5px}
+  43%,56%{translate:var(--mf-lunge) -10px}
+  74%{translate:var(--mf-step) -2px}
+  100%{translate:0 0}
+}
+@keyframes mf-cross-arm{
+  0%,100%{transform:none}
+  18%{transform:translate(-15px,10px) rotate(17deg)}
+  43%,56%{transform:translate(103px,-16px) rotate(-58deg)}
+  77%{transform:translate(20px,-5px) rotate(-10deg)}
+}
+@keyframes mf-cross-forearm{
+  0%,100%{transform:none}
+  43%,56%{transform:translate(21px,-5px) rotate(-38deg)}
+}
+@keyframes mf-cross-torso{
+  0%,100%{transform:none}
+  20%{transform:translate(-8px,1px) rotate(-9deg)}
+  46%,58%{transform:translate(22px,-7px) rotate(16deg)}
+  78%{transform:translate(3px,-1px) rotate(3deg)}
+}
+@keyframes mf-cross-drive{
+  0%,100%{transform:none}
+  46%,58%{transform:translate(-9px,-6px) rotate(-12deg)}
+}
+@keyframes mf-kick-lunge{
+  0%{translate:0 0}
+  16%{translate:var(--mf-retreat) -2px}
+  46%,57%{translate:var(--mf-lunge) -8px}
+  74%{translate:var(--mf-step) 0}
+  100%{translate:0 0}
+}
+@keyframes mf-kick-thigh{
+  0%,100%{transform:none}
+  18%{transform:translate(-8px,9px) rotate(19deg)}
+  40%,56%{transform:translate(39px,-35px) rotate(-73deg)}
+  78%{transform:translate(5px,-4px) rotate(-9deg)}
+}
+@keyframes mf-kick-shin{
+  0%,100%{transform:none}
+  30%{transform:rotate(30deg)}
+  49%,58%{transform:translate(12px,-12px) rotate(-18deg)}
+}
+@keyframes mf-kick-counterguard{
+  0%,100%{transform:none}
+  43%,58%{transform:translate(-10px,-18px) rotate(-20deg)}
+}
+@keyframes mf-kick-torso{
+  0%,100%{transform:none}
+  42%,59%{transform:translate(-15px,-5px) rotate(-13deg)}
+}
+@keyframes mf-block-recoil{
+  0%{translate:0 0}
+  30%,50%{translate:var(--mf-recoil) 0}
+  100%{translate:0 0}
+}
+@keyframes mf-block-front-arm{
+  0%,100%{transform:translate(-25px,-16px) rotate(-19deg)}
+  21%,54%{transform:translate(-34px,-29px) rotate(-27deg)}
+}
+@keyframes mf-block-back-arm{
+  0%,100%{transform:translate(10px,-14px) rotate(17deg)}
+  21%,54%{transform:translate(17px,-23px) rotate(24deg)}
+}
+@keyframes mf-hit-recoil{
+  0%{translate:0 0}
+  28%{translate:var(--mf-recoil) -6px}
+  36%{translate:var(--mf-recoil) 3px}
+  47%{translate:var(--mf-recoil) -2px}
+  73%{translate:var(--mf-retreat) 0}
+  100%{translate:0 0}
+}
+@keyframes mf-hit-torso{
+  0%,100%{transform:none}
+  24%,48%{transform:translate(-15px,8px) rotate(-17deg)}
+  72%{transform:translate(-5px,2px) rotate(-6deg)}
+}
+@keyframes mf-hit-head{
+  0%,100%{transform:none}
+  28%,47%{transform:translate(-21px,10px) rotate(-20deg)}
+}
+@keyframes mf-hit-front-arm{
+  0%,100%{transform:none}
+  30%,51%{transform:translate(13px,17px) rotate(23deg)}
+}
+@keyframes mf-victory-hop{
+  0%,100%{translate:0 0}
+  35%,48%{translate:0 -13px}
+  72%{translate:0 0}
+}
+@keyframes mf-knockdown{
+  0%{rotate:0deg;translate:0 0}
+  24%{rotate:-13deg;translate:var(--mf-recoil) -7px}
+  57%{rotate:-47deg;translate:var(--mf-recoil) 23px}
+  79%{rotate:-68deg;translate:var(--mf-retreat) 49px}
+  100%{rotate:-66deg;translate:var(--mf-retreat) 47px}
+}
+/* A configuração acessível do portal e a preferência do sistema devem
+   interromper qualquer movimento, sem esconder a pose de defesa. */
+html.reduce-motion .mf-figure,
+html.reduce-motion .mf-figure .mf-rig-arm,
+html.reduce-motion .mf-figure .mf-rig-leg,
+html.reduce-motion .mf-figure .mf-rig-shin,
+html.reduce-motion .mf-figure .mf-rig-forearm,
+html.reduce-motion .mf-figure .mf-rig-torso,
+html.reduce-motion .mf-figure .mf-rig-head{
+  animation:none!important;
+  translate:0 0!important;
+  rotate:0deg!important;
+}
+@media(prefers-reduced-motion:reduce){
+  .mf-figure, .mf-figure .mf-rig-arm,.mf-figure .mf-rig-leg,
+  .mf-figure .mf-rig-shin,.mf-figure .mf-rig-forearm,
+  .mf-figure .mf-rig-torso,.mf-figure .mf-rig-head{
+    animation:none!important;
+    translate:0 0!important;
+    rotate:0deg!important;
+  }
+}
