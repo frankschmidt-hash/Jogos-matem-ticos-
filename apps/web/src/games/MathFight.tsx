@@ -271,8 +271,19 @@ export function MathFight({session}:{session:ClientSession}) {
             <input type="radio" checked={target===t} onChange={()=>setTarget(t)}/>{t}</label>)}</fieldset>}
         <form onSubmit={submit} className="fight-answer"><input aria-label="Resposta matemática" inputMode="decimal" autoComplete="off" value={answer} onChange={e=>setAnswer(e.target.value)} disabled={handled.current} placeholder="Sua resposta"/>
           <button disabled={handled.current||!answer.trim()}>Confirmar</button></form>
-      </div>:<div className="fight-math"><h2>{result==="victory"?"Vitória!":"Derrota!"}</h2><p>{result==="victory"?"Você ganhou 100 moedas e 100 XP.":"Você ganhou 20 moedas e 30 XP pela participação."}</p>
-        <button onClick={start}>Nova luta</button><button className="button-secondary" onClick={backToSetup}>Meu lutador e loja</button></div>}
+      </div>:<div className={`fight-math fight-result fight-result--${result}`}>
+        <span className="fight-result-eyebrow">RESULTADO DA BATALHA</span>
+        <h2>{result==="victory"?"VITÓRIA!":"DERROTA"}</h2>
+        <p>{result==="victory"?"Seu desempenho na matemática garantiu a vitória.":"Continue treinando as operações para melhorar na próxima luta."}</p>
+        <div className="fight-result-rewards" aria-label="Recompensas recebidas">
+          <div><small>MOEDAS</small><strong>+{result==="victory"?"100":"20"}</strong></div>
+          <div><small>EXPERIÊNCIA</small><strong>+{result==="victory"?"100":"30"} XP</strong></div>
+        </div>
+        <div className="fight-result-actions">
+          <button onClick={start}>Lutar novamente</button>
+          <button className="button-secondary" onClick={backToSetup}>Lutador e loja</button>
+        </div>
+      </div>}
       <p className={`fight-feedback fight-feedback--${feedbackTone}`} role="status">{feedback}</p>
     </section>}
   </main>;
