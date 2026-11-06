@@ -3,6 +3,9 @@ import { Link } from "react-router-dom";
 import { generateQuestion, validateAnswer, type MathQuestion } from "@jogos/math-engine";
 import type { ClientSession } from "../session";
 import { FighterFigure, type FighterPose } from "./FighterFigure";
+import { FightStage, type ArenaImpact } from "./FightStage";
+import { createImpactCue, exchangeTotalDuration, IMPACT_EFFECT_MS } from "./fight-impact";
+import { playSound } from "../experience";
 import { planExchange, EXCHANGE_DURATION_MS, RECOVERY_DURATION_MS } from "./fight-choreography";
 import "./math-fight.css";
 
@@ -49,6 +52,7 @@ export function MathFight({session}:{session:ClientSession}) {
     player:"idle",cpu:"idle",caption:"",seq:0
   });
   const [result,setResult]=useState<"victory"|"defeat"|null>(null);
+  const [impact,setImpact]=useState<ArenaImpact|null>(null);
   const deadline=useRef(0);
   const handled=useRef(false);
   const phaseRef=useRef(phase);
@@ -89,11 +93,13 @@ export function MathFight({session}:{session:ClientSession}) {
     const q=newQuestion(session.gradeLevel);setQuestion(q);questionRef.current=q;
     deadline.current=Date.now()+duration*1000;setRemaining(duration);
     setFeedback(next==="attack"?"Sua vez: resolva para atacar!":"Defenda-se: resolva para bloquear!");
+    setImpact(null);
     showMotion("idle","idle");
   }
   function finish(victory:boolean) {
     handled.current=true;setResult(victory?"victory":"defeat");setPhase("finished");phaseRef.current="finished";
     setFeedback(victory?"Vitória! Você venceu a luta.":"Fim de luta! Treine e tente novamente.");
+    setImpact(null);
     showMotion(victory?"victory":"defeat",victory?"defeat":"victory",victory?"VITÓRIA":"FIM DE LUTA");
     setFighter(old=>{
       const xp=old.xp+(victory?100:30);
@@ -111,36 +117,68 @@ export function MathFight({session}:{session:ClientSession}) {
     const currentTurn=turnRef.current;
     let damage=0;
     let winner:"player"|"cpu"|null=null;
+    let nextHp=100;
     if(currentTurn==="attack"){
       damage=correct?limitDamage(left,duration,fighterRef.current.gloves):0;
-      const newHp=Math.max(0,cpuHpRef.current-damage);
-      setCpuHp(newHp);cpuHpRef.current=newHp;
+      nextHp=Math.max(0,cpuHpRef.current-damage);
       setFeedback(correct?`Acertou! Golpe no(a) ${target}: -${damage} HP.`:
         timeout?`Tempo esgotado! Resposta: ${questionRef.current.correctAnswer}.`:
         `Golpe defendido! Resposta: ${questionRef.current.correctAnswer}.`);
-      if(newHp===0)winner="player";
+      if(nextHp===0)winner="player";
     }else{
       damage=correct?0:14;
-      const newHp=Math.max(0,playerHpRef.current-damage);
-      setPlayerHp(newHp);playerHpRef.current=newHp;
+      nextHp=Math.max(0,playerHpRef.current-damage);
       setFeedback(correct?"Defesa perfeita! Nenhum dano recebido.":
         `Defesa falhou: -${damage} HP. Resposta: ${questionRef.current.correctAnswer}.`);
-      if(newHp===0)winner="cpu";
+      if(nextHp===0)winner="cpu";
     }
-    // A regra matemática e o dano são decididos antes da animação.
+
+    // A resposta e o dano são calculados uma vez. A barra de HP só muda
+    // quando o golpe chega ao alvo (sem alterar a pontuação ou os valores).
     const exchange=planExchange({
       turn:currentTurn,correct,timedOut:timeout,target,damage,
       cpuAttackCount:cpuAttackCount.current
     });
     if(currentTurn==="defend")cpuAttackCount.current++;
-    showMotion(exchange.player,exchange.cpu,exchange.caption);
+    const cue=createImpactCue(exchange,currentTurn,target);
+    const reducedMotion=document.documentElement.classList.contains("reduce-motion")
+      ||window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const hitStopMs=cue&&!reducedMotion?cue.hitStopMs:0;
+    showMotion(exchange.player,exchange.cpu,cue?"":exchange.caption);
+    setImpact(null);
+
+    if(cue){
+      const settledHp=nextHp;
+      const settledDamage=damage;
+      queueMotion(cue.contactAtMs,()=>{
+        if(phaseRef.current!=="playing")return;
+        // Este é o único momento em que o dano entra nas barras.
+        if(settledDamage>0){
+          if(cue.defender==="cpu"){
+            cpuHpRef.current=settledHp;setCpuHp(settledHp);
+          }else{
+            playerHpRef.current=settledHp;setPlayerHp(settledHp);
+          }
+        }
+        setImpact({cue,damage:settledDamage,frozen:hitStopMs>0});
+        playSound(cue.blocked?"fight-block":"fight-hit");
+        if(hitStopMs>0){
+          queueMotion(hitStopMs,()=>{
+            setImpact(previous=>previous?{...previous,frozen:false}:null);
+          });
+        }
+        queueMotion(hitStopMs+IMPACT_EFFECT_MS,()=>setImpact(null));
+      });
+    }
+
     const endResult=winner;
-    queueMotion(EXCHANGE_DURATION_MS,()=>{
+    queueMotion(exchangeTotalDuration(EXCHANGE_DURATION_MS,cue,reducedMotion),()=>{
       if(phaseRef.current!=="playing")return;
       if(endResult){
         finish(endResult==="player");
         return;
       }
+      setImpact(null);
       showMotion("retreat","retreat","Recompondo a guarda");
       queueMotion(RECOVERY_DURATION_MS,()=>{
         if(phaseRef.current==="playing")beginTurn(currentTurn==="attack"?"defend":"attack");
@@ -158,12 +196,12 @@ export function MathFight({session}:{session:ClientSession}) {
     return ()=>window.clearInterval(timer);
   },[phase,duration,turn,question.id]);
   function start(){
-    clearAnimationTimers();matchId.current++;cpuAttackCount.current=0;
+    clearAnimationTimers();matchId.current++;cpuAttackCount.current=0;setImpact(null);
     setPlayerHp(100);setCpuHp(100);playerHpRef.current=100;cpuHpRef.current=100;
     setResult(null);setPhase("playing");phaseRef.current="playing";beginTurn("attack");
   }
   function backToSetup(){
-    clearAnimationTimers();matchId.current++;
+    clearAnimationTimers();matchId.current++;setImpact(null);
     setPhase("setup");phaseRef.current="setup";
     showMotion("idle","idle");
   }
@@ -213,14 +251,11 @@ export function MathFight({session}:{session:ClientSession}) {
       </div>
     </section>:<section className="fight-panel fight-battle">
       <div className="fight-health">
-        <div><strong>{fighter.name||session.nickname}</strong><span> {playerHp}/100 HP</span><progress max={100} value={playerHp}/></div>
-        <div><strong>Desafiante CPU</strong><span> {cpuHp}/100 HP</span><progress max={100} value={cpuHp}/></div>
+        <div className={impact?.cue.defender==="player"?(impact.cue.blocked?"fight-health-block":"fight-health-impact"):""}><strong>{fighter.name||session.nickname}</strong><span> {playerHp}/100 HP</span><progress max={100} value={playerHp}/></div>
+        <div className={impact?.cue.defender==="cpu"?(impact.cue.blocked?"fight-health-block":"fight-health-impact"):""}><strong>Desafiante CPU</strong><span> {cpuHp}/100 HP</span><progress max={100} value={cpuHp}/></div>
       </div>
       <div className="fight-arena">
-        <FighterFigure key={`player-${motion.seq}`} color={fighter.color} pose={motion.player} label="Seu lutador"/>
-        <span className="fight-versus">VS</span>
-        <FighterFigure key={`cpu-${motion.seq}`} color="#de7651" enemy pose={motion.cpu} label="Desafiante CPU"/>
-        {motion.caption&&<span className="fight-motion-caption" aria-hidden="true">{motion.caption}</span>}
+        <FightStage motion={motion} impact={impact} color={fighter.color}/>
       </div>
       {phase==="playing"?<div className="fight-math">
         <p className="eyebrow">{turn==="attack"?"Seu ataque":"Defesa contra a CPU"}</p>
