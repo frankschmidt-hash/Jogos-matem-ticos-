@@ -9,7 +9,9 @@ export type SoundKind=
   | "goal"
   | "save"
   | "purchase"
-  | "victory";
+  | "victory"
+  | "fight-hit"
+  | "fight-block";
 
 const MUTE_KEY="jogos:audio-muted";
 const MOTION_KEY="jogos:reduce-motion";
@@ -83,6 +85,12 @@ export function playSound(kind:SoundKind):void{
     case "purchase":
       tone(740,.06,{type:"sine",gain:.32});
       tone(988,.12,{type:"sine",gain:.34,delay:.06}); break;
+    case "fight-hit":
+      tone(135,.085,{type:"sawtooth",gain:.37,slideTo:58});
+      tone(82,.12,{type:"triangle",gain:.24,slideTo:42,delay:.015}); break;
+    case "fight-block":
+      tone(370,.06,{type:"triangle",gain:.22,slideTo:210});
+      tone(170,.09,{type:"sine",gain:.17,slideTo:120,delay:.02}); break;
     case "victory":
       tone(392,.12,{type:"triangle",gain:.38});
       tone(523.25,.12,{type:"triangle",gain:.42,delay:.10});
