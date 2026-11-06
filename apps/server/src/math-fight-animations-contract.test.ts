@@ -34,9 +34,9 @@ describe("Luta Matemática — integração das animações da Fase 2",()=>{
   it("o resultado matemático decide o golpe antes da coreografia",()=>{
     expect(game).toContain("validateAnswer(questionRef.current,raw)");
     expect(game).toContain("const exchange=planExchange(");
-    expect(game).toContain("const newHp=Math.max(0,cpuHpRef.current-damage)");
-    expect(game).toContain("const newHp=Math.max(0,playerHpRef.current-damage)");
-    expect(game).toContain("queueMotion(EXCHANGE_DURATION_MS");
+    expect(game).toContain("nextHp=Math.max(0,cpuHpRef.current-damage)");
+    expect(game).toContain("nextHp=Math.max(0,playerHpRef.current-damage)");
+    expect(game).toContain("queueMotion(exchangeTotalDuration(EXCHANGE_DURATION_MS");
     expect(game).toContain("queueMotion(RECOVERY_DURATION_MS");
     expect(game).toContain("finish(endResult===\"player\")");
     expect(choreography).toContain("if (timedOut)");
