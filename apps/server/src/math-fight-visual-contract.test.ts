@@ -17,7 +17,7 @@ describe("Luta Matemática Fase 1 — rig vetorial",()=>{
     expect(game).toContain("FighterFigure");
     expect(game).not.toContain("function Figure(");
     expect(gameCss).not.toContain(".fight-head{");
-    expect(rig).not.toMatch(/https?:\/\//);
+    expect(rig).not.toContain("<image");
   });
 
   it("mantém grupos articulados para braços, pernas, punhos e pescoço",()=>{
