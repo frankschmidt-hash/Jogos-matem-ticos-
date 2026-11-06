@@ -1,0 +1,337 @@
+/* Fase 4 — identidade visual arcade original, isolada no Luta Matemática.
+   Nenhum estilo global dos outros quatro jogos é alterado. */
+.fight-shell{
+  --fight-gold:#f0c77b;
+  --fight-ink:#eef3ff;
+  --fight-edge:#7187b4;
+  --fight-panel:#17213d;
+  max-width:1270px;
+  color:var(--fight-ink);
+  padding:25px clamp(12px,3vw,28px) 115px;
+}
+.fight-shell::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:-1;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 12% 14%,rgba(117,78,175,.23),transparent 31rem),
+    radial-gradient(circle at 85% 12%,rgba(53,112,159,.23),transparent 33rem),
+    linear-gradient(135deg,#151c33,#0b152a 65%,#24314c);
+}
+.fight-top{
+  background:linear-gradient(120deg,rgba(27,37,68,.97),rgba(39,46,84,.91));
+  border:1px solid #61749b;
+  border-radius:19px;
+  padding:14px clamp(15px,2vw,24px);
+  box-shadow:0 15px 35px #040b1e88;
+}
+.fight-top h1{
+  font-size:clamp(1.65rem,3.2vw,2.7rem);
+  font-weight:1000;
+  line-height:1.06;
+  letter-spacing:-.035em;
+  color:#fff6e5;
+  text-transform:uppercase;
+  text-shadow:0 3px 0 #3b2b47,0 5px 18px #0008;
+}
+.fight-top .eyebrow{color:#d6b777;font-size:.66rem;letter-spacing:.19em}
+.fight-top .button-secondary{
+  background:#1b3150;
+  color:#f7ecda;
+  border:1px solid #6986ad;
+  box-shadow:none;
+  text-decoration:none;
+}
+.fight-top .button-secondary:hover{background:#274369}
+.fight-top-coins{
+  display:grid;
+  gap:3px;
+  justify-items:end;
+  background:#1c2c4a;
+  border:1px solid #85724e;
+  padding:10px 15px;
+  border-radius:13px;
+  white-space:nowrap;
+}
+.fight-top-coins small{color:#bbcae3;font-size:.69rem;font-weight:800;letter-spacing:.12em}
+.fight-top-coins strong{color:var(--fight-gold);font-size:1.06rem;font-variant-numeric:tabular-nums}
+.fight-panel{
+  background:linear-gradient(155deg,#202c4a,#141d34 90%);
+  border:1px solid #627499;
+  box-shadow:0 18px 40px #050c20a3;
+  color:#ebf1ff;
+  border-radius:20px;
+}
+.fight-panel h2,.fight-panel h3{color:#fff0c8;letter-spacing:.01em}
+.fight-panel p{color:#cbd5e9;line-height:1.55}
+.fight-panel .muted{color:#aebed8}
+.fight-panel label{color:#e9effe}
+.fight-panel input:not([type="radio"]),.fight-panel select{
+  color:#152037;
+  background:#f5f7fe;
+  border:1px solid #8398b9;
+}
+.fight-panel .button-secondary{background:#273d61;color:#f4f6ff;border:1px solid #6780a9}
+.fight-panel button{box-shadow:0 5px 13px #03081947}
+.fight-panel button:focus-visible,.fight-panel a:focus-visible,.fight-panel input:focus-visible,.fight-panel select:focus-visible{
+  outline:3px solid #ffce71;
+  outline-offset:2px;
+}
+.fight-preview{
+  position:relative;
+  height:295px;
+  background:
+    linear-gradient(0deg,rgba(10,19,36,.46),transparent 45%),
+    url("/assets/math-fight/arena-urbana.svg") center 52%/cover no-repeat;
+  border:2px solid #6980a8;
+  box-shadow:inset 0 -5px 10px #0b132b63;
+  align-items:end;
+  padding-bottom:4px;
+}
+.fight-preview .mf-figure{max-height:96%}
+.fight-pose-picker{justify-content:flex-start;gap:8px}
+.fight-pose-picker button{
+  min-height:40px;
+  flex:1 1 100px;
+  max-width:160px;
+  border:1px solid #5f769f;
+  background:#273957;
+  color:#edf4ff;
+  border-radius:8px;
+  font-weight:850;
+  box-shadow:none;
+}
+.fight-pose-picker .fight-pose-active{
+  border-color:#ffd17d;
+  color:#12233f;
+  background:linear-gradient(180deg,#ffe09e,#d9aa57);
+}
+.fight-battle{padding:clamp(12px,1.6vw,22px)}
+.fight-hud{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(78px,116px) minmax(0,1fr);
+  align-items:start;
+  gap:clamp(8px,1.5vw,18px);
+  background:linear-gradient(180deg,#111c36,#202c4d);
+  border:1px solid #6278a5;
+  border-radius:15px;
+  padding:clamp(9px,1.7vw,15px);
+  box-shadow:inset 0 1px 0 #ffffff18;
+}
+.fight-hud-fighter{padding:6px 4px 3px;min-width:0;border-radius:8px}
+.fight-hud-name{display:flex;flex-direction:column;gap:4px;min-width:0}
+.fight-hud-name strong{
+  font-size:clamp(.78rem,1.7vw,1.12rem);
+  letter-spacing:.015em;
+  color:#fff;
+  line-height:1.2;
+  overflow-wrap:anywhere;
+}
+.fight-hud-side{font-size:.62rem;letter-spacing:.12em;color:#eec77e;font-weight:900}
+.fight-hud-fighter--cpu .fight-hud-name{text-align:right}
+.fight-hud-fighter--cpu .fight-hud-side{color:#aabdeb}
+.fight-hud-healthbar{border:2px solid #9cafd3;background:#0f1424;border-radius:6px;padding:3px;margin-top:11px;overflow:hidden}
+.fight-hud-healthbar-track{height:clamp(14px,2.2vw,22px);background:#482d45;border-radius:2px;overflow:hidden;position:relative}
+.fight-hud-healthbar-fill{
+  height:100%;width:100%;
+  background:linear-gradient(180deg,#b8f6bd 0%,#4bca83 42%,#188665 100%);
+  box-shadow:inset 0 1px 0 #ffffff9c,0 0 10px #29c58a60;
+  transition:width .24s ease;
+}
+.fight-hud-fighter--cpu .fight-hud-healthbar-track{transform:scaleX(-1)}
+.fight-hud-hp{display:block;text-align:right;margin-top:5px;font-weight:900;font-variant-numeric:tabular-nums;font-size:.85rem}
+.fight-hud-fighter--cpu .fight-hud-hp{text-align:left}
+.fight-hud-hp small{color:#a8b9d8;font-size:.7rem}
+.fight-hud-center{display:grid;gap:4px;justify-items:center;align-content:center}
+.fight-hud-versus{font-size:clamp(1.15rem,2.8vw,2rem);color:#f2bf65;font-weight:1000;font-style:italic;line-height:1;text-shadow:0 3px 0 #69445d}
+.fight-hud-clock{
+  width:min(100%,92px);
+  background:linear-gradient(#283e66,#1a2540);
+  border:2px solid #9c82a7;
+  border-radius:10px;
+  text-align:center;
+  color:#fff6dc;
+  padding:6px 2px;
+  font-weight:1000;
+  font-size:clamp(1.1rem,2.9vw,1.75rem);
+  font-variant-numeric:tabular-nums;
+  line-height:1;
+}
+.fight-hud-clock--urgent{
+  background:#712634;
+  border-color:#ff9d85;
+  color:white;
+  animation:fight-hud-pulse .6s ease-in-out infinite alternate;
+}
+.fight-hud-state{
+  color:#c1ceeb;
+  font-weight:900;
+  letter-spacing:.11em;
+  font-size:clamp(.52rem,1vw,.68rem);
+  text-align:center;
+}
+.fight-hud-fighter--damaged{animation:mf-health-impact .4s ease-out}
+.fight-hud-fighter--blocked{animation:mf-health-block .4s ease-out}
+@keyframes fight-hud-pulse{to{box-shadow:0 0 0 3px #e36c5266}}
+.fight-arena{
+  position:relative;
+  display:block;
+  overflow:hidden;
+  height:clamp(275px,33vw,440px);
+  margin:13px 0 14px;
+  border-radius:15px;
+  border:2px solid #7787ad;
+  background:
+    url("/assets/math-fight/arena-urbana.svg") center center/cover no-repeat,
+    linear-gradient(#242b4a,#384260 65%,#29334d);
+  box-shadow:inset 0 0 0 2px #0b142acc,0 12px 24px #050d22a3;
+}
+.fight-arena::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  z-index:8;
+  background:linear-gradient(90deg,#040a2060,transparent 19%,transparent 81%,#040a2060);
+  border-radius:inherit;
+}
+.fight-stage{z-index:1}
+.fight-stage-vs{color:#e1c48a;opacity:.25;text-shadow:0 2px 3px #0008}
+.fight-motion-caption{background:rgba(18,28,50,.9);border-color:#9eabd0;color:#f4e7c3;letter-spacing:.075em}
+.fight-math{
+  max-width:820px;
+  margin:0 auto;
+  border:1px solid #50648f;
+  border-radius:14px;
+  background:linear-gradient(150deg,#263454,#1b2945);
+  padding:18px clamp(12px,3vw,24px) 20px;
+  box-shadow:inset 0 1px 0 #ffffff0f;
+}
+.fight-math .eyebrow{color:#f2d092;font-size:.76rem;margin:0 0 8px}
+.fight-math .math-expression{
+  display:block;
+  background:linear-gradient(135deg,#f4f5ff,#dce6fc);
+  border:2px solid #88a8d5;
+  color:#1d3361;
+  font-weight:1000;
+  font-variant-numeric:tabular-nums;
+  margin:12px auto 16px;
+  padding:13px 16px;
+  font-size:clamp(1.7rem,5.5vw,2.8rem);
+  border-radius:12px;
+}
+.fight-prompt-timer{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:8px;font-size:.78rem;font-weight:800;color:#d1ddf1}
+.fight-prompt-timer strong{font-size:1rem;color:#f6c97c}
+.fight-answer{max-width:540px;margin:14px auto 0}
+.fight-answer input{font-size:1.2rem;font-weight:800;text-align:center;min-width:0}
+.fight-answer button{
+  padding-inline:clamp(15px,4vw,28px);
+  background:linear-gradient(135deg,#e8bd66,#c38042);
+  color:#142238;
+  border:1px solid #ffe0a6;
+}
+.fight-targets{
+  border:1px solid #657ea9;
+  background:#192945;
+  max-width:600px;
+  margin:auto;
+  padding:10px;
+  color:#edf1fc;
+  border-radius:10px;
+}
+.fight-targets legend{color:#f1d195;padding:0 8px;font-size:.84rem}
+.fight-targets label{display:inline-flex;align-items:center;gap:6px;color:#f0f4ff;cursor:pointer}
+.fight-targets input{accent-color:#e9bc6b;min-height:initial;width:auto}
+.fight-feedback{
+  max-width:820px;
+  margin:12px auto 0;
+  border:1px solid #6981ad;
+  color:#edf3ff;
+  background:#24385b;
+  padding:12px 15px;
+  text-align:center;
+  letter-spacing:.01em;
+}
+.fight-math h2{font-size:clamp(1.8rem,4vw,2.8rem);color:#ffe1a4;text-transform:uppercase}
+.fight-math p{color:#d7e3fa}
+.fight-math .button-secondary{margin-inline:4px}
+.fight-battle:has(.fight-math) .fight-feedback{min-height:46px}
+@media(max-width:700px){
+  .fight-shell{padding:14px 10px 102px}
+  .fight-top{gap:9px;padding:10px 12px}
+  .fight-top h1{font-size:clamp(1.3rem,5.1vw,2rem)}
+  .fight-top .button-secondary{padding:8px 10px;min-height:38px;font-size:.78rem}
+  .fight-top-coins{padding:7px 10px}
+  .fight-panel{padding:12px}
+  .fight-preview{height:260px}
+  .fight-hud{grid-template-columns:minmax(0,1fr) 72px minmax(0,1fr);padding:7px;gap:5px}
+  .fight-hud-fighter{padding:4px 0}
+  .fight-hud-side{font-size:.53rem;letter-spacing:.06em}
+  .fight-hud-name strong{font-size:.7rem}
+  .fight-hud-hp{font-size:.7rem}
+  .fight-hud-hp small{font-size:.58rem}
+  .fight-hud-healthbar{margin-top:7px;padding:2px;border-width:1px}
+  .fight-hud-healthbar-track{height:13px}
+  .fight-hud-versus{font-size:1.2rem}
+  .fight-hud-clock{font-size:1.14rem;padding:5px 1px}
+  .fight-hud-state{font-size:.54rem}
+  .fight-arena{height:clamp(225px,65vw,300px);margin:10px 0}
+  .fight-math{padding:13px 10px}
+  .fight-math .math-expression{font-size:clamp(1.55rem,8vw,2.4rem);padding:10px 5px}
+  .fight-answer{display:flex;flex-direction:column;gap:9px}
+  .fight-answer button{width:100%}
+  .fight-feedback{padding:10px;font-size:.84rem}
+}
+@media(max-width:390px){
+  .fight-top-coins small{font-size:.57rem}
+  .fight-top-coins strong{font-size:.88rem}
+  .fight-hud{grid-template-columns:minmax(0,1fr) 60px minmax(0,1fr)}
+  .fight-hud-state{font-size:.5rem;letter-spacing:0}
+}
+html.reduce-motion .fight-hud-clock--urgent{animation:none!important}
+html.reduce-motion .fight-hud-healthbar-fill{transition:none!important}
+@media(prefers-reduced-motion:reduce){
+  .fight-hud-clock--urgent{animation:none!important}
+  .fight-hud-healthbar-fill{transition:none!important}
+}
+
+/* Mensagens com leitura de acerto, bloqueio, erro e tempo esgotado. */
+.fight-feedback--correct{color:#d2ffe9;background:#174e41;border-color:#4dbe8d}
+.fight-feedback--blocked{color:#cdeeff;background:#20446b;border-color:#72b9f5}
+.fight-feedback--timeout{color:#ffe7ad;background:#544327;border-color:#daa652}
+.fight-feedback--damage{color:#ffd8d8;background:#542c3a;border-color:#c46a7e}
+.fight-hud-healthbar--critical .fight-hud-healthbar-fill{
+  background:linear-gradient(180deg,#ffbd99,#eb534f 65%,#a7314b);
+  box-shadow:0 0 10px #ee555b99;
+}
+.fight-result{max-width:720px}
+.fight-result-eyebrow{font-size:.68rem;letter-spacing:.21em;font-weight:900;color:#d7c29b}
+.fight-result h2{margin:9px 0 4px;text-shadow:0 2px 0 #614355,0 6px 20px #0007}
+.fight-result--defeat h2{color:#ffb1aa}
+.fight-result p{max-width:470px;margin:8px auto 15px}
+.fight-result-rewards{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+  margin:18px auto 20px;
+  max-width:475px;
+}
+.fight-result-rewards>div{
+  border:1px solid #786f87;
+  border-radius:12px;
+  background:linear-gradient(150deg,#394267,#2a3151);
+  padding:12px;
+  display:grid;
+  gap:4px;
+}
+.fight-result-rewards small{font-size:.65rem;letter-spacing:.12em;color:#d3dced;font-weight:900}
+.fight-result-rewards strong{font-size:clamp(1.3rem,3vw,1.7rem);color:#f5d28c;font-variant-numeric:tabular-nums}
+.fight-result-actions{display:flex;flex-wrap:wrap;gap:9px;justify-content:center}
+.fight-result-actions button{margin:0;flex:1 1 170px;max-width:250px}
+.fight-shell{position:relative;isolation:isolate}
+@media(max-width:700px){
+  .fight-result-rewards{gap:8px}
+  .fight-result-actions button{flex:1 1 100%;max-width:none}
+}

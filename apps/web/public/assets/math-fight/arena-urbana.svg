@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 500" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Arena noturna estilizada de luta com cidade e piso iluminado">
+<defs>
+<linearGradient id="night" x2=".15" y2="1"><stop stop-color="#101633"/><stop offset=".5" stop-color="#273056"/><stop offset="1" stop-color="#493b55"/></linearGradient>
+<radialGradient id="light"><stop stop-color="#f0e7d6" stop-opacity=".55"/><stop offset=".4" stop-color="#b6a8cf" stop-opacity=".12"/><stop offset="1" stop-color="#b6a8cf" stop-opacity="0"/></radialGradient>
+<linearGradient id="floor" x2="0" y2="1"><stop stop-color="#59627e"/><stop offset=".3" stop-color="#3b455e"/><stop offset="1" stop-color="#1b253f"/></linearGradient>
+<linearGradient id="neon" x2="0" y2="1"><stop stop-color="#f4cd79"/><stop offset="1" stop-color="#ce8058"/></linearGradient>
+<pattern id="brick" width="92" height="38" patternUnits="userSpaceOnUse"><path d="M0 0H92M0 38H92M45 0V19M0 19H92M0 19V38M92 19V38" stroke="#95a5d0" stroke-opacity=".075" stroke-width="2" fill="none"/></pattern>
+<pattern id="windows" width="56" height="56" patternUnits="userSpaceOnUse"><rect x="12" y="12" width="11" height="18" rx="1" fill="#e8b97c" opacity=".22"/><rect x="34" y="12" width="9" height="18" rx="1" fill="#7fb9d3" opacity=".18"/></pattern>
+</defs>
+<rect width="1200" height="500" fill="url(#night)"/>
+<circle cx="210" cy="56" r="250" fill="url(#light)"/><circle cx="1050" cy="20" r="255" fill="url(#light)"/>
+<path d="M0 198l65-17V89h104v110l65-23V112h88v85l59-29V53h91v143l42-13V100h91v95l65-22V76h94v126l65-29V124h108v78l62-14V91h102v119l85-20V142h86v70l87-13v93H0Z" fill="#202842"/>
+<path d="M0 198l65-17V89h104v110l65-23V112h88v85l59-29V53h91v143l42-13V100h91v95l65-22V76h94v126l65-29V124h108v78l62-14V91h102v119l85-20V142h86v70l87-13v93H0Z" fill="url(#windows)"/>
+<rect y="198" width="1200" height="120" fill="#2b3049"/><rect y="198" width="1200" height="120" fill="url(#brick)"/>
+<path d="M0 247H1200" stroke="#a27faf" stroke-width="4" opacity=".45"/>
+<path d="M0 220H1200" stroke="#8896c7" stroke-width="1" opacity=".22"/>
+<g stroke="#0d152b" stroke-width="11"><path d="M82 0V301M1117 0V301"/><path d="M0 29H1200"/></g>
+<g stroke="#7994c2" stroke-width="3" opacity=".6"><path d="M80 39L24 182M1115 39L1170 182"/><path d="M24 182H1170"/></g>
+<g opacity=".9"><rect x="445" y="28" width="310" height="85" rx="14" fill="#121d37" stroke="#7583b6" stroke-width="5"/>
+<rect x="454" y="37" width="292" height="67" rx="10" fill="#1e2e4b" stroke="#f6c173" stroke-opacity=".65" stroke-width="2"/>
+<text x="600" y="61" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#c5dcfb" font-weight="bold" letter-spacing="7">MATEMÁTICA</text>
+<text x="600" y="90" text-anchor="middle" font-family="Arial, sans-serif" font-size="29" fill="url(#neon)" font-weight="900" letter-spacing="5">ARENA DE LUTA</text></g>
+<g opacity=".68"><path d="M0 292q25-53 53-18q28-56 55-4q24-36 55-9q34-48 65 5q40-38 73 8q35-45 76-7q25-43 68-2q31-39 69 0q32-39 71 1q45-40 80 1q35-52 78 2q28-43 70-3q31-43 72 3q47-36 80-5q47-48 79 7q28-35 66 12q25-37 60-4q21-33 49-7v55H0Z" fill="#111629"/></g>
+<path d="M0 313H1200" stroke="#c6a5df" stroke-opacity=".5" stroke-width="5"/>
+<path d="M0 323L1200 323L1200 500H0Z" fill="url(#floor)"/>
+<path d="M0 328L1200 328" stroke="#f1c37c" stroke-width="5" opacity=".7"/>
+<path d="M600 328L-100 500M600 328L260 500M600 328L940 500M600 328L1300 500" stroke="#a4add3" stroke-width="2" stroke-opacity=".28"/>
+<path d="M0 373H1200M0 423H1200M0 484H1200" stroke="#8e9ac7" stroke-opacity=".22" stroke-width="2"/>
+<path d="M0 496H1200" stroke="#d3bb91" stroke-opacity=".5" stroke-width="8"/>
+<g opacity=".5"><path d="M45 350h110m887 0h110" stroke="#89ccef" stroke-width="12" stroke-linecap="round"/><path d="M65 355h70m917 0h70" stroke="#fff" stroke-width="3" stroke-linecap="round"/></g>
+</svg>
