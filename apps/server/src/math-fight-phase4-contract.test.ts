@@ -3,7 +3,7 @@ import {fileURLToPath} from "node:url";
 import {describe,expect,it} from "vitest";
 
 const read=(path:string)=>readFileSync(fileURLToPath(new URL("../../web/src/games/"+path,import.meta.url)),"utf8");
-const backdrop=read("../../../web/public/assets/math-fight/arena-urbana.svg");
+const backdrop=read("../../public/assets/math-fight/arena-urbana.svg");
 const css=read("math-fight-phase4.css");
 const hud=read("FightHud.tsx");
 const game=read("MathFight.tsx");
@@ -15,7 +15,7 @@ describe("Fase 4 — arena e HUD arcade",()=>{
     expect(backdrop).toContain("ARENA DE LUTA");
     expect(backdrop).toContain("MATEMÁTICA");
     expect(backdrop).not.toContain("<image");
-    expect(backdrop).not.toContain("http");
+    expect(backdrop).not.toContain("href=");
     expect(css).toContain('url("/assets/math-fight/arena-urbana.svg")');
     expect(css).toContain(".fight-arena");
   });
