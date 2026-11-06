@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { generateQuestion, validateAnswer, type MathQuestion } from "@jogos/math-engine";
 import type { ClientSession } from "../session";
 import { FighterFigure, type FighterPose } from "./FighterFigure";
+import { planExchange, EXCHANGE_DURATION_MS, RECOVERY_DURATION_MS } from "./fight-choreography";
 import "./math-fight.css";
 
 type Style = "Boxe" | "Muay Thai" | "Capoeira" | "Karatê" | "Jiu-jítsu" | "Luta de rua";
@@ -34,6 +35,7 @@ export function MathFight({session}:{session:ClientSession}) {
   const [fighter,setFighter]=useState<Fighter>(()=>readProfile(session.nickname));
   const [phase,setPhase]=useState<Phase>("setup");
   const [previewPose,setPreviewPose]=useState<FighterPose>("idle");
+  const [previewTick,setPreviewTick]=useState(0);
   const [duration,setDuration]=useState(30);
   const [playerHp,setPlayerHp]=useState(100);
   const [cpuHp,setCpuHp]=useState(100);
@@ -43,7 +45,9 @@ export function MathFight({session}:{session:ClientSession}) {
   const [target,setTarget]=useState<Target>("Tronco");
   const [remaining,setRemaining]=useState(30);
   const [feedback,setFeedback]=useState("Responda corretamente para acertar!");
-  const [animation,setAnimation]=useState("idle");
+  const [motion,setMotion]=useState<{player:FighterPose;cpu:FighterPose;caption:string;seq:number}>({
+    player:"idle",cpu:"idle",caption:"",seq:0
+  });
   const [result,setResult]=useState<"victory"|"defeat"|null>(null);
   const deadline=useRef(0);
   const handled=useRef(false);
@@ -53,21 +57,44 @@ export function MathFight({session}:{session:ClientSession}) {
   const playerHpRef=useRef(playerHp);
   const cpuHpRef=useRef(cpuHp);
   const fighterRef=useRef(fighter);
+  const visualSeq=useRef(0);
+  const cpuAttackCount=useRef(0);
+  const matchId=useRef(0);
+  const animationTimers=useRef<number[]>([]);
   phaseRef.current=phase;turnRef.current=turn;questionRef.current=question;
   playerHpRef.current=playerHp;cpuHpRef.current=cpuHp;fighterRef.current=fighter;
 
   useEffect(()=>{localStorage.setItem(profileKey(session.nickname),JSON.stringify(fighter));},[fighter,session.nickname]);
+
+  // Evita que coreografias atrasadas afetem outra luta ou a tela de configuração.
+  function clearAnimationTimers() {
+    animationTimers.current.forEach(id=>window.clearTimeout(id));
+    animationTimers.current=[];
+  }
+  function queueMotion(delay:number, callback:()=>void) {
+    const currentMatch=matchId.current;
+    const id=window.setTimeout(()=>{
+      animationTimers.current=animationTimers.current.filter(item=>item!==id);
+      if(matchId.current===currentMatch)callback();
+    },delay);
+    animationTimers.current.push(id);
+  }
+  useEffect(()=>()=>{matchId.current++;animationTimers.current.forEach(id=>window.clearTimeout(id));animationTimers.current=[];},[]);
+  function showMotion(player:FighterPose,cpu:FighterPose,caption="") {
+    setMotion({player,cpu,caption,seq:++visualSeq.current});
+  }
   function beginTurn(next:"attack"|"defend") {
     handled.current=false;
     setAnswer("");setTurn(next);turnRef.current=next;
     const q=newQuestion(session.gradeLevel);setQuestion(q);questionRef.current=q;
     deadline.current=Date.now()+duration*1000;setRemaining(duration);
     setFeedback(next==="attack"?"Sua vez: resolva para atacar!":"Defenda-se: resolva para bloquear!");
-    setAnimation("idle");
+    showMotion("idle","idle");
   }
   function finish(victory:boolean) {
     handled.current=true;setResult(victory?"victory":"defeat");setPhase("finished");phaseRef.current="finished";
     setFeedback(victory?"Vitória! Você venceu a luta.":"Fim de luta! Treine e tente novamente.");
+    showMotion(victory?"victory":"defeat",victory?"defeat":"victory",victory?"VITÓRIA":"FIM DE LUTA");
     setFighter(old=>{
       const xp=old.xp+(victory?100:30);
       const gainedLevels=Math.floor(xp/300);
