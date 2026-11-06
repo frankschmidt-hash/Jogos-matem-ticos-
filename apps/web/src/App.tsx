@@ -14,11 +14,11 @@ import { MathFootball } from "./games/MathFootball";
 import { MathFight } from "./games/MathFight";
 
 const GAME_ART:Record<GameId,{src:string;theme:string;label:string}>={
-  "property-math":{src:"/assets/property-game/cidade-prisma.svg",theme:"prisma",label:"Cidade Prisma"},
-  "crazy-race":{src:"/assets/crazy-race/race-emblem.svg",theme:"race",label:"Corrida"},
-  "number-race":{src:"/assets/number-race/number-emblem.svg",theme:"number",label:"Números"},
-  "math-football":{src:"/assets/math-football/football-emblem.svg",theme:"football",label:"Futebol"},
-  "math-fight":{src:"/assets/math-fight/fight-emblem.svg",theme:"fight",label:"Luta"}
+  "property-math":{src:"/assets/game-cards/property-math.webp",theme:"prisma",label:"Cidade Prisma"},
+  "crazy-race":{src:"/assets/game-cards/crazy-race.webp",theme:"race",label:"Corrida"},
+  "number-race":{src:"/assets/game-cards/number-race.webp",theme:"number",label:"Números"},
+  "math-football":{src:"/assets/game-cards/math-football.webp",theme:"football",label:"Futebol"},
+  "math-fight":{src:"/assets/game-cards/math-fight.webp",theme:"fight",label:"Luta"}
 };
 
 const RANKING_INFO=[
