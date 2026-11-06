@@ -11,7 +11,7 @@ type FightHudProps={
 };
 function HealthBar({value,flipped=false,label}:{value:number;flipped?:boolean;label:string}){
   const safe=Math.min(100,Math.max(0,value));
-  return <div className={`fight-hud-healthbar ${flipped?"fight-hud-healthbar--flipped":""}`}>
+  return <div className={`fight-hud-healthbar ${safe<=30?"fight-hud-healthbar--critical":""} ${flipped?"fight-hud-healthbar--flipped":""}`}>
     <div className="fight-hud-healthbar-track" role="progressbar" aria-label={label}
       aria-valuemin={0} aria-valuemax={100} aria-valuenow={safe}>
       <div className="fight-hud-healthbar-fill" style={{width:`${safe}%`}}/>
