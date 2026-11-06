@@ -172,8 +172,6 @@ export function MathFight({session}:{session:ClientSession}) {
     setFighter(old=>old.gloves>=3||old.coins<(old.gloves+1)*150?old:
       {...old,coins:old.coins-(old.gloves+1)*150,gloves:old.gloves+1});
   }
-  const playerPose:FighterPose = animation==="idle"?"idle":turn==="attack"?"step":animation==="hit"?"hit":"block";
-  const cpuPose:FighterPose = animation==="idle"?"idle":turn==="attack"?(animation==="strike"?"hit":"block"):"step";
   return <main id="main-content" className="fight-shell">
     <header className="fight-top"><Link className="button button-secondary" to="/lobby">← Voltar aos jogos</Link>
       <div><span className="eyebrow">Quinto jogo · Matemática em Movimento</span><h1>Luta Matemática</h1></div>
@@ -187,11 +185,17 @@ export function MathFight({session}:{session:ClientSession}) {
           <option value="#514bc8">Azul</option><option value="#138a81">Verde</option>
           <option value="#c25840">Vermelho</option><option value="#9946a7">Roxo</option></select></label>
         <p>Nível {fighter.level} · XP {fighter.xp}/300 · Vitórias {fighter.wins} · Derrotas {fighter.losses}</p>
-        <div className="fight-preview"><FighterFigure color={fighter.color} pose={previewPose} label="Prévia do lutador personalizado"/></div>
+        <div className="fight-preview"><FighterFigure key={previewTick} color={fighter.color} pose={previewPose} label="Prévia do lutador personalizado"/></div>
         <div className="fight-pose-picker" role="group" aria-label="Visualizar posturas do lutador">
-          {([{pose:"idle",name:"Guarda"},{pose:"step",name:"Avanço"},{pose:"block",name:"Bloqueio"}] as const).map(item=><button
+          {([
+            {pose:"idle",name:"Guarda"},{pose:"step",name:"Avanço"},
+            {pose:"retreat",name:"Recuo"},{pose:"jab",name:"Jab"},
+            {pose:"cross",name:"Direto"},{pose:"kick",name:"Chute"},
+            {pose:"block",name:"Bloqueio"},{pose:"hit",name:"Reação"},
+            {pose:"victory",name:"Vitória"},{pose:"defeat",name:"Derrota"}
+          ] as const).map(item=><button
             type="button" key={item.pose} className={previewPose===item.pose?"fight-pose-active":"button-secondary"} aria-pressed={previewPose===item.pose}
-            onClick={()=>setPreviewPose(item.pose)}>{item.name}</button>)}
+            onClick={()=>{setPreviewPose(item.pose);setPreviewTick(t=>t+1);}}>{item.name}</button>)}
         </div>
       </div>
       <div className="fight-panel"><h2>Preparar combate</h2>
@@ -212,8 +216,12 @@ export function MathFight({session}:{session:ClientSession}) {
         <div><strong>{fighter.name||session.nickname}</strong><span> {playerHp}/100 HP</span><progress max={100} value={playerHp}/></div>
         <div><strong>Desafiante CPU</strong><span> {cpuHp}/100 HP</span><progress max={100} value={cpuHp}/></div>
       </div>
-      <div className="fight-arena"><FighterFigure color={fighter.color} pose={playerPose} label="Seu lutador"/>
-        <span className="fight-versus">VS</span><FighterFigure color="#de7651" enemy pose={cpuPose} label="Desafiante CPU"/></div>
+      <div className="fight-arena">
+        <FighterFigure key={`player-${motion.seq}`} color={fighter.color} pose={motion.player} label="Seu lutador"/>
+        <span className="fight-versus">VS</span>
+        <FighterFigure key={`cpu-${motion.seq}`} color="#de7651" enemy pose={motion.cpu} label="Desafiante CPU"/>
+        {motion.caption&&<span className="fight-motion-caption" aria-hidden="true">{motion.caption}</span>}
+      </div>
       {phase==="playing"?<div className="fight-math">
         <p className="eyebrow">{turn==="attack"?"Seu ataque":"Defesa contra a CPU"}</p>
         <strong className="fight-timer" aria-live="off">{remaining}s</strong>
@@ -224,7 +232,7 @@ export function MathFight({session}:{session:ClientSession}) {
         <form onSubmit={submit} className="fight-answer"><input aria-label="Resposta matemática" inputMode="decimal" autoComplete="off" value={answer} onChange={e=>setAnswer(e.target.value)} disabled={handled.current} placeholder="Sua resposta"/>
           <button disabled={handled.current||!answer.trim()}>Confirmar</button></form>
       </div>:<div className="fight-math"><h2>{result==="victory"?"Vitória!":"Derrota!"}</h2><p>{result==="victory"?"Você ganhou 100 moedas e 100 XP.":"Você ganhou 20 moedas e 30 XP pela participação."}</p>
-        <button onClick={start}>Nova luta</button><button className="button-secondary" onClick={()=>setPhase("setup")}>Meu lutador e loja</button></div>}
+        <button onClick={start}>Nova luta</button><button className="button-secondary" onClick={backToSetup}>Meu lutador e loja</button></div>}
       <p className="fight-feedback" role="status">{feedback}</p>
     </section>}
   </main>;
