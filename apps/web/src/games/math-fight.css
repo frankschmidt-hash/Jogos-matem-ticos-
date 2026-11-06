@@ -15,7 +15,7 @@
 .fight-arena{height:378px;background:linear-gradient(#c9d5ed,#f1ecdf 75%,#baa68d 76%);border-radius:20px;display:flex;align-items:end;justify-content:space-around;overflow:hidden;margin:22px 0 12px;position:relative}
 .fight-versus{align-self:center;font-size:clamp(1.25rem,3vw,2.2rem);font-weight:1000;color:#34416e;flex:none;z-index:1;text-shadow:0 2px 0 #ffffffc7}
 .fight-pose-picker{display:flex;justify-content:center;flex-wrap:wrap;gap:7px;margin-top:12px}
-.fight-pose-picker button{flex:1;min-width:78px;max-width:130px;padding:9px 8px;margin:0;font-size:.87rem}
+.fight-pose-picker button{flex:1 1 95px;min-width:79px;max-width:150px;padding:9px 8px;margin:0;font-size:.84rem}
 .fight-pose-active{background:#273965;color:white;border:1px solid #273965}
 .fight-math{max-width:620px;margin:auto;text-align:center}
 .fight-math .math-expression{margin:10px 0 18px}
@@ -29,3 +29,38 @@
 .fight-feedback{text-align:center;background:#edf2ff;color:#263965;padding:14px;border-radius:14px;font-weight:750}
 @media(max-width:700px){.fight-setup{grid-template-columns:1fr}.fight-panel{padding:16px}.fight-arena{height:280px;gap:0;justify-content:space-between;padding:0 4px}.fight-preview{height:233px}.fight-health{gap:12px}.fight-answer{flex-direction:column}}
 
+
+/* Fase 2: legenda da coreografia sem encobrir o corpo dos lutadores. */
+.fight-motion-caption{
+  position:absolute;
+  top:14px;
+  left:50%;
+  transform:translateX(-50%);
+  max-width:calc(100% - 24px);
+  text-align:center;
+  padding:7px 15px;
+  background:rgba(22,34,62,.87);
+  color:#fff;
+  border:1px solid rgba(255,255,255,.22);
+  border-radius:999px;
+  font-weight:900;
+  font-size:clamp(.74rem,1.4vw,.98rem);
+  letter-spacing:.015em;
+  white-space:normal;
+  pointer-events:none;
+  box-shadow:0 6px 19px rgba(14,22,43,.18);
+  z-index:3;
+  animation:mf-caption-enter .24s ease-out both;
+}
+@keyframes mf-caption-enter{
+  from{opacity:0;translate:0 -9px}
+  to{opacity:1;translate:0 0}
+}
+html.reduce-motion .fight-motion-caption{animation:none!important}
+@media(prefers-reduced-motion:reduce){
+  .fight-motion-caption{animation:none!important}
+}
+@media(max-width:700px){
+  .fight-motion-caption{top:9px;line-height:1.15}
+  .fight-pose-picker button{flex:1 1 88px;font-size:.79rem}
+}

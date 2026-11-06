@@ -6,7 +6,7 @@ import "./fighter-figure.css";
  * Cada grupo SVG possui uma articulação própria para receber keyframes
  * e interpolação de poses nas próximas fases, sem bibliotecas pesadas.
  */
-export type FighterPose = "idle" | "step" | "block" | "hit";
+export type FighterPose = "idle" | "step" | "retreat" | "jab" | "cross" | "kick" | "block" | "hit" | "victory" | "defeat";
 type FighterFigureProps = {
   color: string;
   enemy?: boolean;
