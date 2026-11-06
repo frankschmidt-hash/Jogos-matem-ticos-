@@ -1,0 +1,290 @@
+/* Fase 3 — arena de confronto com distância controlada.
+ * Os dois lutadores partem de âncoras simétricas. A animação de aproximação
+ * usa o vão real configurado para o layout, não os espaçamentos de um flex.
+ */
+.fight-stage{
+  --mf-stage-fighter-width:clamp(150px,18vw,207px);
+  --mf-stage-fighter-height:clamp(229px,28vw,315px);
+  --mf-guard-gap:clamp(28px,7vw,104px);
+  --mf-contact-travel:clamp(112px,20vw,235px);
+  --mf-impact-offset:clamp(72px,10vw,144px);
+  --mf-knockback-distance:20px;
+  width:100%;
+  height:100%;
+  position:relative;
+  isolation:isolate;
+}
+.fight-stage-actor{
+  position:absolute;
+  width:var(--mf-stage-fighter-width);
+  height:var(--mf-stage-fighter-height);
+  bottom:0;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+  transform-origin:50% 100%;
+  z-index:2;
+  animation-duration:1080ms;
+  animation-fill-mode:both;
+  animation-timing-function:cubic-bezier(.2,.7,.25,1);
+}
+.fight-stage-actor .mf-figure{
+  width:100%;
+  height:100%;
+  max-height:none;
+}
+.fight-stage-actor--player{
+  left:calc(50% - var(--mf-stage-fighter-width) - var(--mf-guard-gap) / 2);
+  --mf-advance:var(--mf-contact-travel);
+  --mf-retreat-away:calc(0px - var(--mf-knockback-distance));
+}
+.fight-stage-actor--cpu{
+  left:calc(50% + var(--mf-guard-gap) / 2);
+  --mf-advance:calc(0px - var(--mf-contact-travel));
+  --mf-retreat-away:var(--mf-knockback-distance);
+}
+.fight-stage-actor--attack{
+  animation-name:mf-stage-approach;
+}
+.fight-stage-actor--kick{
+  --mf-strike-adjust:-15px;
+}
+.fight-stage-actor--cross{
+  --mf-strike-adjust:8px;
+}
+.fight-stage-actor--jab{
+  --mf-strike-adjust:0px;
+}
+/* A coreografia Fase 2 continua nas articulações do SVG.
+ * A movimentação do personagem inteiro é responsabilidade do palco
+ * para impedir duplicação do avanço e evitar atravessar o adversário. */
+.fight-stage-actor .mf-figure--pose-jab,
+.fight-stage-actor .mf-figure--pose-cross,
+.fight-stage-actor .mf-figure--pose-kick,
+.fight-stage-actor .mf-figure--pose-hit,
+.fight-stage-actor .mf-figure--pose-block,
+.fight-stage-actor .mf-figure--pose-retreat{
+  animation:none;
+}
+.fight-stage-actor--hit{animation-name:mf-stage-damage}
+.fight-stage-actor--block{animation-name:mf-stage-block}
+.fight-stage-actor--retreat{animation-name:mf-stage-recovery;animation-duration:360ms}
+.fight-stage-actor--hit .mf-figure--pose-hit{filter:drop-shadow(0 0 5px rgba(248,116,74,.25))}
+.fight-stage--grade-block{--mf-knockback-distance:9px}
+.fight-stage--grade-light{--mf-knockback-distance:19px}
+.fight-stage--grade-medium{--mf-knockback-distance:36px}
+.fight-stage--grade-heavy{--mf-knockback-distance:52px}
+
+/* O golpe ocupa o espaço até a zona de contato por volta de 40–45% da cena.
+   Nenhum recuo do defensor ocorre ANTES desta janela. */
+@keyframes mf-stage-approach{
+  0%,12%{translate:0 0}
+  24%{translate:0 -3px}
+  39%,54%{translate:calc(var(--mf-advance) + var(--mf-strike-adjust)) -5px}
+  72%{translate:0 0}
+  100%{translate:0 0}
+}
+@keyframes mf-stage-damage{
+  0%,41%{translate:0 0}
+  56%{translate:var(--mf-retreat-away) -8px}
+  70%{translate:var(--mf-retreat-away) 1px}
+  83%{translate:0 0}
+  100%{translate:0 0}
+}
+@keyframes mf-stage-block{
+  0%,42%{translate:0 0}
+  57%{translate:var(--mf-retreat-away) 0}
+  74%{translate:0 0}
+  100%{translate:0 0}
+}
+@keyframes mf-stage-recovery{
+  0%{translate:0 0}
+  34%{translate:var(--mf-retreat-away) -2px}
+  100%{translate:0 0}
+}
+/* Congelamento exato do instante de contato: pausamos animações já em curso.
+ * Nunca alteramos o timer da pergunta matemática. */
+.fight-stage--hitstop .fight-stage-actor,
+.fight-stage--hitstop .fight-stage-actor *,
+.fight-stage--hitstop .fight-stage-actor::before,
+.fight-stage--hitstop .fight-stage-actor::after{
+  animation-play-state:paused!important;
+}
+.fight-stage--shake-medium{animation:mf-stage-shake-medium 175ms ease-out both}
+.fight-stage--shake-heavy{animation:mf-stage-shake-heavy 205ms ease-out both}
+@keyframes mf-stage-shake-medium{
+  0%,100%{transform:translate(0,0)}
+  22%{transform:translate(-3px,1px)}
+  48%{transform:translate(3px,-1px)}
+  76%{transform:translate(-1px,1px)}
+}
+@keyframes mf-stage-shake-heavy{
+  0%,100%{transform:translate(0,0)}
+  12%{transform:translate(-5px,1px)}
+  34%{transform:translate(5px,-3px)}
+  59%{transform:translate(-3px,2px)}
+  78%{transform:translate(2px,-1px)}
+}
+.fight-stage-vs{
+  position:absolute;
+  left:50%;top:44%;transform:translate(-50%,-50%);
+  font-size:clamp(1.2rem,3vw,2.1rem);
+  font-weight:1000;
+  color:#34416e;
+  opacity:.8;
+  transition:opacity .18s ease;
+  pointer-events:none;
+}
+.fight-stage--exchange .fight-stage-vs{opacity:.16}
+.fight-impact-burst{
+  --mf-flash:#ffe08a;
+  --mf-rays:#ffad48;
+  position:absolute;
+  z-index:5;
+  pointer-events:none;
+  left:calc(50% + var(--mf-impact-offset));
+  top:48%;
+  width:105px;
+  aspect-ratio:1;
+  border-radius:50%;
+  transform:translate(-50%,-50%);
+  background:radial-gradient(circle,#fff 0 8%,var(--mf-flash) 14%,transparent 47%);
+  filter:drop-shadow(0 0 15px var(--mf-flash));
+  animation:mf-flash-burst 290ms ease-out both;
+}
+.fight-impact-burst--player{left:calc(50% - var(--mf-impact-offset))}
+.fight-impact-burst--head{top:32%}
+.fight-impact-burst--body{top:51%}
+.fight-impact-burst--legs{top:80%}
+.fight-impact-burst--block{--mf-flash:#c1ebff;--mf-rays:#4fa9d6}
+.fight-impact-burst--light{--mf-flash:#fff0a5;--mf-rays:#ffb358}
+.fight-impact-burst--medium{--mf-flash:#ffd18a;--mf-rays:#f77d32}
+.fight-impact-burst--heavy{--mf-flash:#ffba90;--mf-rays:#f34b38;width:130px}
+.fight-impact-burst::before{
+  content:"";
+  position:absolute;inset:-16%;
+  background:var(--mf-rays);
+  clip-path:polygon(49% 0,55% 31%,75% 6%,68% 36%,100% 28%,72% 49%,100% 67%,67% 64%,81% 96%,55% 71%,46% 100%,43% 67%,16% 92%,28% 60%,0 59%,31% 49%,3% 21%,38% 37%);
+  opacity:.8;
+}
+.fight-impact-burst::after{
+  content:"";
+  position:absolute;inset:21%;
+  border:3px solid #fff;
+  border-radius:50%;
+  box-shadow:0 0 10px #fff;
+}
+@keyframes mf-flash-burst{
+  0%{opacity:0;scale:.35;rotate:-20deg}
+  17%{opacity:1;scale:1;rotate:0deg}
+  60%{opacity:.85;scale:1.35}
+  100%{opacity:0;scale:1.75}
+}
+.fight-impact-number{
+  position:absolute;
+  z-index:7;
+  pointer-events:none;
+  left:calc(50% + var(--mf-impact-offset));
+  top:27%;
+  transform:translate(-50%,-50%);
+  font-weight:1000;
+  font-size:clamp(1.1rem,2.6vw,1.8rem);
+  color:#fff;
+  text-shadow:0 2px 0 #81232b,2px 3px 10px #4a1b27;
+  white-space:nowrap;
+  animation:mf-damage-float 600ms ease-out both;
+}
+.fight-impact-number--player{left:calc(50% - var(--mf-impact-offset))}
+@keyframes mf-damage-float{
+  0%{opacity:0;translate:0 10px;scale:.7}
+  22%{opacity:1;translate:0 -2px;scale:1.18}
+  80%{opacity:1;translate:0 -18px;scale:1}
+  100%{opacity:0;translate:0 -25px;scale:.94}
+}
+.fight-impact-label{
+  position:absolute;left:50%;top:11%;
+  transform:translateX(-50%);
+  z-index:6;
+  padding:7px 14px;
+  font-size:clamp(.75rem,1.5vw,1.1rem);
+  line-height:1;
+  font-weight:1000;
+  color:#fff;
+  background:rgba(29,32,63,.92);
+  border:2px solid rgba(255,230,158,.7);
+  border-radius:7px;
+  box-shadow:0 4px 10px #1f203644;
+  pointer-events:none;
+  animation:mf-impact-label 300ms ease-out both;
+}
+.fight-impact-label--block{border-color:#80d8ff}
+.fight-impact-label--heavy{border-color:#ff765d}
+@keyframes mf-impact-label{
+  from{opacity:0;scale:.7}
+  30%{opacity:1;scale:1.08}
+  to{opacity:1;scale:1}
+}
+.fight-health .fight-health-impact{
+  animation:mf-health-impact 390ms ease-out;
+}
+.fight-health .fight-health-block{
+  animation:mf-health-block 390ms ease-out;
+}
+@keyframes mf-health-impact{
+  20%{background:#ffced0;box-shadow:0 0 0 4px #ffb7b7 inset}
+  100%{background:transparent;box-shadow:none}
+}
+@keyframes mf-health-block{
+  20%{background:#c9ecff;box-shadow:0 0 0 3px #80c9ef inset}
+  100%{background:transparent;box-shadow:none}
+}
+html.reduce-motion .fight-stage,
+html.reduce-motion .fight-stage *,
+html.reduce-motion .fight-impact-label{
+  animation:none!important;transition:none!important;
+}
+@media(prefers-reduced-motion:reduce){
+  .fight-stage,.fight-stage *, .fight-impact-label{
+    animation:none!important;transition:none!important;
+  }
+}
+@media(max-width:700px){
+  .fight-stage{
+    --mf-stage-fighter-width:clamp(108px,31vw,160px);
+    --mf-stage-fighter-height:clamp(170px,47vw,245px);
+    --mf-guard-gap:clamp(16px,6vw,45px);
+    --mf-contact-travel:clamp(101px,32vw,150px);
+    --mf-impact-offset:clamp(62px,16vw,95px);
+  }
+  .fight-impact-burst{width:79px}
+  .fight-impact-burst--heavy{width:96px}
+  .fight-impact-label{top:8%}
+  .fight-impact-burst--head{top:47%}
+  .fight-impact-burst--body{top:63%}
+  .fight-impact-burst--legs{top:84%}
+}
+
+/* A reação dos segmentos internos só começa depois que a luva chega
+   ao alcance do adversário. Os blocos podem antecipar a guarda. */
+.fight-stage-actor--hit .mf-figure--pose-hit .mf-rig-torso{
+  animation:mf-stage-hit-torso 1080ms ease-out both;
+}
+.fight-stage-actor--hit .mf-figure--pose-hit .mf-rig-head{
+  animation:mf-stage-hit-head 1080ms ease-out both;
+}
+.fight-stage-actor--hit .mf-figure--pose-hit .mf-rig-arm--front{
+  animation:mf-stage-hit-arm 1080ms ease-out both;
+}
+@keyframes mf-stage-hit-torso{
+  0%,41%,100%{transform:none}
+  55%,68%{transform:translate(-16px,8px) rotate(-16deg)}
+  82%{transform:translate(-5px,2px) rotate(-5deg)}
+}
+@keyframes mf-stage-hit-head{
+  0%,41%,100%{transform:none}
+  55%,67%{transform:translate(-21px,10px) rotate(-19deg)}
+}
+@keyframes mf-stage-hit-arm{
+  0%,41%,100%{transform:none}
+  55%,67%{transform:translate(13px,16px) rotate(24deg)}
+}
