@@ -1,0 +1,94 @@
+/*
+ * Luta Matemática — rig vetorial Fase 1.
+ * Arquitetura de pivôs: ombros, cotovelos, punhos, quadris, joelhos e pescoço.
+ * Cada data-joint pode receber animações específicas na Fase 2.
+ */
+.mf-figure{
+  position:relative;
+  flex:none;
+  width:clamp(150px,18vw,207px);
+  height:clamp(229px,28vw,315px);
+  max-height:100%;
+  transform-origin:50% 100%;
+  isolation:isolate;
+  filter:drop-shadow(1px 7px 2px rgba(8,15,32,.22))
+         drop-shadow(0 15px 18px rgba(12,21,45,.17));
+  transition:filter .25s ease, transform .26s ease;
+}
+.mf-figure-svg{
+  display:block;
+  width:100%;
+  height:100%;
+  overflow:visible;
+}
+.mf-figure--enemy{transform:scaleX(-1)}
+.mf-figure .mf-rig-leg,.mf-figure .mf-rig-shin,.mf-figure .mf-rig-torso,
+.mf-figure .mf-rig-head,.mf-figure .mf-rig-arm,.mf-figure .mf-rig-forearm,.mf-figure .mf-rig-glove{
+  transform-box:view-box;
+  transition:transform .22s cubic-bezier(.25,.72,.25,1);
+}
+.mf-rig-leg--back{transform-origin:92px 208px}
+.mf-rig-leg--front{transform-origin:126px 213px}
+.mf-rig-shin--back{transform-origin:88px 273px}
+.mf-rig-shin--front{transform-origin:149px 274px}
+.mf-rig-torso{transform-origin:110px 208px}
+.mf-rig-head{transform-origin:112px 107px}
+.mf-rig-arm--back{transform-origin:78px 126px}
+.mf-rig-arm--front{transform-origin:148px 128px}
+.mf-rig-forearm--back{transform-origin:61px 174px}
+.mf-rig-forearm--front{transform-origin:176px 173px}
+.mf-rig-glove--back{transform-origin:98px 143px}
+.mf-rig-glove--front{transform-origin:167px 130px}
+
+/* Idle guard: postura atlética, joelhos flexionados, luvas protegendo o rosto. */
+.mf-figure--pose-idle .mf-rig-torso{animation:mf-rig-breathe 3.2s ease-in-out infinite}
+.mf-figure--pose-idle .mf-rig-head{animation:mf-rig-head-idle 3.2s ease-in-out infinite}
+
+/* Forward guard: pé à frente, tronco inclinado e peso transferido. */
+.mf-figure--pose-step .mf-rig-leg--front{transform:translate(14px,0) rotate(-8deg)}
+.mf-figure--pose-step .mf-rig-leg--back{transform:translate(-7px,0) rotate(6deg)}
+.mf-figure--pose-step .mf-rig-shin--front{transform:rotate(8deg)}
+.mf-figure--pose-step .mf-rig-torso{transform:translate(9px,-3px) rotate(5deg)}
+.mf-figure--pose-step .mf-rig-head{transform:translate(9px,-4px) rotate(4deg)}
+.mf-figure--pose-step .mf-rig-arm--front{transform:translate(13px,-4px) rotate(-7deg)}
+.mf-figure--pose-step .mf-rig-arm--back{transform:translate(6px,-2px) rotate(-8deg)}
+
+/* Block guard: luvas altas, ombros fechados, cabeça protegida. */
+.mf-figure--pose-block .mf-rig-torso{transform:translate(-3px,4px) rotate(-5deg)}
+.mf-figure--pose-block .mf-rig-head{transform:translate(-2px,3px) rotate(-8deg)}
+.mf-figure--pose-block .mf-rig-arm--front{transform:translate(-25px,-16px) rotate(-19deg)}
+.mf-figure--pose-block .mf-rig-forearm--front{transform:rotate(-17deg)}
+.mf-figure--pose-block .mf-rig-arm--back{transform:translate(10px,-14px) rotate(17deg)}
+.mf-figure--pose-block .mf-rig-forearm--back{transform:rotate(16deg)}
+.mf-figure--pose-block .mf-rig-leg--front{transform:rotate(4deg)}
+.mf-figure--pose-block .mf-rig-leg--back{transform:rotate(-3deg)}
+
+/* Reação visual mínima de compatibilidade; coreografias completas ficam para a Fase 2. */
+.mf-figure--pose-hit .mf-rig-torso{transform:translate(-9px,6px) rotate(-8deg)}
+.mf-figure--pose-hit .mf-rig-head{transform:translate(-10px,8px) rotate(-12deg)}
+.mf-figure--pose-hit .mf-rig-arm--front{transform:rotate(16deg)}
+.mf-figure--pose-hit .mf-rig-arm--back{transform:rotate(-12deg)}
+
+@keyframes mf-rig-breathe{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-2px) scaleY(1.013)}
+}
+@keyframes mf-rig-head-idle{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-1px)}
+}
+@media(max-width:700px){
+  .mf-figure{width:clamp(112px,31vw,160px);height:clamp(170px,47vw,245px)}
+}
+@media(max-width:390px){
+  .mf-figure{width:clamp(104px,28vw,130px);height:clamp(160px,43vw,198px)}
+}
+html.reduce-motion .mf-figure .mf-rig-leg,html.reduce-motion .mf-figure .mf-rig-shin,
+html.reduce-motion .mf-figure .mf-rig-torso,html.reduce-motion .mf-figure .mf-rig-head,
+html.reduce-motion .mf-figure .mf-rig-arm,html.reduce-motion .mf-figure .mf-rig-forearm,
+html.reduce-motion .mf-figure .mf-rig-glove{transition:none!important;animation:none!important}
+@media(prefers-reduced-motion:reduce){
+  .mf-figure .mf-rig-leg,.mf-figure .mf-rig-shin,.mf-figure .mf-rig-torso,
+  .mf-figure .mf-rig-head,.mf-figure .mf-rig-arm,.mf-figure .mf-rig-forearm,
+  .mf-figure .mf-rig-glove{transition:none!important;animation:none!important}
+}

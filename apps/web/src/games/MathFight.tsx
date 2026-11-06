@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { generateQuestion, validateAnswer, type MathQuestion } from "@jogos/math-engine";
 import type { ClientSession } from "../session";
+import { FighterFigure, type FighterPose } from "./FighterFigure";
 import "./math-fight.css";
 
 type Style = "Boxe" | "Muay Thai" | "Capoeira" | "Karatê" | "Jiu-jítsu" | "Luta de rua";
@@ -29,14 +30,10 @@ function newQuestion(grade:ClientSession["gradeLevel"]):MathQuestion {
 }
 const limitDamage=(secondsLeft:number,total:number,gloves:number)=>
   Math.min(30,12+Math.floor(12*Math.max(0,secondsLeft)/total)+gloves*2);
-function Figure({color,enemy=false,action="idle"}:{color:string;enemy?:boolean;action?:string}) {
-  return <div className={`fight-figure ${enemy?"enemy":""} ${action}`} style={{"--fighter-color":color} as React.CSSProperties} aria-hidden="true">
-    <div className="fight-head"/><div className="fight-body"/><div className="fight-arm left"/><div className="fight-arm right"/><div className="fight-leg left"/><div className="fight-leg right"/>
-  </div>;
-}
 export function MathFight({session}:{session:ClientSession}) {
   const [fighter,setFighter]=useState<Fighter>(()=>readProfile(session.nickname));
   const [phase,setPhase]=useState<Phase>("setup");
+  const [previewPose,setPreviewPose]=useState<FighterPose>("idle");
   const [duration,setDuration]=useState(30);
   const [playerHp,setPlayerHp]=useState(100);
   const [cpuHp,setCpuHp]=useState(100);
@@ -127,6 +124,8 @@ export function MathFight({session}:{session:ClientSession}) {
     setFighter(old=>old.gloves>=3||old.coins<(old.gloves+1)*150?old:
       {...old,coins:old.coins-(old.gloves+1)*150,gloves:old.gloves+1});
   }
+  const playerPose:FighterPose = animation==="idle"?"idle":turn==="attack"?"step":animation==="hit"?"hit":"block";
+  const cpuPose:FighterPose = animation==="idle"?"idle":turn==="attack"?(animation==="strike"?"hit":"block"):"step";
   return <main id="main-content" className="fight-shell">
     <header className="fight-top"><Link className="button button-secondary" to="/lobby">← Voltar aos jogos</Link>
       <div><span className="eyebrow">Quinto jogo · Matemática em Movimento</span><h1>Luta Matemática</h1></div>
@@ -140,7 +139,12 @@ export function MathFight({session}:{session:ClientSession}) {
           <option value="#514bc8">Azul</option><option value="#138a81">Verde</option>
           <option value="#c25840">Vermelho</option><option value="#9946a7">Roxo</option></select></label>
         <p>Nível {fighter.level} · XP {fighter.xp}/300 · Vitórias {fighter.wins} · Derrotas {fighter.losses}</p>
-        <div className="fight-preview"><Figure color={fighter.color}/></div>
+        <div className="fight-preview"><FighterFigure color={fighter.color} pose={previewPose} label="Prévia do lutador personalizado"/></div>
+        <div className="fight-pose-picker" role="group" aria-label="Visualizar posturas do lutador">
+          {([{pose:"idle",name:"Guarda"},{pose:"step",name:"Avanço"},{pose:"block",name:"Bloqueio"}] as const).map(item=><button
+            type="button" key={item.pose} className={previewPose===item.pose?"fight-pose-active":"button-secondary"} aria-pressed={previewPose===item.pose}
+            onClick={()=>setPreviewPose(item.pose)}>{item.name}</button>)}
+        </div>
       </div>
       <div className="fight-panel"><h2>Preparar combate</h2>
         <p>Questões do <strong>{session.gradeLevel==="mixed"?"modo misto":session.gradeLevel+"º ano"}</strong>, compartilhado com o portal.</p>
@@ -160,8 +164,8 @@ export function MathFight({session}:{session:ClientSession}) {
         <div><strong>{fighter.name||session.nickname}</strong><span> {playerHp}/100 HP</span><progress max={100} value={playerHp}/></div>
         <div><strong>Desafiante CPU</strong><span> {cpuHp}/100 HP</span><progress max={100} value={cpuHp}/></div>
       </div>
-      <div className="fight-arena"><Figure color={fighter.color} action={animation==="hit"?"hit":animation==="strike"?"strike":"idle"}/>
-        <span className="fight-versus">VS</span><Figure color="#de7651" enemy action={animation==="strike"?"hit":"idle"}/></div>
+      <div className="fight-arena"><FighterFigure color={fighter.color} pose={playerPose} label="Seu lutador"/>
+        <span className="fight-versus">VS</span><FighterFigure color="#de7651" enemy pose={cpuPose} label="Desafiante CPU"/></div>
       {phase==="playing"?<div className="fight-math">
         <p className="eyebrow">{turn==="attack"?"Seu ataque":"Defesa contra a CPU"}</p>
         <strong className="fight-timer" aria-live="off">{remaining}s</strong>
