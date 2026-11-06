@@ -11,12 +11,14 @@ import { PropertyGame } from "./games/PropertyGame";
 import { CrazyRace } from "./games/CrazyRace";
 import { NumberRace } from "./games/NumberRace";
 import { MathFootball } from "./games/MathFootball";
+import { MathFight } from "./games/MathFight";
 
 const GAME_ART:Record<GameId,{src:string;theme:string;label:string}>={
   "property-math":{src:"/assets/property-game/cidade-prisma.svg",theme:"prisma",label:"Cidade Prisma"},
   "crazy-race":{src:"/assets/crazy-race/race-emblem.svg",theme:"race",label:"Corrida"},
   "number-race":{src:"/assets/number-race/number-emblem.svg",theme:"number",label:"Números"},
-  "math-football":{src:"/assets/math-football/football-emblem.svg",theme:"football",label:"Futebol"}
+  "math-football":{src:"/assets/math-football/football-emblem.svg",theme:"football",label:"Futebol"},
+  "math-fight":{src:"/assets/math-fight/fight-emblem.svg",theme:"fight",label:"Luta"}
 };
 
 const RANKING_INFO=[
@@ -91,7 +93,7 @@ function Home({onSession}:{onSession:(s:ClientSession)=>void}) {
         <p className="eyebrow">Aprender jogando</p>
         <h1 id="portal-title">Matemática em <span className="portal-title-accent">movimento</span></h1>
         <p className="portal-lead">
-          Quatro jogos, desafios rápidos e contas do seu nível.
+          Cinco jogos, desafios rápidos e contas do seu nível.
           Jogue, avance e conquiste seu lugar no ranking!
         </p>
         <ul className="portal-points" aria-label="Recursos do portal">
@@ -266,7 +268,8 @@ export function App(){
       <Route path="/game/crazy-race" element={session?<CrazyRace session={session}/>:<Navigate to="/" replace/>}/>
       <Route path="/game/number-race" element={session?<NumberRace session={session}/>:<Navigate to="/" replace/>}/>
       <Route path="/game/math-football" element={session?<MathFootball session={session}/>:<Navigate to="/" replace/>}/>
-      {GAME_CATALOG.filter(g=>g.id!=="property-math"&&g.id!=="crazy-race"&&g.id!=="number-race"&&g.id!=="math-football").map(g=>
+      <Route path="/game/math-fight" element={session?<MathFight session={session}/>:<Navigate to="/" replace/>}/>
+      {GAME_CATALOG.filter(g=>g.id!=="property-math"&&g.id!=="crazy-race"&&g.id!=="number-race"&&g.id!=="math-football"&&g.id!=="math-fight").map(g=>
         <Route key={g.id} path={"/game/"+g.id} element={session?<GamePlaceholder id={g.id}/>:<Navigate to="/" replace/>}/>
       )}
       <Route path="*" element={<Navigate to={session?"/lobby":"/"} replace/>}/>

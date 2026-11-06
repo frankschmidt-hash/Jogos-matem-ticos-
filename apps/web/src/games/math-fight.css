@@ -1,0 +1,40 @@
+.theme-fight .game-art{background:linear-gradient(135deg,#fbe3da,#e1e8ff)}
+.fight-shell{min-height:100vh;max-width:1220px;margin:auto;padding:25px 20px 90px}
+.fight-top{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:24px}
+.fight-top h1{margin:3px 0;font-size:clamp(1.8rem,4vw,3rem)}
+.fight-setup{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.fight-panel{border:1px solid #dce2ec;background:#fff;border-radius:24px;padding:24px;box-shadow:0 14px 28px #27396514}
+.fight-panel label{display:block;margin:12px 0;font-weight:700}
+.fight-panel label input,.fight-panel label select{margin-top:8px}
+.fight-panel button{margin:8px 8px 8px 0}
+.fight-preview{height:175px;display:flex;justify-content:center;align-items:end;background:#e9edfb;border-radius:18px;overflow:hidden}
+.fight-health{display:grid;grid-template-columns:1fr 1fr;gap:30px}
+.fight-health>div{display:grid;gap:5px}
+.fight-health span{text-align:right;font-size:.85rem}
+.fight-health progress{width:100%;height:18px;accent-color:#2b9c75}
+.fight-arena{height:300px;background:linear-gradient(#c9d5ed,#f1ecdf 75%,#baa68d 76%);border-radius:20px;display:flex;align-items:end;justify-content:space-around;overflow:hidden;margin:22px 0 12px;position:relative}
+.fight-versus{align-self:center;font-size:2.2rem;font-weight:1000;color:#34416e}
+.fight-figure{--fighter-color:#514bc8;position:relative;width:115px;height:220px;transform-origin:center bottom;filter:drop-shadow(0 9px 5px #0002)}
+.fight-head{position:absolute;left:38px;top:14px;width:46px;height:46px;background:#dfaa81;border-radius:50%;border:3px solid #28355b;z-index:2}
+.fight-body{position:absolute;left:27px;top:60px;width:68px;height:88px;background:var(--fighter-color);border:3px solid #28355b;border-radius:22px 22px 12px 12px;z-index:1}
+.fight-arm{position:absolute;top:73px;width:27px;height:87px;background:#dfaa81;border:3px solid #28355b;border-radius:20px;z-index:3}
+.fight-arm.left{left:10px;transform:rotate(19deg)}.fight-arm.right{right:8px;transform:rotate(-20deg)}
+.fight-leg{position:absolute;top:139px;width:30px;height:80px;background:#25355f;border-radius:9px;z-index:0}
+.fight-leg.left{left:29px;transform:rotate(8deg)}.fight-leg.right{right:25px;transform:rotate(-8deg)}
+.fight-figure.enemy{transform:scaleX(-1)}
+.fight-figure.strike{animation:fight-punch .45s ease-out}
+.fight-figure.hit{animation:fight-hit .45s ease-out}
+@keyframes fight-punch{50%{translate:32px 0;scale:1.08}}
+@keyframes fight-hit{50%{translate:18px 0;rotate:10deg}}
+.fight-math{max-width:620px;margin:auto;text-align:center}
+.fight-math .math-expression{margin:10px 0 18px}
+.fight-timer{font-size:1.6rem;color:#a33531}
+.fight-targets{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;border:1px solid #dce2ec;border-radius:12px}
+.fight-targets legend{font-weight:800}
+.fight-targets label{margin:4px;display:flex;gap:6px;align-items:center;font-weight:500}
+.fight-targets input{width:auto;min-height:auto}
+.fight-answer{display:flex;gap:10px;margin-top:14px}
+.fight-answer input{flex:1;min-width:0}
+.fight-feedback{text-align:center;background:#edf2ff;color:#263965;padding:14px;border-radius:14px;font-weight:750}
+@media(max-width:700px){.fight-setup{grid-template-columns:1fr}.fight-panel{padding:16px}.fight-arena{height:245px}.fight-figure{scale:.8;transform-origin:center bottom}.fight-figure.enemy{transform:scaleX(-1) scale(.8)}.fight-health{gap:12px}.fight-answer{flex-direction:column}}
+@media(prefers-reduced-motion:reduce){.fight-figure{animation:none!important}}
