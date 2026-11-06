@@ -83,6 +83,10 @@
 @media(max-width:390px){
   .mf-figure{width:clamp(104px,28vw,130px);height:clamp(160px,43vw,198px)}
 }
+html.reduce-motion .mf-figure .mf-rig-leg,html.reduce-motion .mf-figure .mf-rig-shin,
+html.reduce-motion .mf-figure .mf-rig-torso,html.reduce-motion .mf-figure .mf-rig-head,
+html.reduce-motion .mf-figure .mf-rig-arm,html.reduce-motion .mf-figure .mf-rig-forearm,
+html.reduce-motion .mf-figure .mf-rig-glove{transition:none!important;animation:none!important}
 @media(prefers-reduced-motion:reduce){
   .mf-figure .mf-rig-leg,.mf-figure .mf-rig-shin,.mf-figure .mf-rig-torso,
   .mf-figure .mf-rig-head,.mf-figure .mf-rig-arm,.mf-figure .mf-rig-forearm,
