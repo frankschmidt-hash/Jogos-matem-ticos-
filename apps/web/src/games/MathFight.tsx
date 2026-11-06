@@ -109,28 +109,43 @@ export function MathFight({session}:{session:ClientSession}) {
     handled.current=true;
     const correct=!timeout&&validateAnswer(questionRef.current,raw);
     const currentTurn=turnRef.current;
+    let damage=0;
+    let winner:"player"|"cpu"|null=null;
     if(currentTurn==="attack"){
-      const damage=correct?limitDamage(left,duration,fighterRef.current.gloves):0;
+      damage=correct?limitDamage(left,duration,fighterRef.current.gloves):0;
       const newHp=Math.max(0,cpuHpRef.current-damage);
       setCpuHp(newHp);cpuHpRef.current=newHp;
-      setAnimation(correct?"strike":"block");
       setFeedback(correct?`Acertou! Golpe no(a) ${target}: -${damage} HP.`:
         timeout?`Tempo esgotado! Resposta: ${questionRef.current.correctAnswer}.`:
         `Golpe defendido! Resposta: ${questionRef.current.correctAnswer}.`);
-      if(newHp===0){finish(true);return;}
+      if(newHp===0)winner="player";
     }else{
-      const damage=correct?0:14;
+      damage=correct?0:14;
       const newHp=Math.max(0,playerHpRef.current-damage);
       setPlayerHp(newHp);playerHpRef.current=newHp;
-      setAnimation(correct?"block":"hit");
       setFeedback(correct?"Defesa perfeita! Nenhum dano recebido.":
         `Defesa falhou: -${damage} HP. Resposta: ${questionRef.current.correctAnswer}.`);
-      if(newHp===0){finish(false);return;}
+      if(newHp===0)winner="cpu";
     }
-    // A pequena pausa exibe o resultado antes de iniciar outra questão.
-    window.setTimeout(()=>{
-      if(phaseRef.current==="playing")beginTurn(currentTurn==="attack"?"defend":"attack");
-    },1400);
+    // A regra matemática e o dano são decididos antes da animação.
+    const exchange=planExchange({
+      turn:currentTurn,correct,timedOut:timeout,target,damage,
+      cpuAttackCount:cpuAttackCount.current
+    });
+    if(currentTurn==="defend")cpuAttackCount.current++;
+    showMotion(exchange.player,exchange.cpu,exchange.caption);
+    const endResult=winner;
+    queueMotion(EXCHANGE_DURATION_MS,()=>{
+      if(phaseRef.current!=="playing")return;
+      if(endResult){
+        finish(endResult==="player");
+        return;
+      }
+      showMotion("retreat","retreat","Recompondo a guarda");
+      queueMotion(RECOVERY_DURATION_MS,()=>{
+        if(phaseRef.current==="playing")beginTurn(currentTurn==="attack"?"defend":"attack");
+      });
+    });
   }
   useEffect(()=>{
     if(phase!=="playing")return;
@@ -143,8 +158,14 @@ export function MathFight({session}:{session:ClientSession}) {
     return ()=>window.clearInterval(timer);
   },[phase,duration,turn,question.id]);
   function start(){
+    clearAnimationTimers();matchId.current++;cpuAttackCount.current=0;
     setPlayerHp(100);setCpuHp(100);playerHpRef.current=100;cpuHpRef.current=100;
     setResult(null);setPhase("playing");phaseRef.current="playing";beginTurn("attack");
+  }
+  function backToSetup(){
+    clearAnimationTimers();matchId.current++;
+    setPhase("setup");phaseRef.current="setup";
+    showMotion("idle","idle");
   }
   function submit(e:FormEvent){e.preventDefault();resolve(answer);}
   function buyGloves(){
