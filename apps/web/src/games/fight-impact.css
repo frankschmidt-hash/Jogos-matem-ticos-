@@ -36,11 +36,11 @@
 .fight-stage-actor--player{
   left:calc(50% - var(--mf-stage-fighter-width) - var(--mf-guard-gap) / 2);
   --mf-advance:var(--mf-contact-travel);
-  --mf-retreat-away:calc(-1 * var(--mf-knockback-distance));
+  --mf-retreat-away:calc(0px - var(--mf-knockback-distance));
 }
 .fight-stage-actor--cpu{
   left:calc(50% + var(--mf-guard-gap) / 2);
-  --mf-advance:calc(-1 * var(--mf-contact-travel));
+  --mf-advance:calc(0px - var(--mf-contact-travel));
   --mf-retreat-away:var(--mf-knockback-distance);
 }
 .fight-stage-actor--attack{
@@ -79,27 +79,27 @@
    Nenhum recuo do defensor ocorre ANTES desta janela. */
 @keyframes mf-stage-approach{
   0%,12%{translate:0 0}
-  24%{translate:calc(var(--mf-advance) * .22) -3px}
+  24%{translate:0 -3px}
   39%,54%{translate:calc(var(--mf-advance) + var(--mf-strike-adjust)) -5px}
-  72%{translate:calc(var(--mf-advance) * .35) 0}
+  72%{translate:0 0}
   100%{translate:0 0}
 }
 @keyframes mf-stage-damage{
   0%,41%{translate:0 0}
   56%{translate:var(--mf-retreat-away) -8px}
   70%{translate:var(--mf-retreat-away) 1px}
-  83%{translate:calc(var(--mf-retreat-away) * .44) 0}
+  83%{translate:0 0}
   100%{translate:0 0}
 }
 @keyframes mf-stage-block{
   0%,42%{translate:0 0}
   57%{translate:var(--mf-retreat-away) 0}
-  74%{translate:calc(var(--mf-retreat-away) * .32) 0}
+  74%{translate:0 0}
   100%{translate:0 0}
 }
 @keyframes mf-stage-recovery{
   0%{translate:0 0}
-  34%{translate:calc(var(--mf-retreat-away) * .45) -2px}
+  34%{translate:var(--mf-retreat-away) -2px}
   100%{translate:0 0}
 }
 /* Congelamento exato do instante de contato: pausamos animações já em curso.
@@ -259,4 +259,29 @@ html.reduce-motion .fight-impact-label{
   .fight-impact-burst{width:79px}
   .fight-impact-burst--heavy{width:96px}
   .fight-impact-label{top:8%}
+}
+
+/* A reação dos segmentos internos só começa depois que a luva chega
+   ao alcance do adversário. Os blocos podem antecipar a guarda. */
+.fight-stage-actor--hit .mf-figure--pose-hit .mf-rig-torso{
+  animation:mf-stage-hit-torso 1080ms ease-out both;
+}
+.fight-stage-actor--hit .mf-figure--pose-hit .mf-rig-head{
+  animation:mf-stage-hit-head 1080ms ease-out both;
+}
+.fight-stage-actor--hit .mf-figure--pose-hit .mf-rig-arm--front{
+  animation:mf-stage-hit-arm 1080ms ease-out both;
+}
+@keyframes mf-stage-hit-torso{
+  0%,41%,100%{transform:none}
+  55%,68%{transform:translate(-16px,8px) rotate(-16deg)}
+  82%{transform:translate(-5px,2px) rotate(-5deg)}
+}
+@keyframes mf-stage-hit-head{
+  0%,41%,100%{transform:none}
+  55%,67%{transform:translate(-21px,10px) rotate(-19deg)}
+}
+@keyframes mf-stage-hit-arm{
+  0%,41%,100%{transform:none}
+  55%,67%{transform:translate(13px,16px) rotate(24deg)}
 }
