@@ -230,7 +230,8 @@ export function MathFight({session}:{session:ClientSession}) {
           <option value="#c25840">Vermelho</option><option value="#9946a7">Roxo</option></select></label>
         <p>Nível {fighter.level} · XP {fighter.xp}/300 · Vitórias {fighter.wins} · Derrotas {fighter.losses}</p>
         <div className="fight-preview"><FighterFigure key={previewTick} color={fighter.color} pose={previewPose} label="Prévia do lutador personalizado"/></div>
-        <div className="fight-pose-picker" role="group" aria-label="Visualizar posturas do lutador">
+        {/* Ferramenta interna de QA: Vite elimina esta seção da versão de produção. */}
+        {import.meta.env.DEV && <div className="fight-pose-picker" role="group" aria-label="Visualizar posturas do lutador">
           {([
             {pose:"idle",name:"Guarda"},{pose:"step",name:"Avanço"},
             {pose:"retreat",name:"Recuo"},{pose:"jab",name:"Jab"},
@@ -240,7 +241,7 @@ export function MathFight({session}:{session:ClientSession}) {
           ] as const).map(item=><button
             type="button" key={item.pose} className={previewPose===item.pose?"fight-pose-active":"button-secondary"} aria-pressed={previewPose===item.pose}
             onClick={()=>{setPreviewPose(item.pose);setPreviewTick(t=>t+1);}}>{item.name}</button>)}
-        </div>
+        </div>}
       </div>
       <div className="fight-panel"><h2>Preparar combate</h2>
         <p>Questões do <strong>{session.gradeLevel==="mixed"?"modo misto":session.gradeLevel+"º ano"}</strong>, compartilhado com o portal.</p>
