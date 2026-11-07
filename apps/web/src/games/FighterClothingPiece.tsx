@@ -24,8 +24,10 @@ export function FighterClothingPiece({piece,fighterStyle,color}:Props) {
       <path d="M99 65 L94 81 M136 63 L142 79" stroke="#f0c57b" strokeWidth="2.8" fill="none"/>
     </>}
     {cap&&<>
-      <path d="M93 48 Q92 30 102 25 M107 40 Q105 23 114 16 M124 39 Q124 20 133 13 M136 46 Q149 26 154 35"
-        fill="none" stroke="#25232a" strokeWidth="7" strokeLinecap="round"/>
+      <g className="mf-hair-strands">
+        <path d="M93 48 Q92 30 102 25 M107 40 Q105 23 114 16 M124 39 Q124 20 133 13 M136 46 Q149 26 154 35"
+          fill="none" stroke="#25232a" strokeWidth="7" strokeLinecap="round"/>
+      </g>
       <path d="M99 34 L108 33 M116 27 L125 26" stroke="#ae977d" strokeWidth="2"/>
     </>}
     {fighterStyle==="Karatê"&&<path d="M97 51 L103 27 L115 38 L123 20 L133 39 L143 28 L148 56Z"
@@ -58,8 +60,11 @@ export function FighterClothingPiece({piece,fighterStyle,color}:Props) {
         stroke="#263650" strokeWidth="2" opacity=".28" fill="none"/>
       <path d="M79 206 Q111 214 142 205 L142 221 Q109 227 79 218Z"
         fill={fighterStyle==="Jiu-jítsu"?"#27233e":"#282e40"} stroke="#b9a677" strokeWidth="2.2"/>
-      <path d="M109 219 L104 246 L114 245 L118 220 M121 219 L127 242 L137 241 L128 218"
-        fill="#2d3445" stroke="#c3aa77" strokeWidth="1.8"/>
+      <g className="mf-fabric-trail mf-fabric-trail--belt">
+        <path d="M109 219 L104 246 L114 245 L118 220 M121 219 L127 242 L137 241 L128 218"
+          fill="#2d3445" stroke="#c3aa77" strokeWidth="1.8"/>
+        <path d="M107 236 L112 237 M127 232 L134 231" stroke="#f9e5be" strokeWidth="1.6" opacity=".62"/>
+      </g>
       {fighterStyle==="Jiu-jítsu"&&<>
         <path d="M132 154 L142 156 L143 176 L132 174Z" fill="#e3d6c3" stroke="#586781" strokeWidth="2"/>
         <path d="M84 197 L98 200 M127 199 L138 196" stroke="#b8c7d7" strokeWidth="3"/>
@@ -67,8 +72,12 @@ export function FighterClothingPiece({piece,fighterStyle,color}:Props) {
     </>}
     {cap&&<>
       <path d="M79 208 Q108 215 143 206" stroke="#e2bf4f" strokeWidth="6" fill="none"/>
-      <path d="M122 216 Q133 238 122 252 M127 217 Q140 241 135 256" stroke="#e4c853" strokeWidth="3.8" strokeLinecap="round" fill="none"/>
-      <circle cx="126" cy="215" r="5" fill="#e2ca59"/>
+      <g className="mf-fabric-trail mf-fabric-trail--cord">
+        <path d="M122 216 Q133 238 122 252 M127 217 Q140 241 135 256"
+          stroke="#e4c853" strokeWidth="3.8" strokeLinecap="round" fill="none"/>
+        <circle cx="126" cy="215" r="5" fill="#e2ca59"/>
+        <path d="M120 246 L124 259 M131 251 L134 261" stroke="#f7de82" strokeWidth="2.3" fill="none"/>
+      </g>
     </>}
     {fighterStyle==="Boxe"&&<>
       <path d="M80 206 Q110 214 140 207" stroke="#f4d28e" strokeWidth="7" fill="none"/>
@@ -84,7 +93,9 @@ export function FighterClothingPiece({piece,fighterStyle,color}:Props) {
       <path d="M86 128 L110 146 L137 128" stroke="#9eadc4" strokeWidth="4" fill="none"/>
       <path d="M85 179 Q115 188 144 176 M84 200 Q112 210 144 198"
         stroke="#151c30" strokeWidth="3" opacity=".38" fill="none"/>
-      <path d="M105 208 L105 221 M118 208 L122 222" stroke="#d1d8e4" strokeWidth="3"/>
+      <g className="mf-fabric-trail mf-fabric-trail--hood">
+        <path d="M105 208 L105 221 M118 208 L122 222" stroke="#d1d8e4" strokeWidth="3"/>
+      </g>
     </>}
   </>;
 
