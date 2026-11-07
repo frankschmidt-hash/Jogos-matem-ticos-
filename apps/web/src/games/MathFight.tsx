@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { generateQuestion, validateAnswer, type MathQuestion } from "@jogos/math-engine";
 import type { ClientSession } from "../session";
 import { FighterFigure, type FighterPose } from "./FighterFigure";
+import { FIGHTER_STYLES, resolveFighterStyle, type FighterStyle } from "./fighter-styles";
 import { FightStage, type ArenaImpact } from "./FightStage";
 import { FightHud } from "./FightHud";
 import { createImpactCue, exchangeTotalDuration, IMPACT_EFFECT_MS } from "./fight-impact";
@@ -11,11 +12,11 @@ import { planExchange, EXCHANGE_DURATION_MS, RECOVERY_DURATION_MS } from "./figh
 import "./math-fight.css";
 import "./math-fight-phase4.css";
 
-type Style = "Boxe" | "Muay Thai" | "Capoeira" | "Karatê" | "Jiu-jítsu" | "Luta de rua";
+type Style = FighterStyle;
 type Fighter = { name: string; style: Style; color: string; coins: number; wins: number; losses: number; level: number; xp: number; gloves: number };
 type Phase = "setup" | "playing" | "finished";
 type Target = "Cabeça" | "Tronco" | "Pernas";
-const STYLES: Style[] = ["Boxe","Muay Thai","Capoeira","Karatê","Jiu-jítsu","Luta de rua"];
+const STYLES = FIGHTER_STYLES;
 const DEFAULT = (nickname:string):Fighter=>({name:nickname,style:"Boxe",color:"#514bc8",coins:0,wins:0,losses:0,level:1,xp:0,gloves:0});
 const profileKey=(nickname:string)=>"jogos-math-fight-v1:"+nickname.trim().toLowerCase();
 function readProfile(nickname:string):Fighter {
@@ -24,7 +25,7 @@ function readProfile(nickname:string):Fighter {
     if (!raw) return DEFAULT(nickname);
     const data=JSON.parse(raw) as Partial<Fighter>;
     return {...DEFAULT(nickname),...data,name:typeof data.name==="string"?data.name.slice(0,20):nickname,
-      style:STYLES.includes(data.style as Style)?data.style as Style:"Boxe",
+      style:resolveFighterStyle(data.style),
       color:["#514bc8","#138a81","#c25840","#9946a7"].includes(data.color||"")?data.color!:"#514bc8",
       coins:Math.max(0,Number(data.coins)||0),wins:Math.max(0,Number(data.wins)||0),
       losses:Math.max(0,Number(data.losses)||0),level:Math.max(1,Number(data.level)||1),
@@ -39,8 +40,6 @@ const limitDamage=(secondsLeft:number,total:number,gloves:number)=>
 export function MathFight({session}:{session:ClientSession}) {
   const [fighter,setFighter]=useState<Fighter>(()=>readProfile(session.nickname));
   const [phase,setPhase]=useState<Phase>("setup");
-  const [previewPose,setPreviewPose]=useState<FighterPose>("idle");
-  const [previewTick,setPreviewTick]=useState(0);
   const [duration,setDuration]=useState(30);
   const [playerHp,setPlayerHp]=useState(100);
   const [cpuHp,setCpuHp]=useState(100);
@@ -229,19 +228,7 @@ export function MathFight({session}:{session:ClientSession}) {
           <option value="#514bc8">Azul</option><option value="#138a81">Verde</option>
           <option value="#c25840">Vermelho</option><option value="#9946a7">Roxo</option></select></label>
         <p>Nível {fighter.level} · XP {fighter.xp}/300 · Vitórias {fighter.wins} · Derrotas {fighter.losses}</p>
-        <div className="fight-preview"><FighterFigure key={previewTick} color={fighter.color} pose={previewPose} label="Prévia do lutador personalizado"/></div>
-        {/* Ferramenta interna de QA: Vite elimina esta seção da versão de produção. */}
-        {import.meta.env.DEV && <div className="fight-pose-picker" role="group" aria-label="Visualizar posturas do lutador">
-          {([
-            {pose:"idle",name:"Guarda"},{pose:"step",name:"Avanço"},
-            {pose:"retreat",name:"Recuo"},{pose:"jab",name:"Jab"},
-            {pose:"cross",name:"Direto"},{pose:"kick",name:"Chute"},
-            {pose:"block",name:"Bloqueio"},{pose:"hit",name:"Reação"},
-            {pose:"victory",name:"Vitória"},{pose:"defeat",name:"Derrota"}
-          ] as const).map(item=><button
-            type="button" key={item.pose} className={previewPose===item.pose?"fight-pose-active":"button-secondary"} aria-pressed={previewPose===item.pose}
-            onClick={()=>{setPreviewPose(item.pose);setPreviewTick(t=>t+1);}}>{item.name}</button>)}
-        </div>}
+        <div className="fight-preview"><FighterFigure color={fighter.color} fighterStyle={fighter.style} pose="idle" label={`Prévia: ${fighter.style}`}/></div>
       </div>
       <div className="fight-panel"><h2>Preparar combate</h2>
         <p>Questões do <strong>{session.gradeLevel==="mixed"?"modo misto":session.gradeLevel+"º ano"}</strong>, compartilhado com o portal.</p>
@@ -261,7 +248,7 @@ export function MathFight({session}:{session:ClientSession}) {
         remaining={remaining} duration={duration} turn={turn} active={phase==="playing"} resolving={handled.current}
         impact={impact?{defender:impact.cue.defender,blocked:impact.cue.blocked}:null}/>
       <div className="fight-arena">
-        <FightStage motion={motion} impact={impact} color={fighter.color}/>
+        <FightStage motion={motion} impact={impact} color={fighter.color} fighterStyle={fighter.style}/>
       </div>
       {phase==="playing"?<div className="fight-math">
         <p className="eyebrow">{turn==="attack"?"Seu ataque":"Defesa contra a CPU"}</p>

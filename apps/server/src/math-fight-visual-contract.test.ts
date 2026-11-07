@@ -36,8 +36,8 @@ describe("Luta Matemática Fase 1 — rig vetorial",()=>{
       expect(rigCss).toContain(`.mf-figure--pose-${pose}`);
     }
     expect(rigCss).toContain(".mf-figure--pose-hit");
-    expect(game).toContain("setPreviewPose(item.pose)");
-    expect(game).toContain('aria-pressed={previewPose===item.pose}');
+    expect(game).not.toContain("setPreviewPose(item.pose)");
+    expect(game).toContain('fighterStyle={fighter.style} pose="idle"');
   });
 
   it("preserva desafio matemático, HP e economia",()=>{

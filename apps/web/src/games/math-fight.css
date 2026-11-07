@@ -14,9 +14,6 @@
 .fight-health progress{width:100%;height:18px;accent-color:#2b9c75}
 .fight-arena{height:378px;background:linear-gradient(#c9d5ed,#f1ecdf 75%,#baa68d 76%);border-radius:20px;display:flex;align-items:end;justify-content:space-around;overflow:hidden;margin:22px 0 12px;position:relative}
 .fight-versus{align-self:center;font-size:clamp(1.25rem,3vw,2.2rem);font-weight:1000;color:#34416e;flex:none;z-index:1;text-shadow:0 2px 0 #ffffffc7}
-.fight-pose-picker{display:flex;justify-content:center;flex-wrap:wrap;gap:7px;margin-top:12px}
-.fight-pose-picker button{flex:1 1 95px;min-width:79px;max-width:150px;padding:9px 8px;margin:0;font-size:.84rem}
-.fight-pose-active{background:#273965;color:white;border:1px solid #273965}
 .fight-math{max-width:620px;margin:auto;text-align:center}
 .fight-math .math-expression{margin:10px 0 18px}
 .fight-timer{font-size:1.6rem;color:#a33531}
@@ -62,5 +59,4 @@ html.reduce-motion .fight-motion-caption{animation:none!important}
 }
 @media(max-width:700px){
   .fight-motion-caption{top:9px;line-height:1.15}
-  .fight-pose-picker button{flex:1 1 88px;font-size:.79rem}
 }

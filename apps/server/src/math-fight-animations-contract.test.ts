@@ -49,11 +49,9 @@ describe("Luta Matemática — integração das animações da Fase 2",()=>{
     expect(game).toContain("if(handled.current)return");
   });
 
-  it("prévia inclui controles das poses e movimento reduzido",()=>{
-    for(const label of ["Jab","Direto","Chute","Recuo","Bloqueio","Reação","Vitória","Derrota"]){
-      expect(game).toContain('name:"'+label+'"');
-    }
-    expect(game).toContain("setPreviewTick(t=>t+1)");
+  it("preserva as dez poses automáticas sem publicar controles de QA",()=>{
+    expect(game).not.toContain("fight-pose-picker");
+    expect(game).toContain('fighterStyle={fighter.style} pose="idle"');
     expect(css).toContain("html.reduce-motion .mf-figure");
     expect(css).toContain("@media(prefers-reduced-motion:reduce)");
     expect(ui).toContain(".fight-motion-caption");
