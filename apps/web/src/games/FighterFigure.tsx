@@ -1,4 +1,6 @@
 import { useId, type CSSProperties } from "react";
+import { fighterStyles, type FighterStyle } from "./fighter-styles";
+import { FighterClothingPiece } from "./FighterClothingPiece";
 import "./fighter-figure.css";
 
 /**
@@ -9,14 +11,17 @@ import "./fighter-figure.css";
 export type FighterPose = "idle" | "step" | "retreat" | "jab" | "cross" | "kick" | "block" | "hit" | "victory" | "defeat";
 type FighterFigureProps = {
   color: string;
+  fighterStyle?: FighterStyle;
   enemy?: boolean;
   pose?: FighterPose;
   label?: string;
 };
 
 export function FighterFigure({
-  color, enemy = false, pose = "idle", label = enemy ? "Lutador adversário" : "Lutador do jogador"
+  color, fighterStyle = "Boxe", enemy = false, pose = "idle", label = enemy ? "Lutador adversário" : "Lutador do jogador"
 }: FighterFigureProps) {
+  const selectedStyle=fighterStyles[fighterStyle];
+  const gloves=selectedStyle.handwear==="boxing-gloves"||selectedStyle.handwear==="thai-gloves";
   // Gradientes únicos por instância: a cor do uniforme pertence ao perfil atual.
   const uid = useId().replace(/:/g, "");
   const url = (part: string) => `url(#${uid}-${part})`;
@@ -26,7 +31,7 @@ export function FighterFigure({
 
   return (
     <div
-      className={`mf-figure mf-figure--pose-${pose} ${enemy ? "mf-figure--enemy" : "mf-figure--player"}`}
+      className={`mf-figure mf-figure--style-${selectedStyle.slug} mf-figure--pose-${pose} ${enemy ? "mf-figure--enemy" : "mf-figure--player"}`}
       style={{ "--mf-primary": color } as CSSProperties}
       role="img"
       aria-label={label}
@@ -88,7 +93,7 @@ export function FighterFigure({
             <path d="M53 170 Q66 175 80 149 L89 133 Q95 128 103 134 L110 143 Q107 154 96 164 L73 192 Q58 196 47 185Z" fill={url("skin")} stroke="#754735" strokeWidth="3"/>
             <path d="M65 179 L84 152" stroke={skinLight} strokeWidth="4" opacity=".38"/>
             <g className="mf-rig-glove mf-rig-glove--back" data-joint="wrist-back">
-              <path d="M87 128 Q97 116 108 125 Q118 128 118 141 Q117 157 103 163 L88 158 Q77 143 87 128Z" fill={url("glove")} stroke="#532b32" strokeWidth="3"/>
+              <path d="M87 128 Q97 116 108 125 Q118 128 118 141 Q117 157 103 163 L88 158 Q77 143 87 128Z" fill={gloves ? url("glove") : url("skin")} stroke="#532b32" strokeWidth="3"/>
               <path d="M89 151 Q103 156 113 148" fill="none" stroke="#ffbbb1" strokeWidth="3" opacity=".55"/>
               <path d="M86 159 Q102 165 109 157 L105 169 Q92 173 85 165Z" fill="#2a354d"/>
             </g>
@@ -150,7 +155,7 @@ export function FighterFigure({
             <path d="M165 155 Q169 167 177 176" stroke={skinLight} strokeWidth="5" opacity=".38" fill="none"/>
             <g className="mf-rig-glove mf-rig-glove--front" data-joint="wrist-front">
               <path d="M145 117 Q146 104 158 99 Q175 94 184 107 Q194 118 190 132 Q187 146 170 148 L151 144 Q142 134 145 117Z"
-                fill={url("glove")} stroke="#512731" strokeWidth="3.5"/>
+                fill={gloves ? url("glove") : url("skin")} stroke="#512731" strokeWidth="3.5"/>
               <path d="M152 110 Q165 99 179 108" stroke="#ffe0c7" strokeWidth="4" opacity=".55" fill="none"/>
               <path d="M152 142 Q165 150 181 141 L179 153 Q161 161 153 152Z" fill="#29354d" stroke="#18223a" strokeWidth="2"/>
               <path d="M162 151 L174 151" stroke="#cbd8eb" strokeWidth="2"/>
