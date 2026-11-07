@@ -391,7 +391,6 @@ html.reduce-motion .mf-figure .mf-rig-head{
 .mf-figure--style-capoeira.mf-figure--pose-idle .mf-rig-arm--back{transform:translate(-15px,14px) rotate(-27deg)}
 .mf-figure--style-capoeira.mf-figure--pose-idle .mf-rig-leg--front{transform:translate(9px,-3px) rotate(-10deg)}
 .mf-figure--style-capoeira.mf-figure--pose-idle .mf-rig-leg--back{transform:translate(-12px,1px) rotate(12deg)}
-.mf-figure--style-capoeira.mf-figure--pose-idle .mf-rig-torso{animation:mf-capoeira-ginga 2.1s ease-in-out infinite}
 .mf-figure--style-karate.mf-figure--pose-idle .mf-rig-arm--front{transform:translate(14px,13px) rotate(18deg)}
 .mf-figure--style-karate.mf-figure--pose-idle .mf-rig-arm--back{transform:translate(-5px,5px) rotate(-12deg)}
 .mf-figure--style-karate.mf-figure--pose-idle .mf-rig-leg--front{transform:translate(16px,0) rotate(-12deg)}
@@ -403,22 +402,13 @@ html.reduce-motion .mf-figure .mf-rig-head{
 .mf-figure--style-street.mf-figure--pose-idle .mf-rig-arm--back{transform:translate(-8px,3px) rotate(-14deg)}
 .mf-figure--style-street.mf-figure--pose-idle .mf-rig-head{transform:translate(-4px,3px) rotate(-7deg)}
 .mf-figure--style-capoeira.mf-figure--pose-kick .mf-rig-leg--front{animation:mf-capoeira-sweep 1080ms ease-in-out both}
-.mf-figure--style-capoeira.mf-figure--pose-kick .mf-rig-torso{animation:mf-capoeira-lean 1080ms ease-in-out both}
 .mf-figure--style-muay-thai.mf-figure--pose-kick .mf-rig-leg--front{animation:mf-thai-roundhouse 1080ms ease-in-out both}
 .mf-figure--style-karate.mf-figure--pose-kick .mf-rig-leg--front{animation:mf-karate-frontkick 1080ms ease-in-out both}
 .mf-figure--style-jiujitsu.mf-figure--pose-block .mf-rig-arm--front{animation:mf-jiujitsu-grip 1080ms ease-in-out both}
-@keyframes mf-capoeira-ginga{
-  0%,100%{transform:translate(-4px,1px) rotate(-8deg)}
-  50%{transform:translate(6px,-2px) rotate(7deg)}
-}
 @keyframes mf-capoeira-sweep{
   0%,100%{transform:none}
   32%{transform:translate(-8px,8px) rotate(20deg)}
   45%,59%{transform:translate(34px,-27px) rotate(-82deg)}
-}
-@keyframes mf-capoeira-lean{
-  0%,100%{transform:none}
-  42%,59%{transform:translate(-19px,6px) rotate(-24deg)}
 }
 @keyframes mf-thai-roundhouse{
   0%,100%{transform:none}
