@@ -379,3 +379,62 @@ html.reduce-motion .mf-figure .mf-rig-head{
     rotate:0deg!important;
   }
 }
+
+/* Identidades corporais por arte marcial; o mesmo rig move roupa e corpo.
+   Mudanças restritas à coreografia, não à lógica de dano ou cronômetro. */
+.mf-figure--style-boxing.mf-figure--pose-idle .mf-rig-arm--front{transform:translate(-2px,-3px) rotate(-4deg)}
+.mf-figure--style-boxing.mf-figure--pose-idle .mf-rig-leg--front{transform:rotate(-2deg)}
+.mf-figure--style-muay-thai.mf-figure--pose-idle .mf-rig-arm--front{transform:translate(-9px,-10px) rotate(-12deg)}
+.mf-figure--style-muay-thai.mf-figure--pose-idle .mf-rig-arm--back{transform:translate(4px,-8px) rotate(10deg)}
+.mf-figure--style-muay-thai.mf-figure--pose-idle .mf-rig-leg--front{transform:translate(4px,0) rotate(-5deg)}
+.mf-figure--style-capoeira.mf-figure--pose-idle .mf-rig-arm--front{transform:translate(23px,19px) rotate(28deg)}
+.mf-figure--style-capoeira.mf-figure--pose-idle .mf-rig-arm--back{transform:translate(-15px,14px) rotate(-27deg)}
+.mf-figure--style-capoeira.mf-figure--pose-idle .mf-rig-leg--front{transform:translate(9px,-3px) rotate(-10deg)}
+.mf-figure--style-capoeira.mf-figure--pose-idle .mf-rig-leg--back{transform:translate(-12px,1px) rotate(12deg)}
+.mf-figure--style-capoeira.mf-figure--pose-idle .mf-rig-torso{animation:mf-capoeira-ginga 2.1s ease-in-out infinite}
+.mf-figure--style-karate.mf-figure--pose-idle .mf-rig-arm--front{transform:translate(14px,13px) rotate(18deg)}
+.mf-figure--style-karate.mf-figure--pose-idle .mf-rig-arm--back{transform:translate(-5px,5px) rotate(-12deg)}
+.mf-figure--style-karate.mf-figure--pose-idle .mf-rig-leg--front{transform:translate(16px,0) rotate(-12deg)}
+.mf-figure--style-jiujitsu.mf-figure--pose-idle .mf-rig-torso{transform:translate(-2px,8px) rotate(-5deg)}
+.mf-figure--style-jiujitsu.mf-figure--pose-idle .mf-rig-arm--front{transform:translate(-7px,15px) rotate(-24deg)}
+.mf-figure--style-jiujitsu.mf-figure--pose-idle .mf-rig-arm--back{transform:translate(11px,8px) rotate(20deg)}
+.mf-figure--style-jiujitsu.mf-figure--pose-idle .mf-rig-leg--front{transform:translate(8px,4px) rotate(-9deg)}
+.mf-figure--style-street.mf-figure--pose-idle .mf-rig-arm--front{transform:translate(18px,7px) rotate(16deg)}
+.mf-figure--style-street.mf-figure--pose-idle .mf-rig-arm--back{transform:translate(-8px,3px) rotate(-14deg)}
+.mf-figure--style-street.mf-figure--pose-idle .mf-rig-head{transform:translate(-4px,3px) rotate(-7deg)}
+.mf-figure--style-capoeira.mf-figure--pose-kick .mf-rig-leg--front{animation:mf-capoeira-sweep 1080ms ease-in-out both}
+.mf-figure--style-capoeira.mf-figure--pose-kick .mf-rig-torso{animation:mf-capoeira-lean 1080ms ease-in-out both}
+.mf-figure--style-muay-thai.mf-figure--pose-kick .mf-rig-leg--front{animation:mf-thai-roundhouse 1080ms ease-in-out both}
+.mf-figure--style-karate.mf-figure--pose-kick .mf-rig-leg--front{animation:mf-karate-frontkick 1080ms ease-in-out both}
+.mf-figure--style-jiujitsu.mf-figure--pose-block .mf-rig-arm--front{animation:mf-jiujitsu-grip 1080ms ease-in-out both}
+@keyframes mf-capoeira-ginga{
+  0%,100%{transform:translate(-4px,1px) rotate(-8deg)}
+  50%{transform:translate(6px,-2px) rotate(7deg)}
+}
+@keyframes mf-capoeira-sweep{
+  0%,100%{transform:none}
+  32%{transform:translate(-8px,8px) rotate(20deg)}
+  45%,59%{transform:translate(34px,-27px) rotate(-82deg)}
+}
+@keyframes mf-capoeira-lean{
+  0%,100%{transform:none}
+  42%,59%{transform:translate(-19px,6px) rotate(-24deg)}
+}
+@keyframes mf-thai-roundhouse{
+  0%,100%{transform:none}
+  27%{transform:translate(-10px,3px) rotate(19deg)}
+  46%,58%{transform:translate(48px,-42px) rotate(-76deg)}
+}
+@keyframes mf-karate-frontkick{
+  0%,100%{transform:none}
+  32%{transform:translate(8px,-17px) rotate(-30deg)}
+  46%,59%{transform:translate(53px,-36px) rotate(-72deg)}
+}
+@keyframes mf-jiujitsu-grip{
+  0%,100%{transform:translate(-7px,15px) rotate(-24deg)}
+  26%,55%{transform:translate(-24px,-12px) rotate(-38deg)}
+}
+html.reduce-motion .mf-figure--style-capoeira .mf-rig-torso{animation:none!important}
+@media(prefers-reduced-motion:reduce){
+  .mf-figure--style-capoeira .mf-rig-torso{animation:none!important}
+}
