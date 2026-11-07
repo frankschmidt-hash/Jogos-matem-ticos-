@@ -1,5 +1,6 @@
 import { type CSSProperties } from "react";
 import { FighterFigure, type FighterPose } from "./FighterFigure";
+import type { FighterStyle } from "./fighter-styles";
 import type { ImpactCue, ImpactSide } from "./fight-impact";
 import "./fight-impact.css";
 
@@ -20,6 +21,7 @@ type FightStageProps = {
   motion:ArenaMotion;
   impact:ArenaImpact|null;
   color:string;
+  fighterStyle:FighterStyle;
 };
 
 function isStrike(pose:FighterPose) {
@@ -38,7 +40,7 @@ function actorClasses(side:ImpactSide,pose:FighterPose) {
   ].filter(Boolean).join(" ");
 }
 
-export function FightStage({motion,impact,color}:FightStageProps) {
+export function FightStage({motion,impact,color,fighterStyle}:FightStageProps) {
   const cue=impact?.cue;
   const isExchange=isStrike(motion.player)||isStrike(motion.cpu);
   const className=[
@@ -55,11 +57,11 @@ export function FightStage({motion,impact,color}:FightStageProps) {
 
   return <div className={className} style={style} data-impact={cue?.grade??"none"}>
     <div className={actorClasses("player",motion.player)}>
-      <FighterFigure key={`player-${motion.seq}`} color={color} pose={motion.player} label="Seu lutador"/>
+      <FighterFigure key={`player-${motion.seq}`} color={color} style={fighterStyle} pose={motion.player} label="Seu lutador"/>
     </div>
     <span className="fight-stage-vs" aria-hidden="true">VS</span>
     <div className={actorClasses("cpu",motion.cpu)}>
-      <FighterFigure key={`cpu-${motion.seq}`} color="#de7651" enemy pose={motion.cpu} label="Desafiante CPU"/>
+      <FighterFigure key={`cpu-${motion.seq}`} color="#de7651" style="Boxe" enemy pose={motion.cpu} label="Desafiante CPU"/>
     </div>
     {cue&&<div key={motion.seq} className="fight-impact-layer" aria-hidden="true">
       <span className={`fight-impact-burst fight-impact-burst--${cue.grade} fight-impact-burst--${side} fight-impact-burst--${zone}`}/>
