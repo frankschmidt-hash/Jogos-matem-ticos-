@@ -351,3 +351,199 @@ html.reduce-motion .fight-hud-healthbar-fill{transition:none!important}
   .fight-preview{height:277px}
   .fight-preview>.mf-figure{height:263px;width:182px}
 }
+
+
+/* Enquadramento fluido da arena — 2026-11-07.
+ * Medidas ligadas ao CONTÊINER, e não à tela inteira. Mantém pés, cabeça,
+ * recuos e golpe dentro do palco sem alterar tempo, dano ou coreografia.
+ * A fase de escolha do lutador preserva o layout amplo original. */
+.fight-shell--battle{
+  min-height:100dvh;
+  padding-top:clamp(6px,1.1dvh,12px);
+  padding-bottom:18px;
+}
+.fight-shell--battle .fight-top{
+  margin-bottom:8px;
+  padding:8px 14px;
+  gap:8px;
+}
+.fight-shell--battle .fight-top h1{
+  font-size:clamp(1.1rem,2vw,1.55rem);
+  margin:0;
+}
+.fight-shell--battle .fight-top .eyebrow{display:none}
+.fight-shell--battle .fight-top .button-secondary{
+  min-height:34px;
+  padding:6px 10px;
+}
+.fight-shell--battle .fight-top-coins{padding:5px 10px}
+.fight-shell--battle .fight-battle{
+  padding:clamp(8px,1.25vw,16px);
+}
+.fight-shell--battle .fight-hud{
+  padding:8px 11px;
+}
+.fight-shell--battle .fight-hud-fighter{padding:2px 4px}
+.fight-shell--battle .fight-hud-healthbar{margin-top:5px}
+.fight-shell--battle .fight-hud-healthbar-track{height:clamp(12px,1.6vw,17px)}
+.fight-shell--battle .fight-hud-hp{margin-top:2px}
+
+/* "inline-size" fornece cqw relativas à largura útil da própria arena. */
+.fight-shell--battle .fight-arena{
+  container-type:inline-size;
+  height:clamp(205px,min(32vw,31dvh),320px);
+  margin:8px 0 9px;
+  background-position:center 35%;
+}
+.fight-arena .fight-stage{
+  --mf-stage-fighter-width:min(205px,20cqw,22dvh);
+  --mf-stage-fighter-height:min(305px,32cqw,33dvh);
+  --mf-guard-gap:clamp(20px,7cqw,98px);
+  --mf-contact-travel:calc(var(--mf-guard-gap) + min(5cqw,54px));
+  --mf-impact-offset:calc((var(--mf-stage-fighter-width) + var(--mf-guard-gap)) / 2);
+}
+.fight-arena .fight-stage-actor{
+  height:min(var(--mf-stage-fighter-height),calc(100% - 12px));
+  bottom:5px;
+}
+.fight-arena .fight-stage-actor--player{
+  --mf-retreat-away:calc(0px - min(var(--mf-knockback-distance),5cqw));
+}
+.fight-arena .fight-stage-actor--cpu{
+  --mf-retreat-away:min(var(--mf-knockback-distance),5cqw);
+}
+
+/* A questão fica visível sem obrigar a rolar metade do combate no desktop. */
+.fight-shell--battle .fight-math{
+  padding:11px 16px 12px;
+}
+.fight-shell--battle .fight-math .eyebrow{margin:0 0 4px}
+.fight-shell--battle .fight-prompt-timer{margin-bottom:4px}
+.fight-shell--battle .fight-math .math-expression{
+  padding:8px 10px;
+  font-size:clamp(1.65rem,4vw,2.5rem);
+  margin:7px auto 9px;
+}
+.fight-shell--battle .fight-targets{padding:6px 8px}
+.fight-shell--battle .fight-targets label{margin:2px 5px}
+.fight-shell--battle .fight-answer{margin:8px auto 0}
+.fight-shell--battle .fight-answer input,
+.fight-shell--battle .fight-answer button{
+  min-height:42px;
+  padding-block:7px;
+}
+.fight-shell--battle .fight-answer button{margin:0}
+.fight-shell--battle .fight-feedback{
+  padding:8px 10px;
+  margin:7px auto 0;
+}
+
+/* Telefones e tablets: dois personagens COMPLETOS e espaço lateral para
+ * a animação de recuo, com resposta e confirmação na mesma linha. */
+@media(max-width:700px){
+  .fight-shell--battle{padding:6px 7px 12px}
+  .fight-shell--battle .fight-top{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:5px 8px;
+    padding:6px 8px;
+  }
+  .fight-shell--battle .fight-top>.button-secondary{
+    grid-column:1;
+    grid-row:1;
+    justify-self:start;
+    font-size:.72rem;
+  }
+  .fight-shell--battle .fight-top>div:nth-child(2){
+    grid-column:1/-1;
+    grid-row:2;
+    text-align:center;
+  }
+  .fight-shell--battle .fight-top-coins{
+    grid-column:2;
+    grid-row:1;
+    padding:4px 7px;
+  }
+  .fight-shell--battle .fight-top h1{font-size:1.1rem}
+  .fight-shell--battle .fight-battle{padding:7px}
+  .fight-shell--battle .fight-hud{padding:6px;gap:5px}
+  .fight-shell--battle .fight-hud-fighter{padding:2px 0}
+  .fight-shell--battle .fight-hud-healthbar{margin-top:4px}
+  .fight-shell--battle .fight-hud-healthbar-track{height:12px}
+  .fight-shell--battle .fight-arena{
+    height:clamp(175px,min(52vw,29dvh),255px);
+    margin:6px 0 7px;
+  }
+  .fight-arena .fight-stage{
+    --mf-stage-fighter-width:min(160px,34cqw,24dvh);
+    --mf-stage-fighter-height:min(230px,50cqw,32dvh);
+    --mf-guard-gap:clamp(12px,6cqw,40px);
+    --mf-contact-travel:calc(var(--mf-guard-gap) + 5cqw);
+    --mf-impact-offset:calc((var(--mf-stage-fighter-width) + var(--mf-guard-gap)) / 2);
+  }
+  .fight-arena .fight-stage-actor{bottom:4px}
+  .fight-shell--battle .fight-math{padding:8px}
+  .fight-shell--battle .fight-math .math-expression{
+    font-size:clamp(1.55rem,7vw,2.05rem);
+    padding:7px 5px;
+    margin:6px auto;
+  }
+  .fight-shell--battle .fight-prompt-timer{
+    gap:7px;
+    font-size:.68rem;
+    flex-wrap:wrap;
+  }
+  .fight-shell--battle .fight-prompt-timer strong{font-size:.82rem}
+  .fight-shell--battle .fight-targets{padding:3px 4px;gap:3px}
+  .fight-shell--battle .fight-targets label{
+    margin:2px 4px;
+    font-size:.77rem;
+  }
+  .fight-shell--battle .fight-answer{
+    display:flex;
+    flex-direction:row;
+    gap:6px;
+    align-items:stretch;
+    margin-top:7px;
+  }
+  .fight-shell--battle .fight-answer input{
+    flex:1 1 0;
+    min-width:0;
+    min-height:40px;
+    font-size:1rem;
+    padding:7px;
+  }
+  .fight-shell--battle .fight-answer button{
+    flex:0 0 auto;
+    width:auto;
+    min-height:40px;
+    padding:7px 11px;
+    font-size:.84rem;
+  }
+  .fight-shell--battle .fight-feedback{
+    padding:7px 8px;
+    font-size:.8rem;
+    line-height:1.25;
+    margin-top:6px;
+  }
+  .fight-stage-vs{font-size:1.05rem}
+  .fight-impact-burst{max-width:23cqw}
+  .fight-impact-burst--heavy{max-width:27cqw}
+}
+@media(max-width:390px){
+  .fight-shell--battle .fight-top-coins small{font-size:.51rem}
+  .fight-shell--battle .fight-top-coins strong{font-size:.77rem}
+  .fight-shell--battle .fight-hud{
+    grid-template-columns:minmax(0,1fr) 55px minmax(0,1fr);
+  }
+  .fight-shell--battle .fight-math .math-expression{font-size:1.6rem}
+}
+/* Telas em paisagem de pouca altura: foco na área jogável, não em espaços vazios. */
+@media(min-width:701px) and (max-height:720px){
+  .fight-shell--battle .fight-arena{
+    height:clamp(190px,29dvh,235px);
+  }
+  .fight-shell--battle .fight-hud{padding:5px 10px}
+  .fight-shell--battle .fight-math{padding-block:8px}
+  .fight-shell--battle .fight-feedback{padding-block:6px}
+}

@@ -215,7 +215,7 @@ export function MathFight({session}:{session:ClientSession}) {
     setFighter(old=>old.gloves>=3||old.coins<(old.gloves+1)*150?old:
       {...old,coins:old.coins-(old.gloves+1)*150,gloves:old.gloves+1});
   }
-  return <main id="main-content" className="fight-shell">
+  return <main id="main-content" className={`fight-shell${phase!=="setup"?" fight-shell--battle":""}`}>
     <header className="fight-top"><Link className="button button-secondary" to="/lobby">← Voltar aos jogos</Link>
       <div><span className="eyebrow">Quinto jogo · Matemática em Movimento</span><h1>Luta Matemática</h1></div>
       <div className="fight-top-coins"><small>MOEDAS DE COMBATE</small><strong>{fighter.coins.toLocaleString("pt-BR")} ◈</strong></div></header>
