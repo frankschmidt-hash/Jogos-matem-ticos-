@@ -2,6 +2,7 @@ import { useId, type CSSProperties } from "react";
 import { fighterStyles, type FighterStyle } from "./fighter-styles";
 import { FighterClothingPiece } from "./FighterClothingPiece";
 import { FighterVolumeLayer, type FighterVolumePart } from "./FighterVolumeLayer";
+import { FighterSignatureGear, type SignaturePart } from "./FighterSignatureGear";
 import "./fighter-figure.css";
 
 /**
@@ -27,6 +28,7 @@ export function FighterFigure({
   const uid = useId().replace(/:/g, "");
   const url = (part: string) => `url(#${uid}-${part})`;
   const volume = (part: FighterVolumePart) => <FighterVolumeLayer part={part} fighterStyle={fighterStyle} color={color} gradientId={uid}/>;
+  const signature = (part: SignaturePart) => <FighterSignatureGear part={part} fighterStyle={fighterStyle} color={color}/>;
   const skin = enemy ? "#e0a47c" : "#c98b68";
   const skinLight = enemy ? "#f7c8a1" : "#eeb797";
   const skinShadow = enemy ? "#945c43" : "#754736";
@@ -98,12 +100,14 @@ export function FighterFigure({
           <path d="M70 251 Q84 260 103 250 L100 279 Q86 283 79 277Z" fill="#c6a186" stroke="#674939" strokeWidth="2"/>
           <FighterClothingPiece piece="back-thigh" fighterStyle={fighterStyle} color={color}/>
           {volume("back-thigh")}
+          {signature("back-thigh")}
           <g className="mf-rig-shin mf-rig-shin--back" data-joint="knee-back">
             <path d="M78 274 Q77 294 70 316 L95 320 Q104 294 101 272Z" fill={url("skin")} stroke="#613d32" strokeWidth="3"/>
             <path d="M72 309 L94 310 L94 326 Q74 332 44 331 Q38 322 55 316Z" fill={url("boot")} stroke="#1c2536" strokeWidth="3"/>
             <path d="M48 325 Q73 327 97 323" stroke="#aab5c7" strokeWidth="2.5" opacity=".7" fill="none"/>
             <FighterClothingPiece piece="back-shin" fighterStyle={fighterStyle} color={color}/>
           {volume("back-shin")}
+          {signature("back-shin")}
           </g>
         </g>
 
@@ -113,12 +117,14 @@ export function FighterFigure({
           <path d="M133 264 Q149 260 158 266 L160 282 Q149 290 139 281Z" fill={url("skin")} stroke="#674939" strokeWidth="2"/>
           <FighterClothingPiece piece="front-thigh" fighterStyle={fighterStyle} color={color}/>
           {volume("front-thigh")}
+          {signature("front-thigh")}
           <g className="mf-rig-shin mf-rig-shin--front" data-joint="knee-front">
             <path d="M138 277 Q141 295 141 314 L167 318 Q165 295 160 271Z" fill={url("skin")} stroke="#694637" strokeWidth="3"/>
             <path d="M139 307 L168 307 L172 326 Q181 332 190 334 L190 339 L133 338 Q129 327 139 307Z" fill={url("boot")} stroke="#172136" strokeWidth="3"/>
             <path d="M142 316 L164 316 M143 323 L167 323" stroke="#8e9eb3" strokeWidth="3" opacity=".65"/>
             <FighterClothingPiece piece="front-shin" fighterStyle={fighterStyle} color={color}/>
           {volume("front-shin")}
+          {signature("front-shin")}
           </g>
         </g>
 
@@ -130,6 +136,7 @@ export function FighterFigure({
           <path d="M54 139 Q48 159 54 168" fill="none" stroke={skinLight} strokeWidth="5" opacity=".32"/>
           <FighterClothingPiece piece="back-arm" fighterStyle={fighterStyle} color={color}/>
           {volume("back-arm")}
+          {signature("back-arm")}
           <g className="mf-rig-forearm mf-rig-forearm--back" data-joint="elbow-back">
             <path d="M53 170 Q66 175 80 149 L89 133 Q95 128 103 134 L110 143 Q107 154 96 164 L73 192 Q58 196 47 185Z" fill={url("skin")} stroke="#754735" strokeWidth="3"/>
             <path d="M65 179 L84 152" stroke={skinLight} strokeWidth="4" opacity=".38"/>
@@ -138,6 +145,7 @@ export function FighterFigure({
               <path d="M89 151 Q103 156 113 148" fill="none" stroke="#ffbbb1" strokeWidth="3" opacity=".55"/>
               <path d="M86 159 Q102 165 109 157 L105 169 Q92 173 85 165Z" fill="#2a354d"/>
               {volume("back-hand")}
+          {signature("back-hand")}
             </g>
           </g>
         </g>
@@ -156,6 +164,7 @@ export function FighterFigure({
           <path d="M126 130 Q138 148 133 177" fill="none" stroke="#ecf1ff" strokeWidth="4" opacity=".16"/>
           <FighterClothingPiece piece="torso" fighterStyle={fighterStyle} color={color}/>
           {volume("torso")}
+          {signature("torso")}
         </g>
 
         {/* Cabeça em perspectiva 3/4: queixo, orelhas, nariz e expressão. */}
@@ -177,6 +186,7 @@ export function FighterFigure({
           <path d="M99 49 Q114 39 132 45" stroke="#fff" strokeWidth="3.5" opacity=".19" fill="none"/>
           <FighterClothingPiece piece="head" fighterStyle={fighterStyle} color={color}/>
           {volume("head")}
+          {signature("head")}
         </g>
 
         {/* Ombro, braço, antebraço e luva da frente possuem pivôs independentes. */}
@@ -186,6 +196,7 @@ export function FighterFigure({
           <path d="M151 127 Q168 142 172 166" stroke={skinLight} strokeWidth="6" opacity=".26" fill="none"/>
           <FighterClothingPiece piece="front-arm" fighterStyle={fighterStyle} color={color}/>
           {volume("front-arm")}
+          {signature("front-arm")}
           <g className="mf-rig-forearm mf-rig-forearm--front" data-joint="elbow-front">
             <path d="M168 172 Q158 159 155 151 L151 136 Q155 123 166 123 L177 133 Q181 155 187 176 Q183 190 168 188Z"
               fill={url("skin")} stroke="#704638" strokeWidth="3.2"/>
@@ -197,6 +208,7 @@ export function FighterFigure({
               <path d="M152 142 Q165 150 181 141 L179 153 Q161 161 153 152Z" fill="#29354d" stroke="#18223a" strokeWidth="2"/>
               <path d="M162 151 L174 151" stroke="#cbd8eb" strokeWidth="2"/>
               {volume("front-hand")}
+          {signature("front-hand")}
             </g>
           </g>
         </g>
