@@ -228,7 +228,7 @@ export function MathFight({session}:{session:ClientSession}) {
           <option value="#514bc8">Azul</option><option value="#138a81">Verde</option>
           <option value="#c25840">Vermelho</option><option value="#9946a7">Roxo</option></select></label>
         <p>Nível {fighter.level} · XP {fighter.xp}/300 · Vitórias {fighter.wins} · Derrotas {fighter.losses}</p>
-        <div className="fight-preview"><FighterFigure color={fighter.color} style={fighter.style} pose="idle" label={`Prévia: ${fighter.style}`}/></div>
+        <div className="fight-preview"><FighterFigure color={fighter.color} fighterStyle={fighter.style} pose="idle" label={`Prévia: ${fighter.style}`}/></div>
       </div>
       <div className="fight-panel"><h2>Preparar combate</h2>
         <p>Questões do <strong>{session.gradeLevel==="mixed"?"modo misto":session.gradeLevel+"º ano"}</strong>, compartilhado com o portal.</p>
