@@ -62,7 +62,7 @@ export function FighterSignatureGear({part,fighterStyle:style,color}:Props){
     {karate&&<>
       {/* Karategi triangular, mangas amplas, lapela e faixa reta. */}
       <path d="M80 123 Q100 110 108 128 L115 149 L127 119 Q145 116 151 135
-        L140 203 Q111 219 79 203 L75 165Z" fill="#f6f4ed"
+        L140 203 Q111 219 79 203 L75 165Z" fill={color}
         stroke="#4a5566" strokeWidth="3.5"/>
       <path d="M92 125 L112 160 L136 121" fill="none" stroke="#d2d5d6" strokeWidth="12"/>
       <path d="M91 123 L111 157 L131 123" stroke="#fff" strokeWidth="4.2" fill="none"/>
@@ -114,7 +114,7 @@ export function FighterSignatureGear({part,fighterStyle:style,color}:Props){
       <path d={front
         ?"M140 124 Q164 114 176 138 L185 159 Q172 171 152 158 L137 139Z"
         :"M81 118 Q61 111 53 139 L45 160 Q60 170 79 154 L91 129Z"}
-        fill={karate?"#efeee8":color} stroke="#3f5061" strokeWidth={jiu?"4":"3"}/>
+        fill={color} stroke="#3f5061" strokeWidth={jiu?"4":"3"}/>
       <path d={front?"M159 154 Q173 160 182 157":"M49 157 Q62 161 78 150"}
         stroke="#d2e0e8" strokeWidth={jiu?"5":"3"} fill="none"/>
       {jiu&&<path d={front?"M148 131 L174 145":"M66 132 L84 138"}
