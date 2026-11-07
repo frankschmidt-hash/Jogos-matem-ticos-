@@ -1,20 +1,28 @@
-import {readFileSync} from "node:fs";
-import {fileURLToPath} from "node:url";
-import {describe,expect,it} from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
 
-const file=fileURLToPath(new URL("../../web/src/games/MathFight.tsx",import.meta.url));
-const source=readFileSync(file,"utf8");
+const read=(path:string)=>readFileSync(fileURLToPath(new URL("../../web/src/games/"+path,import.meta.url)),"utf8");
+const game=read("MathFight.tsx");
+const css=read("math-fight.css");
+const stage=read("FightStage.tsx");
 
-describe("Luta Matemática — painel de animação reservado ao QA",()=>{
-  it("restringe os controles de teste à compilação de desenvolvimento",()=>{
-    expect(source).toContain('{import.meta.env.DEV && <div className="fight-pose-picker"');
-    expect(source).toMatch(/\{import\.meta\.env\.DEV && <div className="fight-pose-picker"[\s\S]*?<\/div>\}/);
+describe("Luta Matemática — isolamento definitivo do painel interno",()=>{
+  it("retira de fato o painel de QA do componente público",()=>{
+    expect(game).not.toContain("fight-pose-picker");
+    expect(game).not.toContain("import.meta.env.DEV");
+    expect(game).not.toContain("setPreviewPose");
+    expect(game).not.toContain("setPreviewTick");
+    expect(game).not.toContain("Visualizar posturas do lutador");
+    expect(css).not.toContain("fight-pose-picker");
+    expect(css).not.toContain("fight-pose-active");
   });
-  it("mantém a prévia do personagem, mas não exige botões de QA para jogar",()=>{
-    expect(source).toContain('className="fight-preview"');
-    expect(source).toContain('className="fight-pose-picker"');
-    expect(source).toContain('<FightStage motion={motion} impact={impact} color={fighter.color}/>');
-    expect(source).toContain('onClick={start}>Iniciar luta contra o computador');
-    expect(source).toContain("validateAnswer(questionRef.current,raw)");
+  it("preserva prévia, combates automáticos e seleciona personagem para arena",()=>{
+    expect(game).toContain('className="fight-preview"');
+    expect(game).toContain('fighterStyle={fighter.style} pose="idle"');
+    expect(game).toContain('fighterStyle={fighter.style}/>');
+    expect(stage).toContain('fighterStyle={fighterStyle} pose={motion.player}');
+    expect(game).toContain('onClick={start}>Iniciar luta contra o computador');
+    expect(game).toContain("validateAnswer(questionRef.current,raw)");
   });
 });
