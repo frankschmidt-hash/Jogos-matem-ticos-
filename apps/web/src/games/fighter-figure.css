@@ -438,3 +438,202 @@ html.reduce-motion .mf-figure--style-capoeira .mf-rig-torso{animation:none!impor
 @media(prefers-reduced-motion:reduce){
   .mf-figure--style-capoeira .mf-rig-torso{animation:none!important}
 }
+
+
+/*
+ * Etapa 2.5D — luz direcional, acabamento de volume e secondary motion.
+ * Sem WebGL, bibliotecas externas ou filtros animados pesados em dispositivos móveis.
+ * As curvas vivem nos grupos do SVG; o CSS só interpola os pivôs existentes.
+ */
+.mf-figure{--mf-light:#fff0d2;--mf-shade:#2d273e}
+.mf-figure-svg{overflow:visible;backface-visibility:hidden}
+.mf-volume-mf-body,.mf-volume-face,.mf-volume-arm,
+.mf-volume-thigh,.mf-volume-shin,.mf-volume-fist{
+  pointer-events:none;
+  shape-rendering:geometricPrecision;
+}
+.mf-volume-face{opacity:.95}
+.mf-rig-shadow-core{transform-origin:113px 334px}
+.mf-fabric-trail,.mf-hair-strands{
+  transform-box:view-box;
+  will-change:auto;
+}
+.mf-fabric-trail--cord{transform-origin:125px 216px}
+.mf-fabric-trail--belt{transform-origin:114px 220px}
+.mf-fabric-trail--hood{transform-origin:113px 206px}
+.mf-hair-strands{transform-origin:117px 47px}
+.mf-figure--pose-idle .mf-fabric-trail--cord{
+  animation:mf-cord-sway 2.5s ease-in-out infinite;
+}
+.mf-figure--pose-idle .mf-fabric-trail--belt{
+  animation:mf-belt-rest 3s ease-in-out infinite;
+}
+.mf-figure--pose-idle .mf-hair-strands{
+  animation:mf-braid-rest 2.8s ease-in-out infinite;
+}
+/* Suavização secundária: o acessório atrasa e ultrapassa a massa principal. */
+.mf-figure--pose-step .mf-fabric-trail,
+.mf-figure--pose-retreat .mf-fabric-trail{
+  animation:mf-cloth-inertia 700ms cubic-bezier(.2,.68,.2,1) both;
+}
+.mf-figure--pose-jab .mf-fabric-trail,
+.mf-figure--pose-cross .mf-fabric-trail,
+.mf-figure--pose-block .mf-fabric-trail,
+.mf-figure--pose-hit .mf-fabric-trail{
+  animation:mf-cloth-inertia 1080ms cubic-bezier(.2,.68,.2,1) both;
+}
+.mf-figure--pose-kick .mf-fabric-trail{
+  animation:mf-cloth-kick 1080ms cubic-bezier(.2,.72,.2,1) both;
+}
+.mf-figure--pose-victory .mf-fabric-trail{animation:mf-belt-rest 1.7s ease-in-out infinite}
+.mf-figure--pose-defeat .mf-fabric-trail{animation:mf-cloth-fall 950ms ease-in both}
+.mf-figure--pose-jab .mf-hair-strands,
+.mf-figure--pose-cross .mf-hair-strands,
+.mf-figure--pose-kick .mf-hair-strands,
+.mf-figure--pose-hit .mf-hair-strands{
+  animation:mf-braid-action 1080ms ease-in-out both;
+}
+.mf-figure--pose-victory .mf-hair-strands{animation:mf-braid-rest 1.7s ease-in-out infinite}
+.mf-figure--pose-defeat .mf-hair-strands{animation:mf-cloth-fall 950ms ease-in both}
+/* Contato mais convincente sem alterar timing de dano já aprovado. */
+.mf-figure--pose-jab .mf-rig-head{animation:mf-kinetic-head 1080ms ease-in-out both}
+.mf-figure--pose-cross .mf-rig-head{animation:mf-kinetic-head 1080ms ease-in-out both}
+.mf-figure--pose-kick .mf-rig-arm--back{animation:mf-kick-counterweight 1080ms ease-in-out both}
+/* Assinaturas de cada modalidade, usando a MESMA interface de dez poses. */
+.mf-figure--style-boxing.mf-figure--pose-jab .mf-rig-arm--front{
+  animation:mf-boxing-jab-release 1080ms cubic-bezier(.14,.76,.32,1) both;
+}
+.mf-figure--style-boxing.mf-figure--pose-cross .mf-rig-torso{
+  animation:mf-boxing-hip-drive 1080ms ease-in-out both;
+}
+.mf-figure--style-muay-thai.mf-figure--pose-kick .mf-rig-shin--front{
+  animation:mf-thai-whip 1080ms ease-out both;
+}
+.mf-figure--style-capoeira.mf-figure--pose-kick .mf-rig-arm--back{
+  animation:mf-capoeira-counterbalance 1080ms ease-out both;
+}
+.mf-figure--style-karate.mf-figure--pose-jab .mf-rig-arm--front,
+.mf-figure--style-karate.mf-figure--pose-cross .mf-rig-arm--back{
+  animation:mf-karate-straight-strike 1080ms cubic-bezier(.16,.78,.18,1) both;
+}
+.mf-figure--style-jiujitsu.mf-figure--pose-block .mf-rig-torso{
+  animation:mf-jiujitsu-base-block 1080ms ease-in-out both;
+}
+.mf-figure--style-street.mf-figure--pose-cross .mf-rig-arm--back{
+  animation:mf-street-hook 1080ms cubic-bezier(.26,.75,.2,1) both;
+}
+.mf-figure--style-street.mf-figure--pose-hit .mf-rig-head{
+  animation:mf-street-recoil 1080ms ease-in-out both;
+}
+.mf-figure--pose-step .mf-rig-shadow-core,
+.mf-figure--pose-jab .mf-rig-shadow-core,
+.mf-figure--pose-cross .mf-rig-shadow-core,
+.mf-figure--pose-kick .mf-rig-shadow-core{
+  animation:mf-shadow-stretch 1080ms ease-in-out both;
+}
+@keyframes mf-cord-sway{
+  0%,100%{transform:rotate(-4deg)}
+  50%{transform:rotate(7deg) translate(1px,-1px)}
+}
+@keyframes mf-belt-rest{
+  0%,100%{transform:rotate(0deg)}
+  50%{transform:rotate(3deg)}
+}
+@keyframes mf-braid-rest{
+  0%,100%{transform:rotate(-2deg)}
+  50%{transform:rotate(4deg)}
+}
+@keyframes mf-cloth-inertia{
+  0%,100%{transform:rotate(0deg) translate(0,0)}
+  17%{transform:rotate(-4deg) translate(-1px,1px)}
+  44%,55%{transform:rotate(12deg) translate(3px,-5px)}
+  76%{transform:rotate(-5deg) translate(-1px,3px)}
+}
+@keyframes mf-cloth-kick{
+  0%,100%{transform:none}
+  29%{transform:rotate(-9deg)}
+  48%,59%{transform:rotate(20deg) translate(5px,-7px)}
+  76%{transform:rotate(-8deg)}
+}
+@keyframes mf-cloth-fall{
+  0%{transform:none}
+  42%{transform:rotate(12deg)}
+  100%{transform:rotate(33deg) translate(4px,5px)}
+}
+@keyframes mf-braid-action{
+  0%,100%{transform:none}
+  26%{transform:rotate(-8deg)}
+  49%,59%{transform:rotate(12deg) translate(2px,-4px)}
+  76%{transform:rotate(-4deg)}
+}
+@keyframes mf-kinetic-head{
+  0%,100%{transform:none}
+  17%{transform:translate(-5px,3px) rotate(-5deg)}
+  43%,56%{transform:translate(8px,-3px) rotate(6deg)}
+  73%{transform:translate(2px,0) rotate(-2deg)}
+}
+@keyframes mf-kick-counterweight{
+  0%,100%{transform:none}
+  22%{transform:rotate(-8deg)}
+  43%,58%{transform:translate(-14px,-9px) rotate(-35deg)}
+  74%{transform:rotate(9deg)}
+}
+@keyframes mf-boxing-jab-release{
+  0%,100%{transform:none}
+  17%{transform:translate(-12px,4px) rotate(13deg)}
+  38%,53%{transform:translate(85px,-16px) rotate(-53deg)}
+  64%{transform:translate(69px,-13px) rotate(-45deg)}
+  80%{transform:translate(5px,-2px) rotate(-6deg)}
+}
+@keyframes mf-boxing-hip-drive{
+  0%,100%{transform:none}
+  18%{transform:translate(-9px,3px) rotate(-9deg)}
+  42%,55%{transform:translate(23px,-7px) rotate(19deg)}
+  72%{transform:translate(7px,-1px) rotate(7deg)}
+}
+@keyframes mf-thai-whip{
+  0%,100%{transform:none}
+  23%{transform:rotate(25deg)}
+  44%,59%{transform:translate(18px,-16px) rotate(-34deg)}
+  72%{transform:rotate(17deg)}
+}
+@keyframes mf-capoeira-counterbalance{
+  0%,100%{transform:none}
+  25%{transform:translate(-8px,7px) rotate(-25deg)}
+  46%,59%{transform:translate(-27px,12px) rotate(48deg)}
+  76%{transform:translate(5px,2px) rotate(-11deg)}
+}
+@keyframes mf-karate-straight-strike{
+  0%,100%{transform:none}
+  24%{transform:translate(-17px,0) rotate(12deg)}
+  42%,55%{transform:translate(95px,-15px) rotate(-48deg)}
+  67%{transform:translate(44px,-8px) rotate(-25deg)}
+}
+@keyframes mf-jiujitsu-base-block{
+  0%,100%{transform:translate(-2px,8px) rotate(-5deg)}
+  25%{transform:translate(-7px,10px) rotate(-8deg)}
+  43%,61%{transform:translate(-11px,12px) rotate(-12deg)}
+}
+@keyframes mf-street-hook{
+  0%,100%{transform:none}
+  19%{transform:translate(-19px,12px) rotate(29deg)}
+  40%,55%{transform:translate(80px,-22px) rotate(-65deg)}
+  72%{transform:translate(10px,-5px) rotate(-18deg)}
+}
+@keyframes mf-street-recoil{
+  0%,41%,100%{transform:none}
+  56%,67%{transform:translate(-18px,9px) rotate(-19deg)}
+}
+@keyframes mf-shadow-stretch{
+  0%,100%{transform:scaleX(1);opacity:.31}
+  24%{transform:scaleX(.78);opacity:.25}
+  45%,57%{transform:scaleX(1.32);opacity:.18}
+  82%{transform:scaleX(.91);opacity:.3}
+}
+/* Todos os efeitos secundários também respeitam o controle de acessibilidade. */
+html.reduce-motion .mf-fabric-trail,
+html.reduce-motion .mf-hair-strands,
+html.reduce-motion .mf-rig-shadow-core{animation:none!important;transition:none!important}
+@media(prefers-reduced-motion:reduce){
+  .mf-fabric-trail,.mf-hair-strands,.mf-rig-shadow-core{animation:none!important;transition:none!important}
+}
