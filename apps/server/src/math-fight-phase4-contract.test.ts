@@ -32,7 +32,7 @@ describe("Fase 4 — arena e HUD arcade",()=>{
     expect(css).toContain(".fight-hud-clock--urgent");
   });
   it("preserva a arena interativa, matemática e recompensa",()=>{
-    expect(game).toContain("<FightStage motion={motion} impact={impact} color={fighter.color}/>");
+    expect(game).toContain("<FightStage motion={motion} impact={impact} color={fighter.color} fighterStyle={fighter.style}/>");
     expect(stage).toContain("fight-stage-actor--");
     expect(game).toContain("validateAnswer(questionRef.current,raw)");
     expect(game).toContain("limitDamage(left,duration,fighterRef.current.gloves)");
