@@ -107,6 +107,23 @@ export function FighterFigure({
           </g>
         </g>
 
+        {/* Perna dianteira: base de guarda afastada. */}
+        <g className="mf-rig-leg mf-rig-leg--front" data-joint="hip-front">
+          <path d="M117 212 Q139 207 148 231 L159 274 L134 280 Q121 260 111 233Z" fill={url("shorts")} stroke="#19223a" strokeWidth="3"/>
+          <path d="M133 264 Q149 260 158 266 L160 282 Q149 290 139 281Z" fill={url("skin")} stroke="#674939" strokeWidth="2"/>
+          <FighterClothingPiece piece="front-thigh" fighterStyle={fighterStyle} color={color}/>
+          {volume("front-thigh")}
+          <g className="mf-rig-shin mf-rig-shin--front" data-joint="knee-front">
+            <path d="M138 277 Q141 295 141 314 L167 318 Q165 295 160 271Z" fill={url("skin")} stroke="#694637" strokeWidth="3"/>
+            <path d="M139 307 L168 307 L172 326 Q181 332 190 334 L190 339 L133 338 Q129 327 139 307Z" fill={url("boot")} stroke="#172136" strokeWidth="3"/>
+            <path d="M142 316 L164 316 M143 323 L167 323" stroke="#8e9eb3" strokeWidth="3" opacity=".65"/>
+            <FighterClothingPiece piece="front-shin" fighterStyle={fighterStyle} color={color}/>
+          {volume("front-shin")}
+          </g>
+        </g>
+
+        {/* A coluna compartilhada conecta tronco, cabeça e ambos os braços. */}
+        <g className="mf-rig-upper" data-joint="spine-root">
         {/* Braço traseiro, antebraço e luva individualizados. */}
         <g className="mf-rig-arm mf-rig-arm--back" data-joint="shoulder-back">
           <path d="M82 117 Q62 117 56 138 L45 167 Q43 174 52 180 L64 184 Q72 183 75 169 L89 145Z" fill={url("skin")} stroke="#754735" strokeWidth="3"/>
@@ -139,21 +156,6 @@ export function FighterFigure({
           <path d="M126 130 Q138 148 133 177" fill="none" stroke="#ecf1ff" strokeWidth="4" opacity=".16"/>
           <FighterClothingPiece piece="torso" fighterStyle={fighterStyle} color={color}/>
           {volume("torso")}
-        </g>
-
-        {/* Perna dianteira: base de guarda afastada. */}
-        <g className="mf-rig-leg mf-rig-leg--front" data-joint="hip-front">
-          <path d="M117 212 Q139 207 148 231 L159 274 L134 280 Q121 260 111 233Z" fill={url("shorts")} stroke="#19223a" strokeWidth="3"/>
-          <path d="M133 264 Q149 260 158 266 L160 282 Q149 290 139 281Z" fill={url("skin")} stroke="#674939" strokeWidth="2"/>
-          <FighterClothingPiece piece="front-thigh" fighterStyle={fighterStyle} color={color}/>
-          {volume("front-thigh")}
-          <g className="mf-rig-shin mf-rig-shin--front" data-joint="knee-front">
-            <path d="M138 277 Q141 295 141 314 L167 318 Q165 295 160 271Z" fill={url("skin")} stroke="#694637" strokeWidth="3"/>
-            <path d="M139 307 L168 307 L172 326 Q181 332 190 334 L190 339 L133 338 Q129 327 139 307Z" fill={url("boot")} stroke="#172136" strokeWidth="3"/>
-            <path d="M142 316 L164 316 M143 323 L167 323" stroke="#8e9eb3" strokeWidth="3" opacity=".65"/>
-            <FighterClothingPiece piece="front-shin" fighterStyle={fighterStyle} color={color}/>
-          {volume("front-shin")}
-          </g>
         </g>
 
         {/* Cabeça em perspectiva 3/4: queixo, orelhas, nariz e expressão. */}
@@ -200,6 +202,7 @@ export function FighterFigure({
         </g>
 
         <path d="M83 210 Q109 221 136 210" stroke="#f1d4b9" strokeWidth="2" opacity=".4" fill="none"/>
+        </g>
       </svg>
     </div>
   );
