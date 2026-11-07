@@ -57,11 +57,11 @@ export function FightStage({motion,impact,color,fighterStyle}:FightStageProps) {
 
   return <div className={className} style={style} data-impact={cue?.grade??"none"}>
     <div className={actorClasses("player",motion.player)}>
-      <FighterFigure key={`player-${motion.seq}`} color={color} style={fighterStyle} pose={motion.player} label="Seu lutador"/>
+      <FighterFigure key={`player-${motion.seq}`} color={color} fighterStyle={fighterStyle} pose={motion.player} label="Seu lutador"/>
     </div>
     <span className="fight-stage-vs" aria-hidden="true">VS</span>
     <div className={actorClasses("cpu",motion.cpu)}>
-      <FighterFigure key={`cpu-${motion.seq}`} color="#de7651" style="Boxe" enemy pose={motion.cpu} label="Desafiante CPU"/>
+      <FighterFigure key={`cpu-${motion.seq}`} color="#de7651" fighterStyle="Boxe" enemy pose={motion.cpu} label="Desafiante CPU"/>
     </div>
     {cue&&<div key={motion.seq} className="fight-impact-layer" aria-hidden="true">
       <span className={`fight-impact-burst fight-impact-burst--${cue.grade} fight-impact-burst--${side} fight-impact-burst--${zone}`}/>
