@@ -39,7 +39,8 @@ describe("Luta Matemática — seis modalidades visuais",()=>{
   it("preserva as dez poses e acessibilidade, variando as guardas",()=>{
     for(const p of ["idle","step","retreat","jab","cross","kick","block","hit","victory","defeat"])expect(figure).toContain('"'+p+'"');
     for(const slug of ["boxing","muay-thai","capoeira","karate","jiujitsu","street"])expect(css).toContain(".mf-figure--style-"+slug);
-    expect(css).toContain("mf-capoeira-ginga");
+    expect(css).toContain("mf-capoeira-connected-ginga");
+    expect(css).not.toContain("@keyframes mf-capoeira-ginga");
     expect(css).toContain("mf-thai-roundhouse");
     expect(css).toContain("mf-karate-frontkick");
     expect(css).toContain("prefers-reduced-motion");
