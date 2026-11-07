@@ -1,0 +1,62 @@
+name: Importar banners do catálogo
+on:
+  push:
+    branches: [feat/catalogo-banners-educativos-20261106]
+    paths: [.github/workflows/import-game-banners.yml]
+permissions:
+  contents: write
+jobs:
+  importar:
+    runs-on: ubuntu-latest
+    env:
+      ASSET_URLS: '{"property-math":"https://media.canva.com/v2/image-resize/format:JPG/height:112/quality:75/uri:ifs%3A%2F%2FM%2Fbe2eab47-5bd5-4029-bc67-6bd08c6a976f/watermark:F/width:200?csig=AAAAAAAAAAAAAAAAAAAAADPYRBkdsoSogNtmBXpGU1zIMA8zk93Ra-sOVwBTs0s6&exp=1794026220&osig=AAAAAAAAAAAAAAAAAAAAAK9pWJPoLg6qNIKEUcKYzVYmpPxyBllTfP0bJMFcNptT&signer=media-rpc&token=AAIAAU0AJGJlMmVhYjQ3LTViZDUtNDAyOS1iYzY3LTZiZDA4YzZhOTc2ZgAAAAABobRLqeCcO-lwh4CZsqRH4mRSfhN6q66EhLnHpeYMvgLCQisq7Q&x-canva-quality=thumbnail","crazy-race":"https://media.canva.com/v2/image-resize/format:JPG/height:112/quality:75/uri:ifs%3A%2F%2FM%2F1fb1ac8e-e315-43ed-899a-4f5b6679721f/watermark:F/width:200?csig=AAAAAAAAAAAAAAAAAAAAAOTbxKOcUmDqrkDDTHK4_LPaGxD3uS7-lNrntNXn8E1k&exp=1794024628&osig=AAAAAAAAAAAAAAAAAAAAAMg9T2Rb34jupho0DBa5jC0xBa7Zo0Xh--74etHVNEEa&signer=media-rpc&token=AAIAAU0AJDFmYjFhYzhlLWUzMTUtNDNlZC04OTlhLTRmNWI2Njc5NzIxZgAAAAABobQzXyBCfToxlXd8D567dEfr-fwn74V3n4y7iVCcMeQyG7qLMQ&x-canva-quality=thumbnail","number-race":"https://media.canva.com/v2/image-resize/format:JPG/height:112/quality:75/uri:ifs%3A%2F%2FM%2F4a704df5-a795-48d4-93c2-4f711f009372/watermark:F/width:200?csig=AAAAAAAAAAAAAAAAAAAAAKz1mafv9ah9Boke4Q7Gni_qbmjpb0h4QtjJM1SdgHpE&exp=1794025553&osig=AAAAAAAAAAAAAAAAAAAAAEGJW4BZ7hKGVyMBCoLbJ12Fk_Hbhll2jQ-bvIyukQTx&signer=media-rpc&token=AAIAAU0AJDRhNzA0ZGY1LWE3OTUtNDhkNC05M2MyLTRmNzExZjAwOTM3MgAAAAABobRBfGi4he9khXZPuJEVbtYMCvnlVyOQpmyAD_3wjmS7R6XAEQ&x-canva-quality=thumbnail","math-football":"https://media.canva.com/v2/image-resize/format:JPG/height:112/quality:75/uri:ifs%3A%2F%2FM%2F75b9eb10-47ed-41df-83e0-2a36dbec8a84/watermark:F/width:200?csig=AAAAAAAAAAAAAAAAAAAAAATqA6_fWE-8BvYlbIolxq8-UvygLh2wbBsLrXUzGGVM&exp=1794027207&osig=AAAAAAAAAAAAAAAAAAAAAIzWJjaU3nF2p8RIuBD7-E_0zB7vYp-8QGJtM6yT79jL&signer=media-rpc&token=AAIAAU0AJDc1YjllYjEwLTQ3ZWQtNDFkZi04M2UwLTJhMzZkYmVjOGE4NAAAAAABobRauVi441T6dAAfWW2YVK3-G3RZyf3fznt4YjM-sT4Pjj76fw&x-canva-quality=thumbnail","math-fight":"https://media.canva.com/v2/image-resize/format:JPG/height:112/quality:75/uri:ifs%3A%2F%2FM%2F60ba85c1-ece3-45c8-8e74-b37e69417d33/watermark:F/width:200?csig=AAAAAAAAAAAAAAAAAAAAAL69bHvMpsZkbmlrtBwqZ0HKtd_ve3TA3UjpMRe_v8RG&exp=1794025583&osig=AAAAAAAAAAAAAAAAAAAAAIh7gntMaqbXpCwO6o4SmWLA7opxpc53-ItIYknF7Wfl&signer=media-rpc&token=AAIAAU0AJDYwYmE4NWMxLWVjZTMtNDVjOC04ZTc0LWIzN2U2OTQxN2QzMwAAAAABobRB8ZhiNu9HpgiS07tXVweasWbiPoMk4eplbZMrdq3yb7UwDA&x-canva-quality=thumbnail"}'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install Pillow
+      - name: Importar e otimizar as cinco imagens
+        run: |
+          import io, json, os, urllib.request
+          from pathlib import Path
+          from PIL import Image
+          data = json.loads(os.environ['ASSET_URLS'])
+          target = Path('apps/web/public/assets/game-cards')
+          target.mkdir(parents=True,exist_ok=True)
+          for name, source in data.items():
+              variations = [
+                source.replace('format:JPG/height:112/quality:75','format:JPG/height:720/quality:90').replace('width:200','width:1280'),
+                source.replace('format:JPG/height:112/quality:75','format:JPG/height:450/quality:85').replace('width:200','width:800'),
+                source
+              ]
+              blob = None
+              for url in variations:
+                try:
+                  req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0'})
+                  with urllib.request.urlopen(req,timeout=25) as f: raw=f.read()
+                  img=Image.open(io.BytesIO(raw));img.load()
+                  if blob is None or img.width>blob.width:
+                    blob=img
+                  if img.width>=800: break
+                except Exception as exc:
+                  print(name,'variant unavailable:',str(exc)[:100])
+              if blob is None:
+                raise RuntimeError('Cannot fetch '+name)
+              print(name,'source resolution',blob.size)
+              out=blob.convert('RGB')
+              if out.width<640: out=out.resize((640,360),Image.Resampling.LANCZOS)
+              else: out.thumbnail((1000,563),Image.Resampling.LANCZOS)
+              filename=target/(name+'.webp')
+              out.save(filename,'WEBP',quality=78,method=6)
+              print('saved',filename,filename.stat().st_size)
+          
+      - name: Persistir os banners na própria branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/web/public/assets/game-cards/*.webp
+          git commit -m "assets(catalog): adicionar cinco banners panorâmicos otimizados"
+          git push origin HEAD:feat/catalogo-banners-educativos-20261106
