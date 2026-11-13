@@ -444,7 +444,7 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
       <p><strong>Código da sala (6 caracteres)</strong></p>
       <h1 className="football-invite-code">{room.code}</h1>
       {isHost&&sessionStorage.getItem("football-pin:"+room.code)&&<p>Senha de acesso (3 dígitos): <strong className="football-room-pin">{sessionStorage.getItem("football-pin:"+room.code)}</strong></p>}
-      <p>Compartilhe o código da sala e a senha com o segundo jogador. Ele deve escolher “Entrar em sala”.</p>}
+      <p>Compartilhe o código da sala e a senha com o segundo jogador. Ele deve escolher “Entrar em sala”.</p>
       <p>Nível: <strong>{room.gradeLevel==="mixed"?"Misto":room.gradeLevel+"º ano"}</strong></p>
       <p><strong>Vagas:</strong> {room.capacity.occupied}/{room.capacity.max} · {room.capacity.available} disponível(is)</p>
       <div className="football-room-actions">
