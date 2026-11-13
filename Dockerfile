@@ -8,7 +8,7 @@ RUN npm install --legacy-peer-deps --no-audit --no-fund \
     && npm audit --audit-level=critical \
     && npm run typecheck \
     && npm test \
-    && npm run build \
+    && NODE_ENV=production npm run build \
     && node scripts/release-audit.mjs \
     && npm prune --omit=dev --legacy-peer-deps \
     && npm audit --omit=dev --audit-level=high
