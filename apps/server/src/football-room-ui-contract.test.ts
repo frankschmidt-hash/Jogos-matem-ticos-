@@ -36,6 +36,6 @@ describe("Regressão: criação e entrada no Futebol Matemático online",()=>{
     expect(webSource).toContain("Senha de acesso (3 dígitos)");
     expect(webSource).toContain("Copiar convite completo");
     expect(webSource).toContain("Ex.: ABC234");
-    expect(webSource).toContain("Selecione uma sala");
+    expect(webSource).toContain("selecione uma sala disponível abaixo.");
   });
 });
