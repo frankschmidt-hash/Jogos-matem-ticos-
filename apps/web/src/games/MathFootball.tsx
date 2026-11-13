@@ -247,7 +247,7 @@ function SoloFootball({
 }
 
 function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}){
-  const socket=useMemo<Socket>(()=>io(apiBase,{transports:["polling","websocket"],autoConnect:true}),[]);
+  const socket=useMemo<Socket>(()=>io(apiBase,{transports:["polling","websocket"],autoConnect:false}),[]);
   const [room,setRoom]=useState<FootballRoom|null>(null);
   const [mode,setMode]=useState<"menu"|"create"|"join">("menu");
   const [password,setPassword]=useState(()=>String(Math.floor(Math.random()*900)+100));
@@ -258,9 +258,20 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
   const [finalReady,setFinalReady]=useState(false);
   const [rooms,setRooms]=useState<Array<{code:string;hostName:string;players:number;capacity:number}>>([]);
   const [error,setError]=useState("");
+  const [connected,setConnected]=useState(false);
+  const [submitting,setSubmitting]=useState(false);
+  const pendingAction=useRef(false);
   const now=useNow(Boolean(room?.match?.phase==="kick-open"),room?.serverNow);
   const authData=()=>auth(session);
-  const fetchRooms=()=>socket.emit("football:list-rooms",auth(session),(response:{ok:boolean;rooms?:typeof rooms})=>{if(response.ok)setRooms(response.rooms??[]);});
+  const fetchRooms=()=>{
+    if(!socket.connected) return;
+    socket.timeout(8_000).emit("football:list-rooms",auth(session),
+      (timeout:Error|null,response?:{ok:boolean;rooms?:typeof rooms;error?:string})=>{
+        if(timeout){setError("Não foi possível consultar as salas disponíveis.");return;}
+        if(response?.ok) setRooms(response.rooms??[]);
+        else setError(response?.error??"Não foi possível consultar as salas disponíveis.");
+      });
+  };
   const heardKick=useRef(0);
 
   useEffect(()=>{
@@ -297,30 +308,76 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
       if(next.match?.phase==="kick-open") setAnswer("");
     };
     const reconnect=()=>{
+      setConnected(true);
+      setError("");
       fetchRooms();
       const saved=sessionStorage.getItem(ROOM_KEY);
       if(!saved) return;
-      socket.emit("football:reconnect-room",{...auth(session),code:saved},(response:AckResponse)=>{
-        if(response.ok&&response.room) setRoom(response.room);
-        else sessionStorage.removeItem(ROOM_KEY);
-      });
+      socket.timeout(8_000).emit("football:reconnect-room",{...auth(session),code:saved},
+        (timeout:Error|null,response?:AckResponse)=>{
+          if(timeout){
+            setError("Conectado, mas não foi possível recuperar a sala anterior.");
+            return;
+          }
+          if(response?.ok&&response.room) setRoom(response.room);
+          else sessionStorage.removeItem(ROOM_KEY);
+        });
+    };
+    const onDisconnect=()=>{
+      setConnected(false);
+      setSubmitting(false);
+      pendingAction.current=false;
+      setError("Conexão com as salas interrompida. Tentando reconectar...");
+    };
+    const onConnectError=()=>{
+      setConnected(false);
+      setSubmitting(false);
+      pendingAction.current=false;
+      setError("Não foi possível conectar ao servidor de partidas. Verifique a internet e tente novamente.");
     };
     socket.on("football:room-state",stateHandler);
     socket.on("football:rooms-changed",fetchRooms);
     socket.on("connect",reconnect);
+    socket.on("disconnect",onDisconnect);
+    socket.on("connect_error",onConnectError);
+    // A conexão precisa ser aberta no efeito: o StrictMode pode desmontar/remontar este componente.
+    // Desconectar na limpeza sem conectar novamente deixava Criar/Entrar sem resposta.
+    socket.connect();
     if(socket.connected) reconnect();
     return ()=>{
       socket.off("football:room-state",stateHandler);
       socket.off("football:rooms-changed",fetchRooms);
       socket.off("connect",reconnect);
+      socket.off("disconnect",onDisconnect);
+      socket.off("connect_error",onConnectError);
       socket.disconnect();
     };
   },[socket,session.sessionId,session.reconnectToken]);
 
-  const create=()=>socket.emit("football:create-room",{...authData(),password,gradeLevel:grade},(response:AckResponse)=>{
-    if(apply(response)&&response.room) sessionStorage.setItem("football-pin:"+response.room.code,password);
+  const sendRoomAction=(event:"football:create-room"|"football:join-room",payload:object,onSuccess?:(room:FootballRoom)=>void)=>{
+    if(pendingAction.current) return;
+    pendingAction.current=true;
+    setSubmitting(true);
+    setError("");
+    if(!socket.connected) socket.connect();
+    socket.timeout(10_000).emit(event,payload,(timeout:Error|null,response?:AckResponse)=>{
+      pendingAction.current=false;
+      setSubmitting(false);
+      if(timeout){
+        setError("O servidor não confirmou a solicitação. Verifique a conexão e tente novamente.");
+        return;
+      }
+      if(!response){
+        setError("Resposta inesperada do servidor. Tente novamente.");
+        return;
+      }
+      if(apply(response)&&response.room) onSuccess?.(response.room);
+    });
+  };
+  const create=()=>sendRoomAction("football:create-room",{...authData(),password,gradeLevel:grade},room=>{
+    sessionStorage.setItem("football-pin:"+room.code,password);
   });
-  const join=()=>socket.emit("football:join-room",{...authData(),code:code.trim().toUpperCase(),password},(response:AckResponse)=>apply(response));
+  const join=()=>sendRoomAction("football:join-room",{...authData(),code:code.trim().toUpperCase(),password});
   const start=()=>room&&socket.emit("football:start",{...authData(),code:room.code},(response:AckResponse)=>apply(response));
   const rematch=()=>room&&socket.emit("football:rematch",{...authData(),code:room.code},(response:AckResponse)=>apply(response));
   const submit=(event:FormEvent)=>{
@@ -357,17 +414,19 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
             <option value={5}>5º ano</option><option value={6}>6º ano</option><option value={7}>7º ano</option><option value={8}>8º ano</option><option value={9}>9º ano</option><option value="mixed">Misto — 5º ao 9º</option>
           </select>
         </label>}
-        {mode==="join"&&<label>Código da sala<input value={code} onChange={e=>setCode(e.target.value.toUpperCase())} maxLength={6} placeholder="Selecione uma sala na lista"/></label>}
-        <label>Senha numérica de 3 dígitos
+        {mode==="join"&&<label>Código da sala (6 caracteres)<input value={code} onChange={e=>setCode(e.target.value.toUpperCase().replace(/[^A-Z2-9]/g,"").slice(0,6))} maxLength={6} placeholder="Ex.: ABC234" autoComplete="off"/></label>}
+        <label>Senha numérica de 3 dígitos (diferente do código da sala)
           <input className="football-room-pin" inputMode="numeric" pattern="[0-9]{3}" type="text"
             value={password} onChange={e=>setPassword(e.target.value.replace(/\D/g,"").slice(0,3))} maxLength={3} aria-label="Senha numérica de três dígitos"/>
         </label>
-        {mode==="create"&&<p className="football-pin-hint">Compartilhe a senha com seu adversário. Ela não aparece na lista de salas.</p>}
-        <button disabled={!/^\d{3}$/.test(password)||(mode==="join"&&code.length!==6)} onClick={mode==="create"?create:join}>{mode==="create"?"Criar sala":"Entrar"}</button>
+        {mode==="create"&&<p className="football-pin-hint">Esta é a senha, não o código da sala. Ao clicar em Criar sala, será gerado um código de 6 caracteres. Compartilhe os dois com seu adversário.</p>}
+        {mode==="join"&&<p className="football-pin-hint">Digite o código informado pelo criador ou selecione uma sala disponível abaixo. Depois, informe a senha de 3 dígitos recebida.</p>}
+        {!connected&&<p className="football-pin-hint" role="status">Conectando ao servidor de partidas...</p>}
+        <button disabled={submitting||!/^\d{3}$/.test(password)||(mode==="join"&&code.length!==6)} onClick={mode==="create"?create:join}>{submitting?"Aguardando confirmação...":mode==="create"?"Criar sala":"Entrar"}</button>
         <button className="button-ghost" onClick={()=>setMode("menu")}>Cancelar</button>
       </div>}
       {(mode==="menu"||mode==="join")&&<div className="football-rooms-list" aria-label="Salas abertas para jogar">
-        <strong>Salas disponíveis</strong>
+        <strong>Salas disponíveis — escolha uma ou digite o código</strong>
         {rooms.length===0?<p>Nenhuma sala disponível no momento. Você pode criar uma.</p>:rooms.map(item=><div className="football-room-list-item" key={item.code}>
           <div><strong>{item.hostName}</strong><small style={{display:"block"}}>Sala {item.code} · {item.players}/{item.capacity} jogadores</small></div>
           <button className="button-secondary" onClick={()=>{setCode(item.code);setPassword("");setMode("join");}}>Selecionar</button>
@@ -382,11 +441,24 @@ function OnlineFootball({session,onExit}:{session:ClientSession;onExit:()=>void}
     const isHost=room.hostSessionId===session.sessionId;
     return <main id="main-content" className="football-shell"><section className="panel football-room-lobby">
       <p className="eyebrow">Sala privada · 2 jogadores</p>
-      <h1>{room.code}</h1>
-      {isHost&&sessionStorage.getItem("football-pin:"+room.code)&&<p>Senha para convidar: <strong className="football-room-pin">{sessionStorage.getItem("football-pin:"+room.code)}</strong></p>}
+      <p><strong>Código da sala (6 caracteres)</strong></p>
+      <h1 className="football-invite-code">{room.code}</h1>
+      {isHost&&sessionStorage.getItem("football-pin:"+room.code)&&<p>Senha de acesso (3 dígitos): <strong className="football-room-pin">{sessionStorage.getItem("football-pin:"+room.code)}</strong></p>}
+      <p>Compartilhe o código da sala e a senha com o segundo jogador. Ele deve escolher “Entrar em sala”.</p>}
       <p>Nível: <strong>{room.gradeLevel==="mixed"?"Misto":room.gradeLevel+"º ano"}</strong></p>
       <p><strong>Vagas:</strong> {room.capacity.occupied}/{room.capacity.max} · {room.capacity.available} disponível(is)</p>
-      <div className="football-room-actions"><button className="button-secondary" onClick={()=>void navigator.clipboard?.writeText(room.code)}>Copiar código</button>{isHost&&sessionStorage.getItem("football-pin:"+room.code)&&<button className="button-secondary" onClick={()=>void navigator.clipboard?.writeText(sessionStorage.getItem("football-pin:"+room.code)??"")}>Copiar senha</button>}</div>
+      <div className="football-room-actions">
+        <button className="button-secondary" onClick={()=>void navigator.clipboard?.writeText(room.code)}>Copiar código</button>
+        {isHost&&sessionStorage.getItem("football-pin:"+room.code)&&<>
+          <button className="button-secondary" onClick={()=>void navigator.clipboard?.writeText(sessionStorage.getItem("football-pin:"+room.code)??"")}>Copiar senha</button>
+          <button className="button-secondary" onClick={()=>{
+            const pin=sessionStorage.getItem("football-pin:"+room.code);
+            if(!pin) return;
+            if(!navigator.clipboard){setError("Copie o código e a senha exibidos acima.");return;}
+            void navigator.clipboard.writeText(`Futebol Matemático — convite para duelo online\nCódigo da sala: ${room.code}\nSenha: ${pin}\nAcesse: ${window.location.origin}/game/math-football`).catch(()=>setError("Não foi possível copiar. Copie o código e a senha manualmente."));
+          }}>Copiar convite completo</button>
+        </>}
+      </div>
       <div className="football-members">
         {room.members.map(member=><div key={member.sessionId}>
           <span className={member.connected?"online-dot":"online-dot offline"}/>
