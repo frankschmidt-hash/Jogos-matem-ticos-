@@ -93,6 +93,7 @@ export class SessionManager {
   }
 
   heartbeat(sessionId: string, reconnectToken: string, now = Date.now()): PlayerSession {
+    this.cleanup(now);
     const session = this.auth(sessionId, reconnectToken);
     session.lastSeenAt = now; session.connectionState = "connected"; delete session.releaseAt;
     return {...session};

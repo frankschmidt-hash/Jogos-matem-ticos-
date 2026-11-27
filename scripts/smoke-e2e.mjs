@@ -111,7 +111,34 @@ guest=await connect();
 const reconnected=await ack(guest,"number:reconnect-room",{...auth(b),code:number.code});
 assert(reconnected?.ok&&reconnected.room?.code===number.code,"reconexão da Corrida Numérica falhou");
 
-const football=await createJoinStart("Futebol Matemático","football:create-room","football:join-room","football:start",{gradeLevel:process.env.DEPLOYED_VERSION_SMOKE==="true"?6:9});
+// A real two-client football flow: the guest discovers the newly created room
+// independently of its session, then authenticates to enter with the PIN.
+const stale={sessionId:"expired-session",reconnectToken:"expired-token-123456789"};
+const rejected=await ack(guest,"football:create-room",{...stale,password:"358",gradeLevel:9});
+assert(!rejected?.ok&&/expirada/i.test(rejected.error),"Credencial inválida não foi rejeitada");
+const discoveredEvent=new Promise((resolve,reject)=>{
+  const timer=setTimeout(()=>reject(new Error("Sem evento de nova sala de futebol")),7000);
+  guest.once("football:rooms-changed",()=>{clearTimeout(timer);resolve();});
+});
+const createdFootball=await ack(host,"football:create-room",{...auth(a),password:"358",gradeLevel:9});
+assert(createdFootball?.ok&&createdFootball.room?.code,"Futebol: criação de sala falhou");
+const footballCode=createdFootball.room.code;
+await discoveredEvent;
+const discovery=await fetch(base+"/api/football/rooms",{cache:"no-store"});
+const listing=await discovery.json();
+assert(discovery.ok&&listing.rooms.some(r=>r.code===footballCode&&r.players===1),"Sala recém-criada não apareceu na lista HTTP");
+assert(!JSON.stringify(listing).includes(a.reconnectToken)&&!listing.rooms.some(r=>r.password||r.pin),"Lista expôs credenciais");
+const staleList=await ack(guest,"football:list-rooms",stale);
+assert(staleList.ok&&staleList.rooms.some(r=>r.code===footballCode),"Sessão antiga bloqueou descoberta de salas");
+const badPin=await ack(guest,"football:join-room",{...auth(b),code:footballCode,password:"000"});
+assert(!badPin.ok,"PIN inválido aceito");
+const entered=await ack(guest,"football:join-room",{...auth(b),code:footballCode,password:"358"});
+assert(entered.ok&&entered.room.members.length===2,"Futebol: segundo jogador não entrou");
+const afterJoin=await (await fetch(base+"/api/football/rooms")).json();
+assert(!afterJoin.rooms.some(r=>r.code===footballCode),"Sala cheia continuou na lista");
+const startedFootball=await ack(host,"football:start",{...auth(a),code:footballCode});
+assert(startedFootball.ok&&startedFootball.room.question,"Futebol: partida não iniciou");
+const football={code:footballCode,room:startedFootball.room};
 assert(football.room.members?.length===2,"Futebol não iniciou PvP com dois humanos");
 assert(football.room.question.deadlineAt!==null,"Futebol online sem deadline");
 if(process.env.DEPLOYED_VERSION_SMOKE!=="true"){

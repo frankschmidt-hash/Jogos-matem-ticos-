@@ -41,3 +41,20 @@ describe("SessionManager", () => {
     expect(r.connectionState).toBe("connected");
   });
 });
+
+describe("Sessões expiradas",()=>{
+  it("não ressuscita um token expirado e permite criar uma nova sessão livre",()=>{
+    const manager=new SessionManager(1000,5000);
+    const old=manager.claim("Aluno Teste",5,0);
+    expect(()=>manager.heartbeat(old.sessionId,old.reconnectToken,5001)).toThrow(/expirada/);
+    const fresh=manager.claim("Aluno Teste",5,5002);
+    expect(fresh.sessionId).not.toBe(old.sessionId);
+    expect(()=>manager.heartbeat(fresh.sessionId,fresh.reconnectToken,5003)).not.toThrow();
+  });
+  it("não perde uma sessão ativa renovada dentro da janela",()=>{
+    const manager=new SessionManager(1000,5000);
+    const active=manager.claim("Aluno Ativo",6,0);
+    for(let time=1000;time<=20000;time+=1000)
+      expect(manager.heartbeat(active.sessionId,active.reconnectToken,time).sessionId).toBe(active.sessionId);
+  });
+});

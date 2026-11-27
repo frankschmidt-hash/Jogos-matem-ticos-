@@ -4,8 +4,8 @@ import { GAME_CATALOG, type GameId } from "@jogos/game-core";
 import { GRADE_DESCRIPTIONS } from "@jogos/math-engine";
 import { ConnectionStatus, GameCard, HelpRules } from "@jogos/ui";
 import {
-  claimSession, heartbeatSession, loadSession, notifyDisconnect,
-  reconnectSession, fetchLeaderboards, type Leaderboards, type ClientSession
+  claimSession, loadSession, clearSession, ensureActiveSession, isNicknameUnavailable,
+  fetchLeaderboards, type Leaderboards, type ClientSession
 } from "./session";
 import { ExperienceControls } from "./experience";
 import { PropertyGame } from "./games/PropertyGame";
@@ -64,11 +64,11 @@ function HomeRankings(){
   </section>;
 }
 
-function Home({onSession}:{onSession:(s:ClientSession)=>void}) {
+function Home({onSession,sessionNotice=""}:{onSession:(s:ClientSession)=>void;sessionNotice?:string}) {
   const nav=useNavigate();
   const [nickname,setNickname]=useState("");
   const [grade,setGrade]=useState<5|6|7|8|9|"mixed">(5);
-  const [error,setError]=useState("");
+  const [error,setError]=useState(sessionNotice);
   const [loading,setLoading]=useState(false);
 
   const submit=async(e:FormEvent)=>{
@@ -219,6 +219,7 @@ function ReconnectScreen(){
 export function App(){
   const [session,setSession]=useState<ClientSession|null>(()=>loadSession());
   const [checking,setChecking]=useState(!!session);
+  const [sessionNotice,setSessionNotice]=useState("");
 
   useEffect(()=>{
     const saved=loadSession();
@@ -226,36 +227,46 @@ export function App(){
       setChecking(false);
       return;
     }
-    reconnectSession(saved)
-      .then(setSession)
-      .catch(()=>setSession(null))
-      .finally(()=>setChecking(false));
+    let cancelled=false;
+    ensureActiveSession(saved)
+      .then(active=>{if(!cancelled)setSession(active);})
+      .catch(error=>{
+        if(cancelled)return;
+        if(isNicknameUnavailable(error)){
+          clearSession();setSession(null);setSessionNotice("Sua sessão anterior terminou e o nickname está em uso. Escolha outro para continuar.");
+        }else setSession({...saved,connectionState:"reconnecting"});
+      })
+      .finally(()=>{if(!cancelled)setChecking(false);});
+    return ()=>{cancelled=true;};
   },[]);
 
   useEffect(()=>{
     if(!session) return;
 
-    const heartbeat=()=>heartbeatSession(session)
-      .then(setSession)
-      .catch(()=>setSession(current=>current?{...current,connectionState:"reconnecting"}:null));
-
-    const timer=window.setInterval(heartbeat,20_000);
-    const pageHide=()=>notifyDisconnect(session);
+    let cancelled=false;
+    const refresh=()=>void ensureActiveSession(session)
+      .then(active=>{if(!cancelled)setSession(current=>current?.sessionId===session.sessionId?active:current);})
+      .catch(error=>{
+        if(cancelled)return;
+        if(isNicknameUnavailable(error)){
+          clearSession();setSession(null);setSessionNotice("Sua sessão anterior terminou e o nickname está em uso. Escolha outro para continuar.");
+        }else setSession(current=>current?.sessionId===session.sessionId?{...current,connectionState:"reconnecting"}:current);
+      });
+    const timer=window.setInterval(refresh,15_000);
     const offline=()=>setSession(current=>current?{...current,connectionState:"disconnected"}:null);
-    const online=()=>{
-      setSession(current=>current?{...current,connectionState:"reconnecting"}:null);
-      void reconnectSession(session).then(setSession).catch(()=>{});
-    };
-
-    window.addEventListener("pagehide",pageHide);
+    const visible=()=>{if(document.visibilityState==="visible")refresh();};
     window.addEventListener("offline",offline);
-    window.addEventListener("online",online);
-
+    window.addEventListener("online",refresh);
+    window.addEventListener("focus",refresh);
+    document.addEventListener("visibilitychange",visible);
+    // No pagehide disconnect: normal navigation/reload must not invalidate another open connection.
     return ()=>{
+      cancelled=true;
       window.clearInterval(timer);
-      window.removeEventListener("pagehide",pageHide);
       window.removeEventListener("offline",offline);
-      window.removeEventListener("online",online);
+      window.removeEventListener("online",refresh);
+      window.removeEventListener("focus",refresh);
+      document.removeEventListener("visibilitychange",visible);
     };
   },[session?.sessionId]);
 
@@ -265,12 +276,12 @@ export function App(){
     <a className="skip-link" href="#main-content">Pular para o conteúdo</a>
     <ExperienceControls/>
     <Routes>
-      <Route path="/" element={<Home onSession={setSession}/>}/>
+      <Route path="/" element={<Home onSession={active=>{setSessionNotice("");setSession(active);}} sessionNotice={sessionNotice}/>}/>
       <Route path="/lobby" element={session?<Lobby session={session}/>:<Navigate to="/" replace/>}/>
       <Route path="/game/property-math" element={session?<PropertyGame session={session}/>:<Navigate to="/" replace/>}/>
       <Route path="/game/crazy-race" element={session?<CrazyRace session={session}/>:<Navigate to="/" replace/>}/>
       <Route path="/game/number-race" element={session?<NumberRace session={session}/>:<Navigate to="/" replace/>}/>
-      <Route path="/game/math-football" element={session?<MathFootball session={session}/>:<Navigate to="/" replace/>}/>
+      <Route path="/game/math-football" element={session?<MathFootball session={session} onSessionChange={setSession}/>:<Navigate to="/" replace/>}/>
       <Route path="/game/math-fight" element={session?<MathFight session={session}/>:<Navigate to="/" replace/>}/>
       {GAME_CATALOG.filter(g=>g.id!=="property-math"&&g.id!=="crazy-race"&&g.id!=="number-race"&&g.id!=="math-football"&&g.id!=="math-fight").map(g=>
         <Route key={g.id} path={"/game/"+g.id} element={session?<GamePlaceholder id={g.id}/>:<Navigate to="/" replace/>}/>
