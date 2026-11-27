@@ -146,6 +146,47 @@ if(process.env.DEPLOYED_VERSION_SMOKE!=="true"){
   assert(number.room.gradeLevel==="mixed","Corrida Numérica não preservou modo misto");
 }
 
+// Exercise the actual browser transport: ordinary HTTP only, no Socket.IO.
+const httpA=(await post("/api/session/claim",{nickname:"HttpA"+unique,gradeLevel:5})).data.session;
+const httpB=(await post("/api/session/claim",{nickname:"HttpB"+unique,gradeLevel:6})).data.session;
+const action=async(session,action,payload={})=>post("/api/football/action",{...auth(session),action,...payload});
+const invalid=await post("/api/football/action",{...stale,action:"create",password:"123",gradeLevel:5});
+assert(invalid.response.status===401,"HTTP aceitou sessão inválida");
+const httpCreated=await action(httpA,"create",{password:"123",gradeLevel:5});
+assert(httpCreated.response.ok&&httpCreated.data.room?.code,"HTTP: criação falhou");
+const httpCode=httpCreated.data.room.code;
+const retry=await action(httpA,"create",{password:"123",gradeLevel:5});
+assert(retry.data.room?.code===httpCode,"HTTP: repetição da criação duplicou sala");
+const httpList=await (await fetch(base+"/api/football/rooms")).json();
+assert(httpList.rooms.some(room=>room.code===httpCode),"HTTP: nova sala não apareceu");
+const denied=await action(httpB,"sync",{code:httpCode});
+assert(denied.response.status===403,"HTTP: terceiro leu estado privado");
+const wrong=await action(httpB,"join",{code:httpCode,password:"999"});
+assert(!wrong.response.ok,"HTTP: aceitou PIN errado");
+const httpJoined=await action(httpB,"join",{code:httpCode,password:"123"});
+assert(httpJoined.data.room?.members.length===2,"HTTP: convidado não entrou");
+const httpHostState=await action(httpA,"sync",{code:httpCode});
+assert(httpHostState.data.room?.lifecycleState==="ready","HTTP: anfitrião não recebeu convidado");
+const httpStarted=await action(httpA,"start",{code:httpCode});
+assert(httpStarted.data.room?.question,"HTTP: partida não iniciou");
+const httpGuestState=await action(httpB,"sync",{code:httpCode});
+assert(httpGuestState.data.room.question.id===httpStarted.data.room.question.id,"HTTP: jogadores receberam questões diferentes");
+const q=httpStarted.data.room.question;
+const math=/^(\d+) ([+\-]) (\d+)$/.exec(q.expression);
+assert(math,"HTTP: questão do 5º ano inválida");
+const correct=String(math[2]==="+"?Number(math[1])+Number(math[3]):Number(math[1])-Number(math[3]));
+const turn=httpStarted.data.room.match.currentShooterId===httpA.sessionId?httpA:httpB;
+const other=turn===httpA?httpB:httpA;
+const shot=await action(turn,"answer",{code:httpCode,questionId:q.id,answer:correct,target:4,clientSubmissionId:"http-shot-"+unique});
+assert(shot.data.room?.match.lastKick?.correct===true,"HTTP: cobrança correta não registrada");
+const opponent=await action(other,"sync",{code:httpCode});
+assert(opponent.data.room?.match.lastKick?.correct===true,"HTTP: adversário não recebeu cobrança");
+await new Promise(r=>setTimeout(r,2800));
+const next=await action(other,"sync",{code:httpCode});
+assert(next.data.room?.question?.id&&next.data.room.question.id!==q.id,"HTTP: próxima cobrança não iniciou");
+const left=await action(httpA,"leave",{code:httpCode});
+assert(left.response.ok,"HTTP: saída falhou");
+await action(httpB,"leave",{code:httpCode});
 host.close();
 guest.close();
-console.log("Smoke E2E OK:",base);
+console.log("Smoke E2E OK (incluindo futebol sem WebSocket):",base);

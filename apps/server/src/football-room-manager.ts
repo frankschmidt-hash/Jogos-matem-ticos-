@@ -72,6 +72,15 @@ export class FootballRoomManager{
     return room;
   }
 
+  /** Recover a creation whose response was lost, without opening another room. */
+  createOrRecoverRoom(host:FootballRoomMemberInput,password:string,gradeLevel:GradeLevel,now=Date.now()):FootballRoom{
+    const existing=[...this.rooms.values()].find(r=>r.hostSessionId===host.sessionId&&r.status==="waiting");
+    if(!existing)return this.createRoom(host,password,gradeLevel,now);
+    if(existing.gradeLevel!==gradeLevel)throw new Error("Você já possui uma sala em espera com outro nível.");
+    this.infra.verifyPassword("math-football",existing.code,host.sessionId,"P"+password,existing.password,now);
+    return this.reconnect(existing.code,host.sessionId,now);
+  }
+
   listWaiting(){
     return [...this.rooms.values()].filter(room=>room.status==="waiting"&&room.members.length<2&&room.members.some(member=>member.sessionId===room.hostSessionId&&member.connected&&member.presence==="connected"))
       .map(room=>({code:room.code,hostName:room.members.find(m=>m.sessionId===room.hostSessionId)?.nickname??"Jogador",players:room.members.length,capacity:2}));

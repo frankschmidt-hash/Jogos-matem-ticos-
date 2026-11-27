@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { io, type Socket } from "socket.io-client";
 import {
   DEFAULT_SOLO_KICK_MS, createPenaltyMatch, npcDecision, openNextKick, startKick,
   statsFor, submitKick, timeoutKick, type NpcSkill, type PenaltyMatchState,
@@ -251,7 +250,6 @@ function SoloFootball({
 }
 
 function OnlineFootball({session,onExit,onSessionChange}:{session:ClientSession;onExit:()=>void;onSessionChange:(active:ClientSession)=>void}){
-  const socket=useMemo<Socket>(()=>io(apiBase||window.location.origin,{transports:["websocket","polling"],autoConnect:false,forceNew:true}),[]);
   const [room,setRoom]=useState<FootballRoom|null>(null);
   const [mode,setMode]=useState<"menu"|"create"|"join">("menu");
   const [password,setPassword]=useState(()=>String(Math.floor(Math.random()*900)+100));
@@ -265,13 +263,19 @@ function OnlineFootball({session,onExit,onSessionChange}:{session:ClientSession;
   const [connected,setConnected]=useState(false);
   const [submitting,setSubmitting]=useState(false);
   const pendingAction=useRef(false);
+  const syncSerial=useRef(0);
+  const polling=useRef(false);
+  const alive=useRef(false);
   const now=useNow(Boolean(room?.match?.phase==="kick-open"),room?.serverNow);
   const activeSession=useRef(session);
   const roomRef=useRef<FootballRoom|null>(null);
   const listSerial=useRef(0);
   const [listStatus,setListStatus]=useState<"loading"|"ready"|"error">("loading");
-  const authData=()=>auth(activeSession.current);
-  const updateRoom=(next:FootballRoom|null)=>{roomRef.current=next;setRoom(next);};
+  const updateRoom=(next:FootballRoom|null)=>{
+    const previous=roomRef.current;
+    if(previous?.question?.id!==next?.question?.id||previous?.code!==next?.code)setAnswer("");
+    roomRef.current=next;setRoom(next);
+  };
   const adoptSession=(active:ClientSession)=>{
     const previous=activeSession.current;
     activeSession.current=active;
@@ -295,8 +299,8 @@ function OnlineFootball({session,onExit,onSessionChange}:{session:ClientSession;
         if(!response.ok)throw new Error("Lista indisponível");
         const data=await response.json() as {ok:boolean;rooms?:typeof rooms};
         if(!data.ok||!Array.isArray(data.rooms))throw new Error("Lista inválida");
-        if(serial===listSerial.current){setRooms(data.rooms);setListStatus("ready");}
-      }).catch(()=>{if(serial===listSerial.current)setListStatus("error");});
+        if(serial===listSerial.current){setRooms(data.rooms);setListStatus("ready");if(!roomRef.current)setConnected(true);}
+      }).catch(()=>{if(serial===listSerial.current){setListStatus("error");if(!roomRef.current)setConnected(false);}});
   };
   const heardKick=useRef(0);
 
@@ -328,119 +332,118 @@ function OnlineFootball({session,onExit,onSessionChange}:{session:ClientSession;
     return true;
   };
 
+  type FootballAction="create"|"join"|"sync"|"start"|"answer"|"rematch"|"leave";
+  const requestAction=async(action:FootballAction,payload:object,active:ClientSession)=>{
+    const response=await fetch(apiBase+"/api/football/action",{
+      method:"POST",headers:{"content-type":"application/json"},cache:"no-store",
+      body:JSON.stringify({action,...payload,...auth(active)}),
+      signal:AbortSignal.timeout(12_000)
+    });
+    const data=await response.json() as AckResponse;
+    return {status:response.status,data};
+  };
+
   useEffect(()=>{
-    const stateHandler=(next:FootballRoom)=>{
-      if(!next.members.some(member=>member.sessionId===activeSession.current.sessionId))return;
-      updateRoom(next);
-      if(next.match?.phase==="kick-open") setAnswer("");
-    };
+    alive.current=true;
     let disposed=false;
-    const reconnect=()=>{
-      setConnected(true);
-      fetchRooms();
-      void refreshIdentity().then(active=>{
-        if(disposed||!socket.connected)return;
-        const saved=sessionStorage.getItem(roomKey(active));
-        if(!saved)return;
-        socket.timeout(8_000).emit("football:reconnect-room",{...auth(active),code:saved},
-          (timeout:Error|null,response?:AckResponse)=>{
-            if(disposed)return;
-            if(timeout){setError("Conectado, mas não foi possível recuperar a sala anterior.");return;}
-            if(response?.ok&&response.room)updateRoom(response.room);
-            else{
-              sessionStorage.removeItem(roomKey(active));updateRoom(null);setMode("menu");
-              setError("A sala anterior não está mais disponível. Escolha uma nova sala.");
-            }
-          });
-      }).catch(error=>{if(!disposed)setError(error instanceof Error?error.message:"Não foi possível validar sua sessão.");});
+    const poll=async()=>{
+      if(disposed||pendingAction.current||polling.current)return;
+      const active=activeSession.current;
+      const saved=roomRef.current?.code??sessionStorage.getItem(roomKey(active));
+      if(!saved)return;
+      polling.current=true;
+      const serial=syncSerial.current;
+      try{
+        let result=await requestAction("sync",{code:saved},active);
+        if(disposed||serial!==syncSerial.current)return;
+        if(result.status===401){
+          const renewed=await refreshIdentity();
+          if(disposed||serial!==syncSerial.current)return;
+          if(renewed.sessionId!==active.sessionId){
+            updateRoom(null);setMode("menu");
+            setError("A sessão foi renovada. Crie ou entre em uma nova sala.");return;
+          }
+          result=await requestAction("sync",{code:saved},renewed);
+        }
+        if(disposed||serial!==syncSerial.current)return;
+        if(result.data.ok&&result.data.room){
+          updateRoom(result.data.room);setConnected(true);
+        }else if(result.status===404||result.status===403){
+          sessionStorage.removeItem(roomKey(active));updateRoom(null);setMode("menu");
+          setError(result.data.error??"A sala anterior não está mais disponível.");fetchRooms();
+        }else{
+          setConnected(false);setError(result.data.error??"Não foi possível sincronizar a partida.");
+        }
+      }catch{
+        if(!disposed&&serial===syncSerial.current)setConnected(false);
+      }finally{polling.current=false;}
     };
-    const onDisconnect=()=>{
-      setConnected(false);
-      setSubmitting(false);
-      pendingAction.current=false;
-      setError("Conexão com as salas interrompida. Tentando reconectar...");
-    };
-    const onConnectError=()=>{
-      setConnected(false);
-      setSubmitting(false);
-      pendingAction.current=false;
-      setError("Não foi possível conectar ao servidor de partidas. Verifique a internet e tente novamente.");
-    };
-    socket.on("football:room-state",stateHandler);
-    socket.on("football:rooms-changed",fetchRooms);
-    socket.on("connect",reconnect);
-    socket.on("disconnect",onDisconnect);
-    socket.on("connect_error",onConnectError);
-    // A conexão precisa ser aberta no efeito: o StrictMode pode desmontar/remontar este componente.
-    // Desconectar na limpeza sem conectar novamente deixava Criar/Entrar sem resposta.
     fetchRooms();
     const roomPolling=window.setInterval(fetchRooms,5_000);
-    const visible=()=>{if(document.visibilityState==="visible")fetchRooms();};
+    const statePolling=window.setInterval(()=>void poll(),1_000);
+    const visible=()=>{if(document.visibilityState==="visible"){fetchRooms();void poll();}};
     document.addEventListener("visibilitychange",visible);
-    socket.connect();
-    if(socket.connected) reconnect();
+    window.addEventListener("online",visible);
+    void poll();
     return ()=>{
-      disposed=true;
-      ++listSerial.current;
-      window.clearInterval(roomPolling);
+      disposed=true;alive.current=false;++listSerial.current;++syncSerial.current;
+      window.clearInterval(roomPolling);window.clearInterval(statePolling);
       document.removeEventListener("visibilitychange",visible);
-      socket.off("football:room-state",stateHandler);
-      socket.off("football:rooms-changed",fetchRooms);
-      socket.off("connect",reconnect);
-      socket.off("disconnect",onDisconnect);
-      socket.off("connect_error",onConnectError);
-      socket.disconnect();
+      window.removeEventListener("online",visible);
     };
-  },[socket]);
+  },[]);
 
-  const sendRoomAction=(event:"football:create-room"|"football:join-room",payload:object,onSuccess?:(room:FootballRoom)=>void)=>{
+  const sendRoomAction=async(action:Exclude<FootballAction,"sync">,payload:object,onSuccess?:(room:FootballRoom)=>void)=>{
     if(pendingAction.current)return;
-    pendingAction.current=true;setSubmitting(true);setError("");
-    const finish=()=>{pendingAction.current=false;setSubmitting(false);};
-    const send=async(retry:boolean)=>{
-      try{
-        const active=await refreshIdentity();
-        if(!socket.connected)socket.connect();
-        // Rebuild authentication after validation, not when the user first clicked.
-        const request={...payload,...auth(active)};
-        socket.timeout(10_000).emit(event,request,(timeout:Error|null,response?:AckResponse)=>{
-          if(timeout){finish();setError("O servidor não confirmou a solicitação. Verifique a conexão e tente novamente.");return;}
-          if(!response){finish();setError("Resposta inesperada do servidor. Tente novamente.");return;}
-          if(!response.ok&&retry&&/sessão inválida|expirada/i.test(response.error??"")){
-            void send(false);return;
-          }
-          finish();
-          if(apply(response)&&response.room)onSuccess?.(response.room);
-          fetchRooms();
-        });
-      }catch(error){finish();setError(error instanceof Error?error.message:"Não foi possível recuperar a sessão.");}
-    };
-    void send(true);
+    pendingAction.current=true;++syncSerial.current;setSubmitting(true);setError("");
+    try{
+      const active=await refreshIdentity();
+      if(!alive.current)return;
+      let result=await requestAction(action,payload,active);
+      if(result.status===401){
+        const renewed=await refreshIdentity();
+        if(action!=="create"&&action!=="join"&&renewed.sessionId!==active.sessionId){
+          setError("A sessão foi renovada. Entre em uma nova sala.");return;
+        }
+        result=await requestAction(action,payload,renewed);
+      }
+      if(!alive.current)return;
+      if(apply(result.data)){
+        setConnected(true);
+        if(result.data.room)onSuccess?.(result.data.room);
+      }
+      fetchRooms();
+    }catch(error){
+      if(alive.current){
+        setConnected(false);
+        setError(error instanceof Error&&error.name==="TimeoutError"?"A solicitação HTTP demorou demais. Tente novamente.":"Não foi possível concluir a solicitação ao servidor. Tente novamente.");
+      }
+    }finally{pendingAction.current=false;if(alive.current)setSubmitting(false);}
   };
-  const create=()=>sendRoomAction("football:create-room",{...authData(),password,gradeLevel:grade},room=>{
+  const create=()=>void sendRoomAction("create",{password,gradeLevel:grade},room=>{
     sessionStorage.setItem("football-pin:"+room.code,password);
   });
-  const join=()=>sendRoomAction("football:join-room",{...authData(),code:code.trim().toUpperCase(),password});
-  const start=()=>room&&socket.emit("football:start",{...authData(),code:room.code},(response:AckResponse)=>apply(response));
-  const rematch=()=>room&&socket.emit("football:rematch",{...authData(),code:room.code},(response:AckResponse)=>apply(response));
+  const join=()=>void sendRoomAction("join",{code:code.trim().toUpperCase(),password});
+  const start=()=>room&&void sendRoomAction("start",{code:room.code});
+  const rematch=()=>room&&void sendRoomAction("rematch",{code:room.code});
   const submit=(event:FormEvent)=>{
     event.preventDefault();
-    if(!room?.question) return;
-    socket.emit("football:answer",{
-      ...authData(),code:room.code,questionId:room.question.id,answer,target,
-      clientSubmissionId:crypto.randomUUID()
-    },(response:AckResponse)=>{
-      if(apply(response)) setAnswer("");
-    });
+    if(!room?.question||!answer.trim())return;
+    void sendRoomAction("answer",{code:room.code,questionId:room.question.id,answer,target,clientSubmissionId:crypto.randomUUID()});
   };
-  const leave=()=>{
-    const exit=()=>{
+  const leave=async()=>{
+    if(pendingAction.current)return;
+    pendingAction.current=true;++syncSerial.current;setSubmitting(true);
+    try{
+      if(room){
+        const result=await requestAction("leave",{code:room.code},activeSession.current);
+        if(!result.data.ok&&![401,403,404].includes(result.status)){setError(result.data.error??"Não foi possível sair da sala.");return;}
+      }
       sessionStorage.removeItem(roomKey(activeSession.current));
       if(room)sessionStorage.removeItem("football-pin:"+room.code);
-      socket.disconnect();onExit();
-    };
-    if(room&&socket.connected)socket.timeout(3_000).emit("football:leave",{...authData(),code:room.code},()=>exit());
-    else exit();
+      updateRoom(null);onExit();
+    }catch{setError("Não foi possível sair da sala. Tente novamente.");}
+    finally{pendingAction.current=false;if(alive.current)setSubmitting(false);}
   };
 
   if(!room){
@@ -510,7 +513,7 @@ function OnlineFootball({session,onExit,onSessionChange}:{session:ClientSession;
           {member.sessionId===room.hostSessionId&&<small>Host</small>}
         </div>)}
       </div>
-      {isHost?<button disabled={room.lifecycleState!=="ready"} onClick={start}>{room.lifecycleState==="ready"?"Iniciar disputa":"Aguardando adversário"}</button>:<p>Aguardando o host iniciar...</p>}
+      {isHost?<button disabled={submitting||room.lifecycleState!=="ready"} onClick={start}>{room.lifecycleState==="ready"?"Iniciar disputa":"Aguardando adversário"}</button>:<p>Aguardando o host iniciar...</p>}
       <button className="button-ghost" onClick={leave}>Sair da sala</button>
       {error&&<p className="error">{error}</p>}
     </section></main>;
@@ -531,7 +534,7 @@ function OnlineFootball({session,onExit,onSessionChange}:{session:ClientSession;
 
   return <main id="main-content" className="football-page">
     <header className="football-header">
-      <div><p className="eyebrow">Sala {room.code} · {socket.connected?"Conectado":"Reconectando"}</p><h1>Futebol Matemático</h1></div>
+      <div><p className="eyebrow">Sala {room.code} · {connected?"Conectado":"Reconectando"}</p><h1>Futebol Matemático</h1></div>
       <button className="button-ghost" onClick={()=>window.confirm("Abandonar a partida?")&&leave()}>Sair</button>
     </header>
     <Scoreboard match={room.match}/>
@@ -546,7 +549,7 @@ function OnlineFootball({session,onExit,onSessionChange}:{session:ClientSession;
         <h2>{room.question?.expression??"Preparando cobrança..."}</h2>
         {myTurn&&room.question?<form onSubmit={submit}>
           <input inputMode="decimal" value={answer} onChange={e=>setAnswer(e.target.value)} placeholder="Digite sua resposta"/>
-          <button>Chutar</button>
+          <button disabled={submitting||!answer.trim()}>Chutar</button>
         </form>:<p className="football-wait">Aguardando a resposta do adversário.</p>}
         {room.question?.deadlineAt&&<div className={"football-timer "+(secondsLeft(room.question.deadlineAt,now)<=5?"danger":"")}>{secondsLeft(room.question.deadlineAt,now)}s</div>}
       </>}
