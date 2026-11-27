@@ -22,12 +22,11 @@ describe("Regressão: criação e entrada no Futebol Matemático online",()=>{
     expect(manager.publicSnapshot(room.code).capacity.occupied).toBe(2);
   });
 
-  it("reconecta o Socket.IO após desmontagem e nova montagem, sem ação silenciosa",()=>{
-    expect(webSource).toContain("autoConnect:false");
-    expect(webSource).toContain("socket.connect()");
-    expect(webSource).toContain('socket.on("connect_error",onConnectError)');
-    expect(webSource).toContain('socket.timeout(10_000).emit(event,request');
-    expect(webSource).toContain("Aguardando confirmação...");
+  it("usa HTTP para todas as ações do futebol, sem depender de WebSocket",()=>{
+    expect(webSource).not.toContain('from "socket.io-client"');
+    expect(webSource).toContain('/api/football/action');
+    expect(webSource).toContain('window.setInterval(()=>void poll(),1_000)');
+    expect(webSource).toContain('Aguardando confirmação...');
     expect(dockerSource).toContain("NODE_ENV=production npm run build");
   });
 
@@ -55,6 +54,18 @@ describe("Descoberta e recuperação",()=>{
     expect(webSource).toContain('/api/football/rooms');
     expect(webSource).toContain('window.setInterval(fetchRooms,5_000)');
     expect(webSource).toContain('ensureActiveSession(activeSession.current)');
-    expect(webSource).toContain('const request={...payload,...auth(active)}');
+    expect(webSource).toContain('JSON.stringify({action,...payload,...auth(active)})');
+  });
+});
+
+describe("Criação idempotente por HTTP",()=>{
+  it("recupera a mesma sala se a resposta se perder, sem trocar a senha nem a série",()=>{
+    const manager=new FootballRoomManager(new RoomInfrastructure());
+    const host={sessionId:"http-create-host",nickname:"Host"};
+    const room=manager.createOrRecoverRoom(host,"123",5,0);
+    expect(manager.createOrRecoverRoom(host,"123",5,1).code).toBe(room.code);
+    expect(()=>manager.createOrRecoverRoom(host,"999",5,2)).toThrow(/inválidos/i);
+    expect(()=>manager.createOrRecoverRoom(host,"123",6,3)).toThrow(/nível/);
+    expect(manager.listWaiting()).toHaveLength(1);
   });
 });

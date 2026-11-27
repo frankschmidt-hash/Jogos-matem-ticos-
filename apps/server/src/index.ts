@@ -314,6 +314,114 @@ function scheduleFootballKick(code:string){
   footballKickTimers.set(code,timer);
 }
 
+
+// Football uses ordinary authenticated HTTP for every action. It shares the
+// room manager, timer registry and scoreboard with legacy Socket.IO clients.
+const footballHttpLeases=new Map<string,{code:string;sessionId:string;seenAt:number}>();
+const footballLeaseKey=(code:string,sessionId:string)=>code+":"+sessionId;
+function touchFootballHttp(code:string,sessionId:string){
+  footballHttpLeases.set(footballLeaseKey(code,sessionId),{code,sessionId,seenAt:Date.now()});
+}
+function sweepFootballHttp(now=Date.now()){
+  for(const [key,lease] of footballHttpLeases){
+    const room=footballRooms.getRoom(lease.code);
+    if(!room||!room.members.some(m=>m.sessionId===lease.sessionId&&m.presence!=="abandoned")){
+      footballHttpLeases.delete(key);continue;
+    }
+    if(now-lease.seenAt>30_000){
+      footballHttpLeases.delete(key);
+      footballRooms.disconnect(lease.code,lease.sessionId,now);
+      emitFootballState(lease.code);emitFootballRooms();
+    }
+  }
+}
+const footballHttpSchema=z.discriminatedUnion("action",[
+  footballCreateRoomSchema.extend({action:z.literal("create")}),
+  footballJoinRoomSchema.extend({action:z.literal("join")}),
+  footballRoomActionSchema.extend({action:z.literal("sync")}),
+  footballRoomActionSchema.extend({action:z.literal("start")}),
+  footballAnswerSchema.extend({action:z.literal("answer")}),
+  footballRoomActionSchema.extend({action:z.literal("rematch")}),
+  footballRoomActionSchema.extend({action:z.literal("leave")})
+]);
+app.post("/api/football/action",async(request,reply)=>{
+  reply.header("Cache-Control","no-store");
+  const parsed=footballHttpSchema.safeParse(request.body);
+  if(!parsed.success)return reply.code(400).send({ok:false,error:"Dados da partida inválidos."});
+  const data=parsed.data;
+  let session;
+  try{session=manager.heartbeat(data.sessionId,data.reconnectToken);}
+  catch{return reply.code(401).send({ok:false,error:"Sessão inválida ou expirada."});}
+  try{
+    roomInfrastructure.assertActionRate("football-http",session.sessionId,Date.now(),35,10_000);
+    if(data.action==="create"){
+      const room=footballRooms.createOrRecoverRoom({sessionId:session.sessionId,nickname:session.nickname,connected:true},data.password,data.gradeLevel);
+      touchFootballHttp(room.code,session.sessionId);
+      emitFootballState(room.code);emitFootballRooms();
+      return {ok:true,room:footballRooms.publicSnapshot(room.code)};
+    }
+    const code=data.code.toUpperCase();
+    if(data.action==="join"){
+      const room=footballRooms.joinRoom(code,data.password,{sessionId:session.sessionId,nickname:session.nickname,connected:true});
+      touchFootballHttp(code,session.sessionId);
+      emitFootballState(code);emitFootballRooms();
+      return {ok:true,room:footballRooms.publicSnapshot(room.code)};
+    }
+    const existing=footballRooms.getRoom(code);
+    if(!existing)return reply.code(404).send({ok:false,error:"Sala não encontrada. Crie ou entre em outra sala."});
+    if(!existing.members.some(m=>m.sessionId===session.sessionId&&m.presence!=="abandoned"))
+      return reply.code(403).send({ok:false,error:"Jogador não pertence a esta sala."});
+    if(data.action==="leave"){
+      const room=footballRooms.abandon(code,session.sessionId);
+      footballHttpLeases.delete(footballLeaseKey(code,session.sessionId));
+      const timer=footballKickTimers.get(code);
+      if(timer)clearTimeout(timer);
+      footballKickTimers.delete(code);
+      if(room)emitFootballState(code);
+      emitFootballRooms();
+      return {ok:true,room:null};
+    }
+    if(data.action==="sync"){
+      const member=existing.members.find(m=>m.sessionId===session.sessionId)!;
+      const wasConnected=member.connected&&member.presence==="connected";
+      footballRooms.reconnect(code,session.sessionId);
+      touchFootballHttp(code,session.sessionId);
+      if(!wasConnected){emitFootballState(code);emitFootballRooms();}
+      return {ok:true,room:footballRooms.publicSnapshot(code)};
+    }
+    if(data.action==="start"){
+      // A retry after a lost HTTP response must not restart an ongoing game.
+      if(existing.hostSessionId!==session.sessionId)throw new Error("Somente o host pode iniciar.");
+      if(existing.status==="waiting"){
+        footballRooms.startRoom(code,session.sessionId);
+        scheduleFootballKick(code);
+      }else if(existing.status!=="playing")throw new Error("A partida já terminou.");
+      emitFootballRooms();
+    }else if(data.action==="answer"){
+      const previousQuestion=existing.question?.id;
+      const room=footballRooms.submitAnswer(code,session.sessionId,data.questionId,data.answer,data.clientSubmissionId,Date.now(),data.target);
+      if(previousQuestion===data.questionId&&room.question===null){
+        if(room.status==="playing")scheduleFootballAdvance(code);
+        else{
+          const timer=footballKickTimers.get(code);
+          if(timer)clearTimeout(timer);
+          footballKickTimers.delete(code);
+        }
+      }
+    }else if(data.action==="rematch"){
+      if(existing.status==="finished"){
+        footballRooms.rematch(code,session.sessionId);
+        scheduleFootballKick(code);
+      }else if(existing.status!=="playing")throw new Error("A partida atual ainda não terminou.");
+    }
+    touchFootballHttp(code,session.sessionId);
+    emitFootballState(code);
+    return {ok:true,room:footballRooms.publicSnapshot(code)};
+  }catch(error){
+    return reply.code(409).send({ok:false,error:errorMessage(error)});
+  }
+});
+
 io.on("connection", socket => {
   socket.on("session:heartbeat", (payload:unknown, ack?:Ack) => {
     const parsed=heartbeatSchema.safeParse(payload);
@@ -895,7 +1003,7 @@ io.on("connection", socket => {
       numberRooms.disconnect(numberCode,sessionId);
       emitNumberState(numberCode);
     }
-    if(sessionId && footballCode && (!currentSocket||currentSocket===socket.id)){
+    if(sessionId && footballCode && (!currentSocket||currentSocket===socket.id)&&!footballHttpLeases.has(footballLeaseKey(footballCode,sessionId))){
       footballRooms.disconnect(footballCode,sessionId);
       emitFootballState(footballCode);
       emitFootballRooms();
@@ -915,6 +1023,7 @@ setInterval(() => {
   const propertyChanges=propertyRooms.cleanup();
   for(const code of propertyChanges) emitPropertyState(code);
   if(propertyChanges.length) emitPropertyRooms();
+  sweepFootballHttp();
   for(const code of footballRooms.cleanup()){
     const room=footballRooms.getRoom(code);
     if(room?.status!=="playing"){
