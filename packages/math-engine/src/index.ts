@@ -33,7 +33,9 @@ const parseFraction = (value: string): number | null => {
 const parseNumericValue = (value: string): number | null => {
   const fractionValue = parseFraction(value);
   if (fractionValue !== null) return fractionValue;
-  const numberValue = Number(normalizeNumericInput(value));
+  const normalized = normalizeNumericInput(value);
+  if (!normalized) return null;
+  const numberValue = Number(normalized);
   return Number.isFinite(numberValue) ? numberValue : null;
 };
 
@@ -94,111 +96,112 @@ const q = (gradeLevel: ConcreteGradeLevel, category: string, expression: string,
     gradeLevel, category, expression, correctAnswer, acceptedAnswers, difficulty, generatedAt: Date.now(), seed
   };
   if (!satisfiesIntegerMultiplicationAndDivision(question) || !satisfiesSimpleOperations(question)) {
-    throw new Error("A questão deve ser somente uma conta das seis operações, dentro dos limites por algarismo.");
+    throw new Error("Questão incompatível com a matriz de operações da série.");
   }
   return question;
 };
 
 
-/**
- * Contrato de TODOS os quatro jogos, incluindo bombas e partidas online.
- * Somente uma conta; adição/subtração <= 3 algarismos;
- * multiplicação/divisão <= 2 algarismos em CADA operando;
- * potência com base <= 2 algarismos e expoente SEMPRE igual a 2;
- * radicando <= 3 algarismos com raiz inteira.
- */
+/** Matriz única de operações por série, para cliente e servidor. */
+const BASIC = ["addition","subtraction"] as const;
+const FOUR = [...BASIC,"multiplication","exact-division"] as const;
+const SIX = [...FOUR,"exponentiation","radication"] as const;
+type Operation = typeof SIX[number];
+type GradeRule = {operations:readonly Operation[];operandMax:number;rootMax:number;powerBaseMax:number;progression:readonly [number,number,number]};
+export const GRADE_RULES:Readonly<Record<ConcreteGradeLevel,GradeRule>> = {
+  5:{operations:BASIC,operandMax:99,rootMax:0,powerBaseMax:0,progression:[49,79,99]},
+  6:{operations:FOUR,operandMax:99,rootMax:0,powerBaseMax:0,progression:[59,79,99]},
+  7:{operations:FOUR,operandMax:999,rootMax:0,powerBaseMax:0,progression:[399,699,999]},
+  8:{operations:SIX,operandMax:9999,rootMax:9,powerBaseMax:9,progression:[3999,6999,9999]},
+  9:{operations:SIX,operandMax:9999,rootMax:99,powerBaseMax:99,progression:[6999,8999,9999]}
+};
+export const GRADE_DESCRIPTIONS:Readonly<Record<GradeLevel,string>> = {
+  5:"Adição e subtração • operandos de 1 a 2 algarismos",
+  6:"Quatro operações • operandos de 1 a 2 algarismos",
+  7:"Quatro operações • operandos de 1 a 3 algarismos",
+  8:"Quatro operações • até 4 algarismos; potência e raiz de 1 algarismo (base/resultado)",
+  9:"Quatro operações • até 4 algarismos; potência e raiz de até 2 algarismos (base/resultado)",
+  mixed:"Todas as séries • cada questão segue as regras da série sorteada"
+};
+
+/** Sem série, valida a união dos conteúdos (9º); com série, valida também o currículo. */
 export const satisfiesSimpleOperations = (
-  question: Pick<MathQuestion, "expression" | "correctAnswer">
+  question: Pick<MathQuestion,"expression"|"correctAnswer"> & Partial<Pick<MathQuestion,"gradeLevel"|"category">>
 ): boolean => {
+  const rules=GRADE_RULES[question.gradeLevel??9];
+  if(!rules) return false;
   const answer=Number(question.correctAnswer);
-  if(!Number.isSafeInteger(answer)||String(answer)!==question.correctAnswer) return false;
-  let m=/^(\d{1,3}) \+ (\d{1,3})$/.exec(question.expression);
-  if(m) return Number(m[1])+Number(m[2])===answer;
-  m=/^(\d{1,3}) - (\d{1,3})$/.exec(question.expression);
-  if(m) return Number(m[1])-Number(m[2])===answer;
-  m=/^(\d{1,2}) × (\d{1,2})$/.exec(question.expression);
-  if(m) return Number(m[1])*Number(m[2])===answer;
-  m=/^(\d{1,2}) ÷ (\d{1,2})$/.exec(question.expression);
+  if(!Number.isSafeInteger(answer)||answer<0||String(answer)!==question.correctAnswer) return false;
+  const allowed=(op:Operation)=>rules.operations.includes(op)&&(question.category===undefined||question.category===op);
+  let m=/^(\d{1,4}) ([+\-×÷]) (\d{1,4})$/.exec(question.expression);
   if(m){
-    const a=Number(m[1]),b=Number(m[2]);
-    return b!==0&&a%b===0&&a/b===answer;
+    const a=Number(m[1]),b=Number(m[3]);
+    if(a>rules.operandMax||b>rules.operandMax) return false;
+    switch(m[2]){
+      case "+":return allowed("addition")&&a+b===answer;
+      case "-":return allowed("subtraction")&&a-b===answer;
+      case "×":return allowed("multiplication")&&a*b===answer;
+      case "÷":return allowed("exact-division")&&b!==0&&a%b===0&&a/b===answer;
+    }
   }
   m=/^(\d{1,2})²$/.exec(question.expression);
-  if(m) return Number(m[1])**2===answer;
-  m=/^(√|∛)(\d{1,3})$/.exec(question.expression);
+  if(m) return allowed("exponentiation")&&Number(m[1])<=rules.powerBaseMax&&Number(m[1])**2===answer;
+  m=/^(√|∛)(\d{1,6})$/.exec(question.expression);
   if(m){
-    const value=m[1]==="√"?Math.sqrt(Number(m[2])):Math.cbrt(Number(m[2]));
-    return Number.isInteger(value)&&value===answer;
+    const value=Number(m[2]);
+    return allowed("radication")&&answer<=rules.rootMax&&(m[1]==="√"?answer**2:answer**3)===value;
   }
   return false;
 };
 
-type Operation="addition"|"subtraction"|"multiplication"|"exact-division"|"exponentiation"|"radication";
-type Limits={additive:number;factor:number;divisor:number;quotient:number;powerBase:number;squareRoot:number;cubeRoot:number};
-const GRADE_LIMITS:Record<ConcreteGradeLevel,Record<Difficulty,Limits>>={
-  5:{
-    1:{additive:40,factor:9,divisor:8,quotient:9,powerBase:6,squareRoot:10,cubeRoot:0},
-    2:{additive:200,factor:12,divisor:12,quotient:12,powerBase:12,squareRoot:15,cubeRoot:0},
-    3:{additive:999,factor:19,divisor:19,quotient:19,powerBase:20,squareRoot:25,cubeRoot:0}
-  },
-  6:{
-    1:{additive:120,factor:12,divisor:12,quotient:12,powerBase:8,squareRoot:15,cubeRoot:4},
-    2:{additive:450,factor:25,divisor:20,quotient:20,powerBase:14,squareRoot:25,cubeRoot:6},
-    3:{additive:999,factor:50,divisor:30,quotient:30,powerBase:25,squareRoot:31,cubeRoot:9}
-  },
-  7:{
-    1:{additive:200,factor:20,divisor:20,quotient:20,powerBase:12,squareRoot:20,cubeRoot:5},
-    2:{additive:650,factor:60,divisor:30,quotient:30,powerBase:22,squareRoot:31,cubeRoot:8},
-    3:{additive:999,factor:99,divisor:33,quotient:49,powerBase:40,squareRoot:31,cubeRoot:9}
-  },
-  8:{
-    1:{additive:300,factor:25,divisor:22,quotient:28,powerBase:20,squareRoot:24,cubeRoot:6},
-    2:{additive:750,factor:65,divisor:33,quotient:42,powerBase:45,squareRoot:31,cubeRoot:8},
-    3:{additive:999,factor:89,divisor:44,quotient:65,powerBase:70,squareRoot:31,cubeRoot:9}
-  },
-  9:{
-    1:{additive:400,factor:35,divisor:27,quotient:35,powerBase:25,squareRoot:29,cubeRoot:7},
-    2:{additive:850,factor:75,divisor:40,quotient:55,powerBase:70,squareRoot:31,cubeRoot:9},
-    3:{additive:999,factor:99,divisor:49,quotient:75,powerBase:99,squareRoot:31,cubeRoot:9}
-  }
+/** Amostra também números menores para variar o cálculo mental. */
+const operand=(r:Random,max:number,min=1):number=>{
+  if(max<min) throw new RangeError("Limite de operando inválido");
+  const digits=String(max).length;
+  const smaller=digits>1&&r()<0.25;
+  const ceiling=smaller?Math.min(max,10**int(r,1,digits-1)-1):max;
+  return int(r,min,Math.max(min,ceiling));
 };
-const OPERATIONS:readonly Operation[]=[
-  "addition","subtraction","multiplication","exact-division","exponentiation","radication"
-];
 
-/** Ano 5º a 9º ou sorteio entre os cinco anos por questão no modo misto. */
+/** Misto sorteia a série primeiro; nenhum jogo pode ultrapassar sua matriz. */
 export const generateQuestion=(grade:GradeLevel,options:{difficulty?:Difficulty;seed?:string}={}):MathQuestion=>{
   const difficulty=options.difficulty??1,seed=options.seed;
-  const r=seed?seededRandom(seed):Math.random;
+  if(![1,2,3].includes(difficulty)) throw new RangeError("Dificuldade inválida");
+  const r=seed!==undefined?seededRandom(seed):Math.random;
   const level:ConcreteGradeLevel=grade==="mixed"?pick(r,GRADE_LEVELS):grade;
-  const limits=GRADE_LIMITS[level][difficulty],category=pick(r,OPERATIONS);
+  const rules=GRADE_RULES[level];
+  if(!rules) throw new RangeError("Série escolar inválida");
+  const max=rules.progression[difficulty-1]!;
+  const category=pick(r,rules.operations);
   if(category==="addition"){
-    const a=int(r,1,limits.additive),b=int(r,1,limits.additive);
-    return q(level,category,String(a)+" + "+String(b),String(a+b),difficulty,seed);
+    const a=operand(r,max),b=operand(r,max);
+    return q(level,category,a+" + "+b,String(a+b),difficulty,seed);
   }
   if(category==="subtraction"){
-    const a=int(r,2,limits.additive),b=int(r,0,a);
-    return q(level,category,String(a)+" - "+String(b),String(a-b),difficulty,seed);
+    const a=operand(r,max),b=operand(r,a,0);
+    return q(level,category,a+" - "+b,String(a-b),difficulty,seed);
   }
   if(category==="multiplication"){
-    const a=int(r,2,limits.factor),b=int(r,2,limits.factor);
-    return q(level,category,String(a)+" × "+String(b),String(a*b),difficulty,seed);
+    const a=operand(r,max,2),b=operand(r,max,2);
+    return q(level,category,a+" × "+b,String(a*b),difficulty,seed);
   }
   if(category==="exact-division"){
-    const divisor=int(r,2,limits.divisor);
-    const quotient=int(r,1,Math.min(limits.quotient,Math.floor(99/divisor)));
-    return q(level,category,String(divisor*quotient)+" ÷ "+String(divisor),String(quotient),difficulty,seed);
+    // Constrói o dividendo pelo produto, sem arredondar ou exceder o limite.
+    const divisor=operand(r,Math.floor(max/2),2);
+    const quotient=operand(r,Math.floor(max/divisor),2);
+    return q(level,category,(divisor*quotient)+" ÷ "+divisor,String(quotient),difficulty,seed);
   }
+  const advancedMax=level===9?[39,69,99][difficulty-1]!: [5,7,9][difficulty-1]!;
   if(category==="exponentiation"){
-    const base=int(r,2,limits.powerBase);
-    return q(level,category,String(base)+"²",String(base**2),difficulty,seed);
+    const base=operand(r,Math.min(rules.powerBaseMax,advancedMax),2);
+    return q(level,category,base+"²",String(base**2),difficulty,seed);
   }
-  const cubic=limits.cubeRoot>0&&r()<0.35;
-  const value=int(r,2,cubic?limits.cubeRoot:limits.squareRoot);
+  const value=operand(r,Math.min(rules.rootMax,advancedMax),2);
+  const cubic=r()<0.35;
   return q(level,category,(cubic?"∛":"√")+String(cubic?value**3:value**2),String(value),difficulty,seed);
 };
 
-/** Corrida Maluca e bombas: mesma fonte das seis operações dos demais jogos. */
+/** Corrida Maluca e bombas usam exatamente a mesma matriz. */
 export const generateRaceQuestion=(
   grade:GradeLevel,options:{difficulty?:Difficulty;seed?:string}={}
 ):MathQuestion=>generateQuestion(grade,options);

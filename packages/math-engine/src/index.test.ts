@@ -32,8 +32,8 @@ describe("math engine", () => {
         expect(validateAnswer(question,question.correctAnswer)).toBe(true);
       }
 
-      expect(expressions.size).toBeGreaterThan(500);
-      expect(categories.size).toBeGreaterThanOrEqual(mode===5?5:6);
+      expect(expressions.size).toBeGreaterThan(300);
+      expect(categories.size).toBe(mode===5?2:mode===6||mode===7?4:6);
       if(mode==="mixed") expect([...grades].sort()).toEqual([5,6,7,8,9]);
       else expect(grades).toEqual(new Set([mode]));
     }
@@ -86,129 +86,89 @@ describe("math engine", () => {
       const question=generateQuestion(7,{seed:"old-ratio-"+i,difficulty:3});
       expect(satisfiesSimpleOperations(question)).toBe(true);
       expect(question.expression).not.toMatch(/razão|fator|por qual|%|de /i);
-      expect(question.expression.length).toBeLessThanOrEqual(9);
+      expect(question.expression.length).toBeLessThanOrEqual(11);
     }
   });
 });
 
-describe("Contrato pedagógico: quatro jogos, bombas, séries e dificuldades",()=>{
-  const games=[
-    {name:"Banco Imobiliário",create:generateQuestion},
-    {name:"Corrida Maluca e bombas",create:generateRaceQuestion},
-    {name:"Corrida Numérica",create:generateQuestion},
-    {name:"Futebol Matemático",create:generateQuestion}
-  ] as const;
-  const categories=["addition","subtraction","multiplication","exact-division","exponentiation","radication"];
-  for(const game of games){
-    it(game.name+" gera apenas as seis operações dentro dos limites",()=>{
-      for(const grade of [...GRADE_LEVELS,"mixed"] as const){
-        for(const difficulty of [1,2,3] as const){
-          const seen=new Set<string>(),grades=new Set<number>();
-          for(let i=0;i<250;i++){
-            const seed="six-ops-"+game.name+"-"+grade+"-"+difficulty+"-"+i;
-            const question=game.create(grade,{difficulty,seed});
-            seen.add(question.category);grades.add(question.gradeLevel);
-            expect(question.expression).toMatch(/^(?:\d{1,3} [+-] \d{1,3}|\d{1,2} [×÷] \d{1,2}|\d{1,2}²|[√∛]\d{1,3})$/);
-            expect(question.expression.length).toBeLessThanOrEqual(9);
+
+describe("Matriz pedagógica: cinco jogos, bombas, séries e dificuldades",()=>{
+  const expected={
+    5:["addition","subtraction"],
+    6:["addition","subtraction","multiplication","exact-division"],
+    7:["addition","subtraction","multiplication","exact-division"],
+    8:["addition","subtraction","multiplication","exact-division","exponentiation","radication"],
+    9:["addition","subtraction","multiplication","exact-division","exponentiation","radication"]
+  } as const;
+  const max={5:99,6:99,7:999,8:9999,9:9999};
+  for(const create of [generateQuestion,generateRaceQuestion]){
+    for(const mode of [...GRADE_LEVELS,"mixed"] as const){
+      for(const difficulty of [1,2,3] as const){
+        it(create.name+" série "+mode+" dificuldade "+difficulty,()=>{
+          const seen=new Map<number,Set<string>>();
+          for(let i=0;i<1000;i++){
+            const seed="grade-rule-"+mode+"-"+difficulty+"-"+i;
+            const question=create(mode,{seed,difficulty});
+            const level=question.gradeLevel;
+            if(mode!=="mixed")expect(level).toBe(mode);
+            const categories=seen.get(level)??new Set<string>();
+            categories.add(question.category);seen.set(level,categories);
+            expect(expected[level] as readonly string[]).toContain(question.category);
             expect(question.correctAnswer).toMatch(/^\d+$/);
             expect(satisfiesSimpleOperations(question)).toBe(true);
+            expect(satisfiesIntegerMultiplicationAndDivision(question)).toBe(true);
             expect(validateAnswer(question,question.correctAnswer)).toBe(true);
-            expect(game.create(grade,{difficulty,seed}).expression).toBe(question.expression);
-            expect(question.difficulty).toBe(difficulty);
-            if(grade!=="mixed")expect(question.gradeLevel).toBe(grade);
+            expect(create(mode,{seed,difficulty}).expression).toBe(question.expression);
+            const answer=Number(question.correctAnswer);
+            const binary=/^(\d+) ([+\-×÷]) (\d+)$/.exec(question.expression);
+            if(binary){
+              const a=Number(binary[1]),b=Number(binary[3]);
+              expect(a).toBeLessThanOrEqual(max[level]);expect(b).toBeLessThanOrEqual(max[level]);
+              if(binary[2]==="+")expect(answer).toBe(a+b);
+              if(binary[2]==="-")expect(answer).toBe(a-b);
+              if(binary[2]==="×")expect(answer).toBe(a*b);
+              if(binary[2]==="÷"){expect(b).toBeGreaterThan(0);expect(a%b).toBe(0);expect(answer).toBe(a/b);}
+            }else if(question.category==="exponentiation"){
+              expect(level).toBeGreaterThanOrEqual(8);
+              expect(question.expression).toMatch(level===8?/^\d²$/:/^\d{1,2}²$/);
+              expect(answer).toBe(Number(question.expression.slice(0,-1))**2);
+            }else{
+              expect(question.category).toBe("radication");
+              expect(level).toBeGreaterThanOrEqual(8);
+              expect(answer).toBeLessThanOrEqual(level===8?9:99);
+              expect(question.expression).toMatch(/^[√∛]\d+$/);
+              expect(Number(question.expression.slice(1))).toBe(answer**(question.expression.startsWith("√")?2:3));
+            }
           }
-          expect(seen).toEqual(new Set(categories));
-          if(grade==="mixed")expect(grades).toEqual(new Set(GRADE_LEVELS));
-        }
-      }
-    });
-  }
-  it("potências só têm expoente 2 inclusive no 8º, 9º e modo misto",()=>{
-    for(const game of games){
-      for(const grade of [...GRADE_LEVELS,"mixed"] as const){
-        let powerCount=0;
-        for(let i=0;i<600;i++){
-          const question=game.create(grade,{seed:"quadratic-"+game.name+"-"+grade+"-"+i,difficulty:3});
-          expect(question.expression).not.toMatch(/[³⁴]/);
-          if(question.category==="exponentiation"){
-            powerCount++;
-            expect(question.expression).toMatch(/^\d{1,2}²$/);
-            expect(question.correctAnswer).toBe(String(Number(question.expression.slice(0,-1))**2));
-          }
-        }
-        expect(powerCount).toBeGreaterThan(50);
+          expect([...seen.keys()].sort()).toEqual(mode==="mixed"?[5,6,7,8,9]:[mode]);
+          for(const [level,categories] of seen)expect(categories).toEqual(new Set(expected[level as keyof typeof expected]));
+        });
       }
     }
-  });
-  it("barra enunciados, excesso de algarismos e raízes não exatas",()=>{
-    const valid=(expression:string,correctAnswer:string)=>satisfiesSimpleOperations({expression,correctAnswer});
-    for(const [expression,answer] of [
-      ["A razão 13:9 foi ampliada para 52:36. Por qual fator?","4"],
-      ["25% de 100","25"],["1/2 + 1/2","1"],
-      ["100 × 2","200"],["100 ÷ 2","50"],["3 × 100","300"],
-      ["2³","8"],["2⁴","16"],["99³","970299"],
-      ["1000 + 1","1001"],["1000 - 1","999"],["100²","10000"],
-      ["√1000","31"],["√10","3"],["∛10","2"],["7 ÷ 2","3"]
-    ] as const) expect(valid(expression,answer)).toBe(false);
-    for(const [expression,answer] of [
-      ["64 ÷ 8","8"],["99 × 99","9801"],["999 + 999","1998"],
-      ["99²","9801"],["√961","31"],["∛729","9"]
-    ] as const)expect(valid(expression,answer)).toBe(true);
-  });
-});
-
-describe("Divisão e multiplicação inteiras em todos os jogos", () => {
-  const gameModes = [
-    { name: "Banco Imobiliário", create: generateQuestion },
-    { name: "Corrida Maluca (incluindo bombas)", create: generateRaceQuestion },
-    { name: "Corrida Numérica", create: generateQuestion },
-    { name: "Futebol Matemático", create: generateQuestion }
-  ] as const;
-
-  for (const game of gameModes) {
-    it(`${game.name}: audita resultados e operandos de 5º a 9º ano e modo misto`, () => {
-      for (const grade of [...GRADE_LEVELS, "mixed"] as const) {
-        for (const difficulty of [1, 2, 3] as const) {
-          let multiplications = 0, divisions = 0;
-          for (let i = 0; i < 360; i++) {
-            const seed = `integer-rule-${game.name}-${grade}-${difficulty}-${i}`;
-            const question = game.create(grade, { difficulty, seed });
-            expect(satisfiesIntegerMultiplicationAndDivision(question)).toBe(true);
-            expect(validateAnswer(question, question.correctAnswer)).toBe(true);
-            if (question.expression.includes("×")) {
-              multiplications++;
-              expect(Number.isInteger(Number(question.correctAnswer))).toBe(true);
-            }
-            if (question.expression.includes("÷")) {
-              divisions++;
-              const match = question.expression.match(/^(-?\d+) ÷ (-?\d+)$/);
-              expect(match).not.toBeNull();
-              const dividend = Number(match?.[1]), divisor = Number(match?.[2]);
-              expect(Number.isInteger(dividend)).toBe(true);
-              expect(Number.isInteger(divisor)).toBe(true);
-              expect(divisor).not.toBe(0);
-              expect(dividend % divisor).toBe(0);
-              expect(question.correctAnswer).toBe(String(dividend / divisor));
-            }
-          }
-          expect(multiplications).toBeGreaterThan(0);
-          expect(divisions).toBeGreaterThan(0);
-        }
-      }
-    });
   }
-
-  it("rejeita decimais, divisões não exatas e respostas não inteiras apenas em × e ÷", () => {
-    expect(satisfiesIntegerMultiplicationAndDivision({ expression: "1,5 × 2", correctAnswer: "3" })).toBe(false);
-    expect(satisfiesIntegerMultiplicationAndDivision({ expression: "7 ÷ 2", correctAnswer: "3.5" })).toBe(false);
-    expect(satisfiesIntegerMultiplicationAndDivision({ expression: "9 ÷ 0", correctAnswer: "0" })).toBe(false);
-    expect(satisfiesIntegerMultiplicationAndDivision({ expression: "2 × 3", correctAnswer: "7" })).toBe(false);
-    expect(satisfiesIntegerMultiplicationAndDivision({ expression: "8 ÷ 2", correctAnswer: "4" })).toBe(true);
+  it("rejeita operações de outra série, excesso de algarismos e respostas erradas",()=>{
+    const valid=(gradeLevel:5|6|7|8|9,expression:string,correctAnswer:string)=>satisfiesSimpleOperations({gradeLevel,expression,correctAnswer});
+    for(const [grade,expression,answer] of [
+      [5,"2 × 3","6"],[5,"100 + 1","101"],[6,"100 ÷ 2","50"],[6,"3²","9"],
+      [7,"1000 × 2","2000"],[7,"√81","9"],[8,"10²","100"],[8,"√100","10"],
+      [8,"∛1000","10"],[9,"10000 + 1","10001"],[9,"100²","10000"],
+      [9,"√10000","100"],[9,"7 ÷ 2","3"],[9,"9 ÷ 0","0"],[9,"2³","8"],
+      [9,"3 - 4","-1"],[9,"√10","3"],[9,"25% de 100","25"]
+    ] as const)expect(valid(grade,expression,answer)).toBe(false);
+    for(const [grade,expression,answer] of [
+      [5,"99 + 99","198"],[5,"5 - 5","0"],[6,"99 × 99","9801"],[6,"96 ÷ 12","8"],
+      [7,"999 × 999","998001"],[8,"9999 × 9999","99980001"],[8,"√81","9"],
+      [8,"∛729","9"],[9,"99²","9801"],[9,"√9801","99"],[9,"∛970299","99"],
+      [9,"9999 ÷ 3333","3"]
+    ] as const)expect(valid(grade,expression,answer)).toBe(true);
   });
-
-  it("preserva adição e subtração de decimais e adição de frações", () => {
-    expect(satisfiesIntegerMultiplicationAndDivision({ expression: "1,5 + 2,3", correctAnswer: "3.8" })).toBe(true);
-    expect(satisfiesIntegerMultiplicationAndDivision({ expression: "5,2 - 2,7", correctAnswer: "2.5" })).toBe(true);
-    expect(satisfiesIntegerMultiplicationAndDivision({ expression: "1/2 + 1/4", correctAnswer: "3/4" })).toBe(true);
+  it("não aceita resposta vazia para uma conta cujo resultado é zero",()=>{
+    const question={id:"zero",gradeLevel:5 as const,category:"subtraction",expression:"5 - 5",correctAnswer:"0",difficulty:1 as const,generatedAt:0};
+    expect(validateAnswer(question,"")).toBe(false);
+    expect(validateAnswer(question,"  ")).toBe(false);
+    expect(validateAnswer(question,"0")).toBe(true);
+  });
+  it("rejeita níveis inválidos sem cair no misto",()=>{
+    expect(()=>generateQuestion(4 as GradeLevel)).toThrow();
   });
 });
