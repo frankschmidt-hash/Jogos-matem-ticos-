@@ -132,6 +132,7 @@ export class PropertyRoomManager {
         room.lastDie=die;
         room.question=generateQuestion(room.gradeLevel,{
           difficulty:game.round<4?1:game.round<9?2:3,
+          sequenceKey:"property-room:"+room.code,
           seed:"property:"+room.code+":"+game.round+":"+game.activePlayerIndex+":"+now+":"+die
         });
         room.lastResolution=null;

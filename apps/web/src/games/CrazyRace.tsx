@@ -209,7 +209,7 @@ function RaceFinish({
 function SoloRace({session,onExit,car}:{session:ClientSession;onExit:()=>void;car:CarSelection}) {
   const begin=()=>startTimedRace(createRace([{id:session.sessionId,name:session.nickname,...car}]),Date.now());
   const [race,setRace]=useState<RaceState>(begin);
-  const [question,setQuestion]=useState<MathQuestion>(()=>generateRaceQuestion(session.gradeLevel,{difficulty:1,seed:"solo-start-"+session.sessionId+"-"+Date.now()}));
+  const [question,setQuestion]=useState<MathQuestion>(()=>generateRaceQuestion(session.gradeLevel,{difficulty:1,sequenceKey:"solo:"+session.sessionId,seed:"solo-start-"+session.sessionId+"-"+Date.now()}));
   const [answer,setAnswer]=useState("");
   const [feedback,setFeedback]=useState<"correct"|"incorrect"|null>(null);
   const [correctAnswer,setCorrectAnswer]=useState<string|null>(null);
@@ -227,6 +227,7 @@ function SoloRace({session,onExit,car}:{session:ClientSession;onExit:()=>void;ca
 
   const makeNextQuestion=(level:number)=>generateRaceQuestion(session.gradeLevel,{
     difficulty:level>25?3:level>12?2:1,
+    sequenceKey:"solo:"+session.sessionId,
     seed:"crazy-solo-"+session.sessionId+"-"+Date.now()+"-"+(++questionSerial.current)
   });
 
@@ -251,9 +252,10 @@ function SoloRace({session,onExit,car}:{session:ClientSession;onExit:()=>void;ca
     if(pendingTrackBomb===null){setTrackQuestion(null);return;}
     setTrackQuestion(current=>current??generateRaceQuestion(session.gradeLevel,{
       difficulty:own?.clearedTrackBombs.length===0?1:own?.clearedTrackBombs.length===1?2:3,
-      seed:"crazy-solo-track-"+session.sessionId+"-"+pendingTrackBomb
+      sequenceKey:"solo:"+session.sessionId,
+      seed:"crazy-solo-track-"+session.sessionId+"-"+race.matchStartedAt+"-"+pendingTrackBomb
     }));
-  },[pendingTrackBomb,session.gradeLevel,session.sessionId,own?.clearedTrackBombs.length]);
+  },[pendingTrackBomb,session.gradeLevel,session.sessionId,own?.clearedTrackBombs.length,race.matchStartedAt]);
 
   useEffect(()=>{
     if(race.phase!=="finished") return;

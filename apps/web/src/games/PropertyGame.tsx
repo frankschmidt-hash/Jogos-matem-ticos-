@@ -330,6 +330,7 @@ function SoloPropertyGame({session,onOnline}:{session:ClientSession;onOnline:()=
       answerLock.current=false;
       setQuestion(generateQuestion(session.gradeLevel,{
         difficulty:game.round<4?1:game.round<9?2:3,
+        sequenceKey:"solo:"+session.sessionId,
         seed:"property-"+game.round+"-"+game.activePlayerIndex+"-"+Date.now()+"-"+die
       }));
       setRolling(false);
