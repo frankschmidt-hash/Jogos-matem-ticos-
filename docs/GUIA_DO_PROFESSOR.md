@@ -2,7 +2,7 @@
 
 ## Visão geral
 
-O portal reúne quatro jogos com questões do 5º, 6º, 7º ano ou nível misto. O acesso é feito sem cadastro: o estudante escolhe um nickname temporário e o nível das contas.
+O portal reúne cinco jogos com questões do 5º ao 9º ano ou nível misto. O acesso é feito sem cadastro: o estudante escolhe um nickname temporário e o nível das contas.
 
 ## Banco Imobiliário Matemático
 
@@ -56,7 +56,7 @@ O portal reúne quatro jogos com questões do 5º, 6º, 7º ano ou nível misto.
 
 ## Escolha do nível
 
-Na entrada do portal, selecione 5º ano, 6º ano, 7º ano ou **Misto — 5º ao 7º**. A escolha alimenta o mesmo motor matemático usado pelos jogos.
+Na entrada do portal, selecione 5º, 6º, 7º, 8º, 9º ano ou **Misto — 5º ao 9º**. A escolha alimenta o mesmo motor matemático usado pelos cinco jogos. Consulte a [matriz de operações por série](CONTAS_DIRETAS_QUATRO_JOGOS.md). Nas salas de Futebol e Corrida Numérica, o anfitrião pode escolher explicitamente outro nível de sala; todos os participantes recebem questões desse nível.
 
 ## Boas práticas em aula
 

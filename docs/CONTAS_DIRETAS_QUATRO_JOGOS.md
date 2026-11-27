@@ -1,14 +1,18 @@
-# Contas dos quatro jogos — contrato de geração
+# Contrato de contas diretas — cinco jogos
 
-Este contrato vale para Banco Imobiliário, Corrida Maluca (inclusive bombas), Corrida Numérica e Futebol Matemático, no modo solo e em salas multiplayer.
+Fonte única: packages/math-engine/src/index.ts. Aplicável a partidas individuais, salas online e bombas.
 
-- Apenas uma expressão matemática por pergunta. Sem enunciado, razão, porcentagem, fração, texto descritivo ou composição de operações.
-- Adição/subtração: operandos inteiros de até 3 algarismos (até 999).
-- Multiplicação/divisão: ambos operandos inteiros com até 2 algarismos (até 99); divisão exata, resposta inteira, divisor diferente de zero.
-- Potenciação: base com até 2 algarismos; expoente **sempre igual a 2**, como 12². Potências cúbicas ou superiores são rejeitadas pelo gerador e pelo validador.
-- Radiciação: radicando de até 3 algarismos, raiz quadrada ou cúbica inteira exata.
-- Anos: escolha entre **5º, 6º, 7º, 8º, 9º ano** ou **Misto**, que sorteia uniformemente um dos cinco anos para cada pergunta. Todos têm três dificuldades e as seis categorias disponíveis. Os limites numéricos variam por ano e dificuldade, mas nunca excedem os tetos absolutos definidos acima.
-- Implementação: packages/math-engine/src/index.ts; validação obrigatória por satisfiesSimpleOperations. A Corrida Maluca utiliza o mesmo gerador dos demais jogos.
-- Testes: packages/math-engine/src/index.test.ts, cobrindo quatro jogos, todos os anos, modo misto e dificuldades, condições de limite e casos inválidos.
+| Série | Operações básicas (algarismos por operando) | Base da potência | Resultado da raiz |
+|---|---|---|---|
+| 5º | Adição e subtração: 1–2 | — | — |
+| 6º | Adição, subtração, multiplicação e divisão: 1–2 | — | — |
+| 7º | Quatro operações: 1–3 | — | — |
+| 8º | Quatro operações: 1–4 | 1 algarismo | 1 algarismo |
+| 9º | Quatro operações: 1–4 | 1–2 algarismos | 1–2 algarismos |
 
-As demais regras de gameplay, tempo de partida, pontuação, rankings e salas foram preservadas.
+- Misto: sorteia primeiro uma série de 5 a 9 e usa somente suas operações e limites.
+- Cada dificuldade interna (1, 2, 3) aumenta as faixas de amostragem sem romper o teto da série. Números menores continuam aparecendo.
+- Subtrações não negativas; divisão exata e divisor não nulo; resultados inteiros. O limite dos operandos não restringe o resultado da multiplicação/adição.
+- Potenciação sempre ao quadrado; raízes quadradas e cúbicas exatas. O limite da raiz se refere ao resultado, não ao radicando.
+- Validação da série, da categoria, da expressão e do resultado a cada geração; testes de regressão por série, nível de dificuldade e ambos os pontos de entrada do motor.
+- Salas online mantêm o nível definido pelo anfitrião; partidas individuais mantêm a série da sessão.

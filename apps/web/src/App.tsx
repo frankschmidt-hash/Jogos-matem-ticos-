@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { GAME_CATALOG, type GameId } from "@jogos/game-core";
+import { GRADE_DESCRIPTIONS } from "@jogos/math-engine";
 import { ConnectionStatus, GameCard, HelpRules } from "@jogos/ui";
 import {
   claimSession, heartbeatSession, loadSession, notifyDisconnect,
@@ -132,7 +133,7 @@ function Home({onSession}:{onSession:(s:ClientSession)=>void}) {
           <small id="nickname-help">2 a 20 caracteres. Palavras ofensivas ou obscenas não são permitidas.</small>
         </label>
         <label htmlFor="grade">Nível das contas
-          <select id="grade" value={grade} onChange={e=>setGrade(e.target.value==="mixed"?"mixed":Number(e.target.value) as 5|6|7|8|9)}>
+          <select id="grade" aria-describedby="grade-help" value={grade} onChange={e=>setGrade(e.target.value==="mixed"?"mixed":Number(e.target.value) as 5|6|7|8|9)}>
             <option value={5}>5º ano</option>
             <option value={6}>6º ano</option>
             <option value={7}>7º ano</option>
@@ -140,6 +141,7 @@ function Home({onSession}:{onSession:(s:ClientSession)=>void}) {
             <option value={9}>9º ano</option>
             <option value="mixed">Misto — 5º ao 9º</option>
           </select>
+          <small id="grade-help">{GRADE_DESCRIPTIONS[grade]}</small>
         </label>
         {error&&<p className="error" role="alert"><span aria-hidden="true">!</span> {error}</p>}
         <button className="primary-cta" disabled={loading||nickname.trim().length<2}>
@@ -159,6 +161,7 @@ function Lobby({session}:{session:ClientSession}) {
         <span className="eyebrow">Portal de jogos</span>
         <h1>Escolha sua próxima missão</h1>
         <p className="muted">Nível atual: <strong>{session.gradeLevel==="mixed"?"Misto":session.gradeLevel+"º ano"}</strong></p>
+        <p className="muted">{GRADE_DESCRIPTIONS[session.gradeLevel]}</p>
       </div>
       <div className="player-summary">
         <span className="avatar-chip" aria-hidden="true">{session.nickname.slice(0,2).toUpperCase()}</span>
