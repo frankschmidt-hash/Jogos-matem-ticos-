@@ -16,12 +16,25 @@ const configuredApi=import.meta.env.VITE_API_URL;
 const localBrowser=typeof window!=="undefined" && ["localhost","127.0.0.1","[::1]"].includes(window.location.hostname);
 export const apiBase=localBrowser ? (configuredApi?.trim() || "http://localhost:3001") : "";
 
-export const saveSession=(s:ClientSession)=>localStorage.setItem(KEY,JSON.stringify(s));
+// Each browser tab has its own credentials; reloading the same tab retains them.
+// Migrate a legacy shared session once, then stop sharing credentials across tabs.
+export const saveSession=(s:ClientSession)=>sessionStorage.setItem(KEY,JSON.stringify(s));
 export const loadSession=():ClientSession|null=>{
-  try { const raw=localStorage.getItem(KEY); return raw?JSON.parse(raw):null; }
-  catch { return null; }
+  try {
+    let raw=sessionStorage.getItem(KEY);
+    if(!raw){
+      raw=localStorage.getItem(KEY);
+      if(raw){sessionStorage.setItem(KEY,raw);localStorage.removeItem(KEY);}
+    }
+    return raw?JSON.parse(raw):null;
+  }catch{return null;}
 };
-export const clearSession=()=>localStorage.removeItem(KEY);
+export const clearSession=()=>sessionStorage.removeItem(KEY);
+export class SessionRequestError extends Error{
+  constructor(message:string,public status:number){super(message);}
+}
+export const isSessionExpired=(error:unknown)=>error instanceof SessionRequestError&&error.status===401;
+export const isNicknameUnavailable=(error:unknown)=>error instanceof SessionRequestError&&error.status===409;
 
 async function postSession(path:string, body:object) {
   let response:Response;
@@ -35,8 +48,7 @@ async function postSession(path:string, body:object) {
     throw new Error("Não foi possível conectar ao servidor. Atualize a página e verifique a conexão.");
   }
   const data=await response.json();
-  if(!response.ok) throw new Error(data.error??"Falha de sessão.");
-  if(data.session) saveSession(data.session);
+  if(!response.ok) throw new SessionRequestError(data.error??"Falha de sessão.",response.status);
   return data.session as ClientSession;
 }
 
@@ -63,16 +75,13 @@ export async function recordSoloResult(session:ClientSession,gameId:LeaderboardG
 }
 
 export async function claimSession(nickname:string,gradeLevel:5|6|7|8|9|"mixed") {
-  return postSession("/api/session/claim",{nickname,gradeLevel});
+  const session=await postSession("/api/session/claim",{nickname,gradeLevel});
+  saveSession(session);
+  return session;
 }
 
 export async function reconnectSession(session:ClientSession) {
-  try {
-    return await postSession("/api/session/reconnect",{sessionId:session.sessionId,reconnectToken:session.reconnectToken});
-  } catch (error) {
-    clearSession();
-    throw error;
-  }
+  return postSession("/api/session/reconnect",{sessionId:session.sessionId,reconnectToken:session.reconnectToken});
 }
 
 export async function heartbeatSession(session:ClientSession) {
@@ -86,4 +95,28 @@ export async function disconnectSession(session:ClientSession) {
 export function notifyDisconnect(session:ClientSession) {
   const body=JSON.stringify({sessionId:session.sessionId,reconnectToken:session.reconnectToken});
   navigator.sendBeacon?.(`${apiBase}/api/session/disconnect`,new Blob([body],{type:"application/json"}));
+}
+
+// Single flight: heartbeat, focus and the football lobby must not create competing sessions.
+const recoveries=new Map<string,Promise<ClientSession>>();
+export function ensureActiveSession(session:ClientSession):Promise<ClientSession>{
+  const saved=loadSession();
+  if(saved&&saved.sessionId!==session.sessionId&&saved.nickname===session.nickname&&saved.gradeLevel===session.gradeLevel)
+    return ensureActiveSession(saved);
+  const existing=recoveries.get(session.sessionId);
+  if(existing)return existing;
+  const promise=(async()=>{
+    let active:ClientSession;
+    try{active=await heartbeatSession(session);}
+    catch(error){
+      if(!isSessionExpired(error))throw error;
+      // A lost session cannot recover its old rooms or inherit another player's identity.
+      // Only a free nickname can be claimed, through the same validated endpoint.
+      active=await claimSession(session.nickname,session.gradeLevel);
+    }
+    saveSession(active);
+    return active;
+  })().finally(()=>recoveries.delete(session.sessionId));
+  recoveries.set(session.sessionId,promise);
+  return promise;
 }

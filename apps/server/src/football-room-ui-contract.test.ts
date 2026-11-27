@@ -26,7 +26,7 @@ describe("Regressão: criação e entrada no Futebol Matemático online",()=>{
     expect(webSource).toContain("autoConnect:false");
     expect(webSource).toContain("socket.connect()");
     expect(webSource).toContain('socket.on("connect_error",onConnectError)');
-    expect(webSource).toContain('socket.timeout(10_000).emit(event,payload');
+    expect(webSource).toContain('socket.timeout(10_000).emit(event,request');
     expect(webSource).toContain("Aguardando confirmação...");
     expect(dockerSource).toContain("NODE_ENV=production npm run build");
   });
@@ -37,5 +37,24 @@ describe("Regressão: criação e entrada no Futebol Matemático online",()=>{
     expect(webSource).toContain("Copiar convite completo");
     expect(webSource).toContain("Ex.: ABC234");
     expect(webSource).toContain("selecione uma sala disponível abaixo.");
+  });
+});
+
+describe("Descoberta e recuperação",()=>{
+  it("não anuncia sala de anfitrião desconectado e restaura após reconexão",()=>{
+    const manager=new FootballRoomManager(new RoomInfrastructure());
+    const host={sessionId:"discovery-host",nickname:"Host"};
+    const room=manager.createRoom(host,"123",5,0);
+    expect(manager.listWaiting().map(r=>r.code)).toContain(room.code);
+    manager.disconnect(room.code,host.sessionId,100);
+    expect(manager.listWaiting()).toHaveLength(0);
+    manager.reconnect(room.code,host.sessionId,200);
+    expect(manager.listWaiting().map(r=>r.code)).toContain(room.code);
+  });
+  it("faz consulta HTTP independente do socket e mantém recuperação e atualização automática",()=>{
+    expect(webSource).toContain('/api/football/rooms');
+    expect(webSource).toContain('window.setInterval(fetchRooms,5_000)');
+    expect(webSource).toContain('ensureActiveSession(activeSession.current)');
+    expect(webSource).toContain('const request={...payload,...auth(active)}');
   });
 });

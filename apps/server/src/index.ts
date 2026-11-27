@@ -107,6 +107,8 @@ const saveOnlineRank=(run:object,game:typeof LEADERBOARD_GAMES[number],
 };
 
 app.get("/health", async () => ({ ok:true, service:"jogos-matematicos-server" }));
+// Public discovery is read-only; PIN and authentication remain mandatory for entry.
+app.get("/api/football/rooms",async (_request,reply)=>reply.header("Cache-Control","no-store").send({ok:true,rooms:footballRooms.listWaiting()}));
 
 app.post("/api/session/claim", async (request, reply) => {
   const parsed = claimNicknameSchema.safeParse(request.body);
@@ -730,13 +732,8 @@ io.on("connection", socket => {
     }catch(error){ack?.({ok:false,error:errorMessage(error)});}
   });
 
-  socket.on("football:list-rooms",(payload:unknown,ack?:Ack)=>{
-    const parsed=heartbeatSchema.safeParse(payload);
-    if(!parsed.success) return ack?.({ok:false,error:"Sessão inválida."});
-    try{
-      manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
-      ack?.({ok:true,rooms:footballRooms.listWaiting()});
-    }catch(error){ack?.({ok:false,error:errorMessage(error)});}
+  socket.on("football:list-rooms",(_payload:unknown,ack?:Ack)=>{
+    ack?.({ok:true,rooms:footballRooms.listWaiting()});
   });
 
   socket.on("football:create-room",(payload:unknown,ack?:Ack)=>{
@@ -792,6 +789,7 @@ io.on("connection", socket => {
       void socket.join("football:"+room.code);
       ack?.({ok:true,room:footballRooms.publicSnapshot(room.code)});
       emitFootballState(room.code);
+      emitFootballRooms();
     }catch(error){
       ack?.({ok:false,error:errorMessage(error)});
     }
@@ -867,6 +865,7 @@ io.on("connection", socket => {
       const session=manager.heartbeat(parsed.data.sessionId,parsed.data.reconnectToken);
       const room=footballRooms.abandon(parsed.data.code.toUpperCase(),session.sessionId);
       void socket.leave("football:"+parsed.data.code.toUpperCase());
+      delete socket.data.footballCode;
       if(room){
         const old=footballKickTimers.get(room.code);
         if(old) clearTimeout(old);
@@ -886,7 +885,8 @@ io.on("connection", socket => {
     const numberCode=socket.data.numberCode as string|undefined;
     const footballCode=socket.data.footballCode as string|undefined;
     const propertyCode=socket.data.propertyCode as string|undefined;
-    if(sessionId && sessionSockets.get(sessionId)===socket.id) sessionSockets.delete(sessionId);
+    const currentSocket=sessionId?sessionSockets.get(sessionId):undefined;
+    if(sessionId && currentSocket===socket.id) sessionSockets.delete(sessionId);
     if(sessionId && crazyCode){
       crazyRooms.disconnect(crazyCode,sessionId);
       emitCrazyState(crazyCode);
@@ -895,9 +895,10 @@ io.on("connection", socket => {
       numberRooms.disconnect(numberCode,sessionId);
       emitNumberState(numberCode);
     }
-    if(sessionId && footballCode){
+    if(sessionId && footballCode && (!currentSocket||currentSocket===socket.id)){
       footballRooms.disconnect(footballCode,sessionId);
       emitFootballState(footballCode);
+      emitFootballRooms();
     }
     if(sessionId && propertyCode){
       propertyRooms.disconnect(propertyCode,sessionId);

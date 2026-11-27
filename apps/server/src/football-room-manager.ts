@@ -73,7 +73,7 @@ export class FootballRoomManager{
   }
 
   listWaiting(){
-    return [...this.rooms.values()].filter(room=>room.status==="waiting"&&room.members.length<2)
+    return [...this.rooms.values()].filter(room=>room.status==="waiting"&&room.members.length<2&&room.members.some(member=>member.sessionId===room.hostSessionId&&member.connected&&member.presence==="connected"))
       .map(room=>({code:room.code,hostName:room.members.find(m=>m.sessionId===room.hostSessionId)?.nickname??"Jogador",players:room.members.length,capacity:2}));
   }
 
