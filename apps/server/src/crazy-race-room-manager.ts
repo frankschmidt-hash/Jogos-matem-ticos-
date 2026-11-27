@@ -207,7 +207,8 @@ export class CrazyRaceRoomManager{
     room.lastCorrectAnswer=null;
     room.question=generateRaceQuestion(room.gradeLevel,{
       difficulty:difficultyForRound(room.race.round),
-      seed:"crazy:"+room.code+":round:"+room.race.round
+      sequenceKey:"crazy-room:"+room.code,
+      seed:"crazy:"+room.code+":round:"+room.race.round+":"+now
     });
     room.bombQuestions={};
     room.bombActionResults.clear();
@@ -218,6 +219,7 @@ export class CrazyRaceRoomManager{
     const level=room.race?.round??1;
     return generateRaceQuestion(room.gradeLevel,{
       difficulty:level>25?3:level>12?2:1,
+      sequenceKey:"crazy-room:"+room.code+":"+sessionId,
       seed:"crazy:timed:"+room.code+":"+sessionId+":"+now+":"+Math.random()
     });
   }
@@ -258,7 +260,8 @@ export class CrazyRaceRoomManager{
       if(racer.kind!=="human"||racer.pendingTrackBomb===null||room.trackQuestions[racer.id]) continue;
       room.trackQuestions[racer.id]=generateRaceQuestion(room.gradeLevel,{
         difficulty:racer.clearedTrackBombs.length===0?1:racer.clearedTrackBombs.length===1?2:3,
-        seed:"crazy:timed:bomb:"+room.code+":"+racer.id+":"+racer.pendingTrackBomb
+        sequenceKey:"crazy-room:"+room.code+":"+racer.id,
+        seed:"crazy:timed:bomb:"+room.code+":"+racer.id+":"+racer.pendingTrackBomb+":"+now
       });
     }
     room.updatedAt=now;
@@ -287,7 +290,8 @@ export class CrazyRaceRoomManager{
     const target=room.race.racers.find(r=>r.id===challenge.targetId)!;
     const question=generateRaceQuestion(room.gradeLevel,{
       difficulty:difficultyForRound(room.race.round),
-      seed:"crazy:"+room.code+":bomb:"+room.race.round+":"+sessionId+":"+challenge.targetId
+      sequenceKey:"crazy-room:"+room.code+":"+challenge.targetId,
+      seed:"crazy:"+room.code+":bomb:"+room.race.round+":"+sessionId+":"+challenge.targetId+":"+now
     });
     room.bombQuestions[challenge.targetId]=question;
 

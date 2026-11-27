@@ -133,6 +133,7 @@ function SoloFootball({
   session,skill,timeMs,onExit
 }:{session:ClientSession;skill:NpcSkill;timeMs:number;onExit:()=>void}){
   const [match,setMatch]=useState<PenaltyMatchState>(()=>makeSoloMatch(session,skill,timeMs));
+  const questionMatchId=useRef(crypto.randomUUID());
   const leaderboardRun=useRef(crypto.randomUUID());
   const [answer,setAnswer]=useState("");
   const [target,setTarget]=useState<PenaltyTarget>(4);
@@ -164,7 +165,8 @@ function SoloFootball({
     if(match.phase!=="kick-open"||!humanTurn) return null;
     return generateQuestion(session.gradeLevel,{
       difficulty:match.kickNumber<4?1:match.kickNumber<8?2:3,
-      seed:"football-solo-"+session.sessionId+"-"+match.kickNumber+"-"+match.history.length
+      sequenceKey:"solo:"+session.sessionId,
+      seed:"football-solo-"+session.sessionId+"-"+questionMatchId.current+"-"+match.kickNumber+"-"+match.history.length
     });
   },[humanTurn,match.history.length,match.kickNumber,match.phase,session.gradeLevel,session.sessionId]);
 
@@ -210,6 +212,7 @@ function SoloFootball({
 
   const restart=()=>{
     leaderboardRun.current=crypto.randomUUID();
+    questionMatchId.current=crypto.randomUUID();
     setMatch(makeSoloMatch(session,skill,timeMs));
     setAnswer("");
     setTarget(4);

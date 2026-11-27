@@ -32,8 +32,8 @@ function readProfile(nickname:string):Fighter {
       xp:Math.max(0,Number(data.xp)||0),gloves:Math.min(3,Math.max(0,Number(data.gloves)||0))};
   } catch {return DEFAULT(nickname);}
 }
-function newQuestion(grade:ClientSession["gradeLevel"]):MathQuestion {
-  return generateQuestion(grade,{difficulty:1,seed:crypto.randomUUID()});
+function newQuestion(session:ClientSession):MathQuestion {
+  return generateQuestion(session.gradeLevel,{difficulty:1,seed:crypto.randomUUID(),sequenceKey:"solo:"+session.sessionId});
 }
 const limitDamage=(secondsLeft:number,total:number,gloves:number)=>
   Math.min(30,12+Math.floor(12*Math.max(0,secondsLeft)/total)+gloves*2);
@@ -44,7 +44,7 @@ export function MathFight({session}:{session:ClientSession}) {
   const [playerHp,setPlayerHp]=useState(100);
   const [cpuHp,setCpuHp]=useState(100);
   const [turn,setTurn]=useState<"attack"|"defend">("attack");
-  const [question,setQuestion]=useState(()=>newQuestion(session.gradeLevel));
+  const [question,setQuestion]=useState(()=>newQuestion(session));
   const [answer,setAnswer]=useState("");
   const [target,setTarget]=useState<Target>("Tronco");
   const [remaining,setRemaining]=useState(30);
@@ -92,7 +92,7 @@ export function MathFight({session}:{session:ClientSession}) {
   function beginTurn(next:"attack"|"defend") {
     handled.current=false;
     setAnswer("");setTurn(next);turnRef.current=next;
-    const q=newQuestion(session.gradeLevel);setQuestion(q);questionRef.current=q;
+    const q=newQuestion(session);setQuestion(q);questionRef.current=q;
     deadline.current=Date.now()+duration*1000;setRemaining(duration);
     setFeedback(next==="attack"?"Sua vez: resolva para atacar!":"Defenda-se: resolva para bloquear!");
     setFeedbackTone("neutral");

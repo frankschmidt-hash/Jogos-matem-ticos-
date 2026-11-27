@@ -158,7 +158,7 @@ function FinalStats({
 function SoloNumberRace({session,onExit,carChoice}:{session:ClientSession;onExit:()=>void;carChoice:CarChoice}){
   const makeRace=()=>startTimedRace(createNumberRace([{id:session.sessionId,name:session.nickname}]),Date.now());
   const [race,setRace]=useState<NumberRaceState>(makeRace);
-  const [question,setQuestion]=useState<MathQuestion>(()=>generateQuestion(session.gradeLevel,{difficulty:1,seed:"number-solo-1-"+session.sessionId}));
+  const [question,setQuestion]=useState<MathQuestion>(()=>generateQuestion(session.gradeLevel,{difficulty:1,sequenceKey:"solo:"+session.sessionId,seed:"number-solo-1-"+session.sessionId+"-"+crypto.randomUUID()}));
   const [answer,setAnswer]=useState("");
   const [feedback,setFeedback]=useState<"correct"|"incorrect"|null>(null);
   const [correctAnswer,setCorrectAnswer]=useState<string|null>(null);
@@ -193,7 +193,7 @@ function SoloNumberRace({session,onExit,carChoice}:{session:ClientSession;onExit
     setRace(next);
     questionNumber.current=1;
     questionStarted.current=Date.now();
-    setQuestion(generateQuestion(session.gradeLevel,{difficulty:1,seed:"number-solo-restart-"+Date.now()}));
+    setQuestion(generateQuestion(session.gradeLevel,{difficulty:1,sequenceKey:"solo:"+session.sessionId,seed:"number-solo-restart-"+crypto.randomUUID()}));
     setAnswer("");
     setFeedback(null);
     setCorrectAnswer(null);
@@ -216,7 +216,7 @@ function SoloNumberRace({session,onExit,carChoice}:{session:ClientSession;onExit
       setCorrectAnswer(correct?null:question.correctAnswer);
       questionNumber.current+=1;
       setQuestion(generateQuestion(session.gradeLevel,{
-        difficulty:1,seed:"number-solo-"+session.sessionId+"-"+questionNumber.current+"-"+race.matchStartedAt
+        difficulty:1,sequenceKey:"solo:"+session.sessionId,seed:"number-solo-"+session.sessionId+"-"+questionNumber.current+"-"+race.matchStartedAt
       }));
       questionStarted.current=when;
       setAnswer("");

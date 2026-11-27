@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateQuestion, generateRaceQuestion, satisfiesIntegerMultiplicationAndDivision, satisfiesSimpleOperations, validateAnswer, GRADE_LEVELS, type GradeLevel } from "./index";
+import { generateQuestion, generateRaceQuestion, satisfiesIntegerMultiplicationAndDivision, satisfiesSimpleOperations, validateAnswer, GRADE_LEVELS, RECENT_QUESTION_LIMIT, questionVarietyKey, type GradeLevel } from "./index";
 
 describe("math engine", () => {
   it("gera questões determinísticas com seed", () => {
@@ -130,14 +130,17 @@ describe("Matriz pedagógica: cinco jogos, bombas, séries e dificuldades",()=>{
               if(binary[2]==="÷"){expect(b).toBeGreaterThan(0);expect(a%b).toBe(0);expect(answer).toBe(a/b);}
             }else if(question.category==="exponentiation"){
               expect(level).toBeGreaterThanOrEqual(8);
-              expect(question.expression).toMatch(level===8?/^\d²$/:/^\d{1,2}²$/);
+              expect(question.expression).toMatch(/^[1-9]²$/);
+              expect(answer).toBeGreaterThanOrEqual(1);
+              expect(answer).toBeLessThanOrEqual(99);
               expect(answer).toBe(Number(question.expression.slice(0,-1))**2);
             }else{
               expect(question.category).toBe("radication");
               expect(level).toBeGreaterThanOrEqual(8);
               expect(answer).toBeLessThanOrEqual(level===8?9:99);
-              expect(question.expression).toMatch(/^[√∛]\d+$/);
-              expect(Number(question.expression.slice(1))).toBe(answer**(question.expression.startsWith("√")?2:3));
+              expect(question.expression).toMatch(/^√[1-9]\d{0,3}$/);
+              expect(answer).toBeGreaterThanOrEqual(1);
+              expect(Number(question.expression.slice(1))).toBe(answer**2);
             }
           }
           expect([...seen.keys()].sort()).toEqual(mode==="mixed"?[5,6,7,8,9]:[mode]);
@@ -151,14 +154,14 @@ describe("Matriz pedagógica: cinco jogos, bombas, séries e dificuldades",()=>{
     for(const [grade,expression,answer] of [
       [5,"2 × 3","6"],[5,"100 + 1","101"],[6,"100 ÷ 2","50"],[6,"3²","9"],
       [7,"1000 × 2","2000"],[7,"√81","9"],[8,"10²","100"],[8,"√100","10"],
-      [8,"∛1000","10"],[9,"10000 + 1","10001"],[9,"100²","10000"],
+      [8,"∛1000","10"],[8,"∛729","9"],[9,"∛970299","99"],[9,"∛27","3"],[9,"10²","100"],[9,"99²","9801"],[9,"10000 + 1","10001"],[9,"100²","10000"],
       [9,"√10000","100"],[9,"7 ÷ 2","3"],[9,"9 ÷ 0","0"],[9,"2³","8"],
       [9,"3 - 4","-1"],[9,"√10","3"],[9,"25% de 100","25"]
     ] as const)expect(valid(grade,expression,answer)).toBe(false);
     for(const [grade,expression,answer] of [
       [5,"99 + 99","198"],[5,"5 - 5","0"],[6,"99 × 99","9801"],[6,"96 ÷ 12","8"],
       [7,"999 × 999","998001"],[8,"9999 × 9999","99980001"],[8,"√81","9"],
-      [8,"∛729","9"],[9,"99²","9801"],[9,"√9801","99"],[9,"∛970299","99"],
+      [8,"1²","1"],[8,"9²","81"],[9,"5²","25"],[9,"√144","12"],[9,"√9801","99"],
       [9,"9999 ÷ 3333","3"]
     ] as const)expect(valid(grade,expression,answer)).toBe(true);
   });
@@ -170,5 +173,55 @@ describe("Matriz pedagógica: cinco jogos, bombas, séries e dificuldades",()=>{
   });
   it("rejeita níveis inválidos sem cair no misto",()=>{
     expect(()=>generateQuestion(4 as GradeLevel)).toThrow();
+  });
+});
+
+describe("Variedade com histórico por jogador/sala",()=>{
+  for(const mode of [...GRADE_LEVELS,"mixed"] as const){
+    it("evita repetir as últimas 40 questões de "+mode+" inclusive em bombas",()=>{
+      const recent:string[]=[],scope="qa-variety-"+mode;
+      const categories=new Set<string>(),grades=new Set<number>();
+      for(let i=0;i<1200;i++){
+        const options={seed:"variety-"+i,difficulty:((i%3)+1) as 1|2|3,sequenceKey:scope};
+        const create=i%2?generateQuestion:generateRaceQuestion;
+        const question=create(mode,options);
+        const key=questionVarietyKey(question);
+        expect(recent).not.toContain(key);
+        expect(satisfiesSimpleOperations(question)).toBe(true);
+        expect(create(mode,options)).toEqual(question);
+        recent.push(key);
+        if(recent.length>RECENT_QUESTION_LIMIT)recent.shift();
+        categories.add(question.category);grades.add(question.gradeLevel);
+        if(mode!=="mixed")expect(question.gradeLevel).toBe(mode);
+      }
+      expect(categories.size).toBe(mode===5?2:mode===6||mode===7?4:6);
+      expect(grades.size).toBe(mode==="mixed"?5:1);
+    });
+  }
+  it("trata parcelas e fatores invertidos como repetição, mas preserva subtração e divisão",()=>{
+    const key=(expression:string)=>questionVarietyKey({expression});
+    expect(key("8 + 12")).toBe(key("12 + 8"));
+    expect(key("3 × 17")).toBe(key("17 × 3"));
+    expect(key("8 - 2")).not.toBe(key("2 - 8"));
+    expect(key("8 ÷ 2")).not.toBe(key("2 ÷ 8"));
+  });
+  it("cobre todos os nove quadrados e todas as raízes inteiras de cada série avançada",()=>{
+    for(const grade of [8,9] as const){
+      const powers=new Set<number>(),roots=new Set<number>();
+      for(let i=0;i<15000;i++){
+        const question=generateQuestion(grade,{seed:"coverage-"+grade+"-"+i,difficulty:3});
+        if(question.category==="exponentiation")powers.add(Number(question.correctAnswer));
+        if(question.category==="radication")roots.add(Number(question.correctAnswer));
+      }
+      expect(powers).toEqual(new Set(Array.from({length:9},(_,i)=>(i+1)**2)));
+      expect(roots).toEqual(new Set(Array.from({length:grade===8?9:99},(_,i)=>i+1)));
+    }
+  });
+  it("isola o histórico entre jogadores e preserva a reprodutibilidade da primeira questão",()=>{
+    const seed="same-first-question";
+    const a=generateQuestion(5,{seed,sequenceKey:"isolation-a"});
+    const b=generateQuestion(5,{seed,sequenceKey:"isolation-b"});
+    expect(a.expression).toBe(b.expression);
+    expect(generateQuestion(5,{seed,sequenceKey:"isolation-a"})).toEqual(a);
   });
 });

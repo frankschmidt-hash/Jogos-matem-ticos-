@@ -141,7 +141,8 @@ export class FootballRoomManager{
       :openNextKick(room.match,now,ONLINE_KICK_MS);
     room.question=generateQuestion(room.gradeLevel,{
       difficulty:difficultyForKick(room.match.kickNumber),
-      seed:"football:"+room.code+":kick:"+room.match.kickNumber
+      sequenceKey:"football-room:"+room.code,
+      seed:"football:"+room.code+":kick:"+room.match.kickNumber+":"+now
     });
     room.lastCorrectAnswer=null;
     room.updatedAt=now;

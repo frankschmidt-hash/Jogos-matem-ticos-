@@ -173,7 +173,8 @@ export class NumberRaceRoomManager{
     room.questionNumbers[sessionId]=count;
     room.questions[sessionId]=generateQuestion(room.gradeLevel,{
       difficulty:difficultyForRound(count),
-      seed:"number:"+room.code+":"+sessionId+":question:"+count
+      sequenceKey:"number-room:"+room.code+":"+sessionId,
+      seed:"number:"+room.code+":"+sessionId+":question:"+count+":"+now
     });
     room.questionStartedAt[sessionId]=now;
   }
